@@ -1,0 +1,12 @@
+# compiled task binaries
+task1_vecadd
+task2_sum
+task3_maxmin
+task4_matadd
+task5_matmul
+*.o
+*.out
+# benchmark output
+results/
+# task sheet (provided by the course, not my work)
+*.docx
