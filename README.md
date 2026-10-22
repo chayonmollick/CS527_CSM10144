@@ -36,3 +36,8 @@ machine with `export OMP_NUM_THREADS=n` before running.
 - `task1` attempts `N` up to 1e8 (≈3.2 GB across four arrays) and skips a size
   gracefully if allocation fails.
 - Timing numbers in `REPORT.md` are to be filled from a run on the lab machine.
+
+## Session 2 (Lab 8)
+
+Array search, parallel sort, histogram, matrix transpose and 2D convolution:
+see [`session2/`](session2/).

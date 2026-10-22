@@ -1,0 +1,9 @@
+task1_search
+task2_sort
+task3_histogram
+task4_transpose
+task5_convolution
+*.o
+*.out
+results/
+*.pdf
