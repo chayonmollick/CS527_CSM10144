@@ -48,7 +48,7 @@ int main(void) {
     const long n = 100000000L;           /* 1e8 */
     int *a = malloc((size_t)n * sizeof(int));
     if (!a) { fprintf(stderr, "alloc failed\n"); return 1; }
-    for (long i = 0; i < n; i++) a[i] = (int)((i * 1103515245L + 12345L) % BINS);
+    for (long i = 0; i < n; i++) a[i] = (int)((i * 7 + 3) % BINS);
 
     long ref[BINS], hb[BINS], hl[BINS], hr[BINS];
     hist_serial(a, n, ref);
