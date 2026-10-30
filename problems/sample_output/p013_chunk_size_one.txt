@@ -1,0 +1,15 @@
+P013: b[i] = 2*a[i] + 1 with different schedules, N = 4000000, serial time 0.00244 s
+time in seconds for 1, 2, 4, 8 threads; speedup = serial / time on 8 threads
+schedule          1 thr      2 thr      4 thr      8 thr    speedup  check
+static          0.00197    0.00086    0.00078    0.00098       2.49     OK
+static,1        0.00107    0.00263    0.00198    0.00271       0.90     OK
+static,8        0.00113    0.00220    0.00165    0.00134       1.82     OK
+static,64       0.00106    0.00102    0.00140    0.00145       1.67     OK
+dynamic,1       0.01212    0.11665    0.13147    0.18977       0.01     OK
+dynamic,64      0.00310    0.00281    0.00222    0.00341       0.71     OK
+
+static,1 / dynamic,1: threads interleave element by element -> false sharing on b,
+every thread drags in every cache line of a, no vectorisation; dynamic,1 also takes
+the scheduler's shared counter once per element. Chunks covering a whole cache line
+(8 doubles on x86, 16 on Apple M) fix false sharing; plain static is best here.
+All schedules give the serial result exactly: OK

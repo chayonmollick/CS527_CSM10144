@@ -1,0 +1,7 @@
+P021: c = a*b, d = sqrt(|a|) + exp(-b^2), e = max(a,b), N = 2000000
+memory traffic: separate reads a,b 3 times = 9N doubles = 144.0 MB, fused = 5N = 80.0 MB
+ threads   sep serial      sep par  speedup    fused ser    fused par  speedup  fused/sep  check
+       1     0.006866     0.005325     1.29     0.004761     0.004164     1.14       0.78     OK
+       2     0.006866     0.003027     2.27     0.004761     0.002164     2.20       0.71     OK
+       4     0.006866     0.002417     2.84     0.004761     0.001712     2.78       0.71     OK
+       8     0.006866     0.002031     3.38     0.004761     0.001359     3.50       0.67     OK

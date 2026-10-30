@@ -1,0 +1,20 @@
+P091: N-Queens, known counts check (parallel versions, 10 threads)
+  N =  8: known     92  for     92  tasks     92  OK
+  N =  9: known    352  for    352  tasks    352  OK
+  N = 10: known    724  for    724  tasks    724  OK
+  N = 11: known   2680  for   2680  tasks   2680  OK
+  N = 12: known  14200  for  14200  tasks  14200  OK
+  N = 13: known  73712  for  73712  tasks  73712  OK
+N = 13: serial count = 73712 (known 73712, OK)
+(a) parallel for over row-0 column, reduction(+:count), schedule(dynamic,1)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+          13        1     0.023113     0.022974     1.01     1.01     OK
+          13        2     0.023113     0.012265     1.88     0.94     OK
+          13        4     0.023113     0.006814     3.39     0.85     OK
+          13        8     0.023113     0.004120     5.61     0.70     OK
+(b) tasks for rows 0..1 (cutoff), taskwait, then sum
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+          13        1     0.023113     0.023006     1.00     1.00     OK
+          13        2     0.023113     0.011654     1.98     0.99     OK
+          13        4     0.023113     0.005998     3.85     0.96     OK
+          13        8     0.023113     0.003685     6.27     0.78     OK

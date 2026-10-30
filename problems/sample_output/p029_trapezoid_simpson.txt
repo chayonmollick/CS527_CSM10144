@@ -1,0 +1,23 @@
+P029: accuracy test, integral of sin x over [0, pi] = 2 (parallel)
+         n     trap error  simpson error
+         4     -1.039e-01      4.560e-03
+        16     -6.430e-03      1.659e-05
+        64     -4.016e-04      6.453e-08
+       256     -2.510e-05      2.520e-10
+      1024     -1.569e-06      9.843e-13
+  each 4x more points: trapezoid error / 16, Simpson error / 256
+  Simpson with n = 1024 accurate to 1e-10: OK
+Trapezoid: integral of exp(-x^2)*sin(x) + 1 over [0, 2], n = 4000000
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     4000000        1     0.017038     0.015089     1.13     1.13     OK
+     4000000        2     0.017038     0.008072     2.11     1.06     OK
+     4000000        4     0.017038     0.005427     3.14     0.78     OK
+     4000000        8     0.017038     0.004159     4.10     0.51     OK
+  result 2.421164239615474
+Simpson: same integral, n = 4000000
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     4000000        1     0.016574     0.017388     0.95     0.95     OK
+     4000000        2     0.016574     0.009295     1.78     0.89     OK
+     4000000        4     0.016574     0.004639     3.57     0.89     OK
+     4000000        8     0.016574     0.004016     4.13     0.52     OK
+  result 2.421164239615591 (trapezoid - Simpson = -1.16e-13)

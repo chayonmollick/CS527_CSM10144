@@ -1,0 +1,40 @@
+P059: property checks on N x N matrices, N = 3000 (cases run with 4 threads)
+  case                                         serial     parallel   expected
+                                               U L D S    U L D S    U L D S
+  upper triangular                             1 0 0 1    1 0 0 1    1 0 0 1   OK
+  upper + one nonzero at (N-1, 0)              0 0 0 1    0 0 0 1    0 0 0 1   OK
+  lower triangular                             0 1 0 1    0 1 0 1    0 1 0 1   OK
+  lower + one nonzero at (0, N-1)              0 0 0 1    0 0 0 1    0 0 0 1   OK
+  diagonal                                     1 1 1 1    1 1 1 1    1 1 1 1   OK
+  diagonal + one nonzero at (N-1, N-2)         0 1 0 1    0 1 0 1    0 1 0 1   OK
+  dense, strictly diagonally dominant          0 0 0 1    0 0 0 1    0 0 0 1   OK
+  dense, row N/2: |a_ii| == off-diag sum       0 0 0 0    0 0 0 0    0 0 0 0   OK
+  all cases: OK   (U upper, L lower, D diagonal, S strictly diag. dominant)
+
+(1) upper triangular: rows i, j < i, schedule(dynamic, 32)   (answer 1)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.001349     0.001358     0.99     0.99     OK
+        3000        2     0.001349     0.000704     1.92     0.96     OK
+        3000        4     0.001349     0.000525     2.57     0.64     OK
+        3000        8     0.001349     0.000406     3.32     0.42     OK
+
+(2) lower triangular: rows i, j > i, schedule(dynamic, 32)   (answer 1)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.001418     0.001330     1.07     1.07     OK
+        3000        2     0.001418     0.000692     2.05     1.02     OK
+        3000        4     0.001418     0.000521     2.72     0.68     OK
+        3000        8     0.001418     0.000387     3.66     0.46     OK
+
+(3) diagonal: collapse(2) over all (i, j)   (answer 1)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.003433     0.007563     0.45     0.45     OK
+        3000        2     0.003433     0.003871     0.89     0.44     OK
+        3000        4     0.003433     0.001954     1.76     0.44     OK
+        3000        8     0.003433     0.001430     2.40     0.30     OK
+
+(4) strictly diagonally dominant: rows i, private off-diagonal sum   (answer 1)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.005615     0.005318     1.06     1.06     OK
+        3000        2     0.005615     0.002714     2.07     1.03     OK
+        3000        4     0.005615     0.001422     3.95     0.99     OK
+        3000        8     0.005615     0.000949     5.92     0.74     OK

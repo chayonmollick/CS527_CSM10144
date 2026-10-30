@@ -1,0 +1,6 @@
+P039: stable partition evens | odds, N = 10000000, evens = 4998005, serial OK
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    10000000        1     0.028458     0.028499     1.00     1.00     OK
+    10000000        2     0.028458     0.014584     1.95     0.98     OK
+    10000000        4     0.028458     0.007632     3.73     0.93     OK
+    10000000        8     0.028458     0.004666     6.10     0.76     OK

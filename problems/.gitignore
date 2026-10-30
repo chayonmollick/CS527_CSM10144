@@ -1,0 +1,7 @@
+# compiled programs (sources and sample outputs are kept)
+p[0-9][0-9][0-9]_*
+p[0-9][0-9][0-9]
+!p[0-9][0-9][0-9]_*.c
+!p[0-9][0-9][0-9]_*.txt
+*.o
+*.out

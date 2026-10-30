@@ -1,0 +1,43 @@
+Worked example: A = [1 2 3 4; 5 6 7 8; 9 10 11 12; 13 14 15 16]
+  strictly upper sum = 36 (2+3+4 + 7+8 + 12 = 36), pairing gives 36
+
+P060: N = 5000, strictly upper triangle has 12497500 elements, serial sum = -171527
+
+(1) schedule(static): contiguous blocks of rows, thread 0 gets the long rows
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        5000        1     0.003901     0.003626     1.08     1.08     OK
+        5000        2     0.003901     0.002387     1.63     0.82     OK
+        5000        4     0.003901     0.001558     2.50     0.63     OK
+        5000        8     0.003901     0.001349     2.89     0.36     OK
+
+(2) schedule(static, 1): rows dealt round robin
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        5000        1     0.003901     0.003407     1.14     1.14     OK
+        5000        2     0.003901     0.002056     1.90     0.95     OK
+        5000        4     0.003901     0.001424     2.74     0.68     OK
+        5000        8     0.003901     0.001020     3.82     0.48     OK
+
+(3) schedule(dynamic, 16): 16 rows at a time to any free thread
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        5000        1     0.003901     0.003459     1.13     1.13     OK
+        5000        2     0.003901     0.001726     2.26     1.13     OK
+        5000        4     0.003901     0.000968     4.03     1.01     OK
+        5000        8     0.003901     0.000748     5.22     0.65     OK
+
+(4) schedule(guided): shrinking chunks
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        5000        1     0.003901     0.003317     1.18     1.18     OK
+        5000        2     0.003901     0.002383     1.64     0.82     OK
+        5000        4     0.003901     0.001441     2.71     0.68     OK
+        5000        8     0.003901     0.000778     5.01     0.63     OK
+
+(5) row pairing (p with N-1-p), schedule(static): equal work per iteration
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        5000        1     0.003901     0.003455     1.13     1.13     OK
+        5000        2     0.003901     0.001714     2.28     1.14     OK
+        5000        4     0.003901     0.000904     4.32     1.08     OK
+        5000        8     0.003901     0.000710     5.49     0.69     OK
+
+Elements summed by each of 4 threads (ideal: 3124375 each):
+  static     : 5468125 3905625 2343125 780625
+  row pairing: 3124375 3124375 3124375 3124375

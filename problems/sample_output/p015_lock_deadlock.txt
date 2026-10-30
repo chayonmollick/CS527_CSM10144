@@ -1,0 +1,11 @@
+P015: two sections, two locks
+
+BAD: section 1 locks A then B, section 2 locks B then A (second lock tried for 0.2 s)
+  section 1 (thread 1): holds A, wants B: GAVE UP after 0.200 s
+  section 2 (thread 0): holds B, wants A: GAVE UP after 0.200 s
+  -> circular wait detected: with omp_set_lock both threads would wait forever = DEADLOCK
+     (a section that 'got it' only did so because the other one gave up)
+
+FIXED: both sections lock A then B; 1000000 transfers each, finished in 0.027 s
+  X = 2000000 (expect 2000000), Y = 0 (expect 0), X + Y = 2000000 (expect 2000000)
+Fixed version completed and data consistent: OK

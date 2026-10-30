@@ -1,0 +1,8 @@
+P016: 50000 transfers between 1000 accounts, W = 1000, total money 1000000, serial time 0.0439 s
+check = total unchanged AND every balance equals the serial one, for both versions
+ threads    serial(s) acct-locks(s)  speedup   critical(s)  speedup  check
+       1       0.0439        0.0441     1.00        0.0451     0.97     OK
+       2       0.0439        0.0229     1.92        0.0548     0.80     OK
+       4       0.0439        0.0128     3.44        0.0833     0.53     OK
+       8       0.0439        0.0098     4.46        0.0846     0.52     OK
+Money conserved and balances match serial: OK

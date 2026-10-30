@@ -1,0 +1,27 @@
+P082: 3x3 median filter (border replicated)
+7 x 7 noisy input:
+ 255 100 100 100 100 100 100
+ 100 100   0 100 100 100 100
+ 100 100 100 255 100 100 100
+ 100 100 100   0 100 100 100
+ 100 100 255 100 100 100 100
+ 100 100 100 100 100   0 100
+ 100 100 100 100 100 100 255
+after the median filter:
+ 100 100 100 100 100 100 100
+ 100 100 100 100 100 100 100
+ 100 100 100 100 100 100 100
+ 100 100 100 100 100 100 100
+ 100 100 100 100 100 100 100
+ 100 100 100 100 100 100 100
+ 100 100 100 100 100 100 100
+noise removed: OK
+
+Image 2000 x 1500, 5.0% salt-and-pepper noise
+pixels different from the clean image: before 150227, after filtering 2883
+(check: output equal to the serial filter exactly)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     3000000        1     0.038677     0.045662     0.85     0.85     OK
+     3000000        2     0.038677     0.022483     1.72     0.86     OK
+     3000000        4     0.038677     0.011627     3.33     0.83     OK
+     3000000        8     0.038677     0.007621     5.08     0.63     OK

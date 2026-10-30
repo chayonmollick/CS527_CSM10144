@@ -1,0 +1,45 @@
+Worked example (3x3, alpha = 2, beta = -1):
+  A =
+         1      2      3
+         4      5      6
+         7      8      9
+  B =
+         9      8      7
+         6      5      4
+         3      2      1
+  C = 2A - B =
+        -7     -4     -1
+         2      5      8
+        11     14     17
+  H = A o B =
+         9     16     21
+        24     25     24
+        21     16      9
+
+P055: N = 2500 (N x N matrices), alpha = 2, beta = -3
+
+Part 1 (a): C = alpha*A + beta*B, outer loop parallel (parallel for on i)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        2500        1     0.001862     0.001931     0.96     0.96     OK
+        2500        2     0.001862     0.001567     1.19     0.59     OK
+        2500        4     0.001862     0.001582     1.18     0.29     OK
+        2500        8     0.001862     0.001600     1.16     0.15     OK
+Part 1 (b): C = alpha*A + beta*B, collapse(2) over (i, j)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        2500        1     0.001862     0.004960     0.38     0.38     OK
+        2500        2     0.001862     0.002515     0.74     0.37     OK
+        2500        4     0.001862     0.001544     1.21     0.30     OK
+        2500        8     0.001862     0.001634     1.14     0.14     OK
+
+Part 2 (a): H = A o B, outer loop parallel
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        2500        1     0.001669     0.001665     1.00     1.00     OK
+        2500        2     0.001669     0.001563     1.07     0.53     OK
+        2500        4     0.001669     0.001570     1.06     0.27     OK
+        2500        8     0.001669     0.001645     1.01     0.13     OK
+Part 2 (b): H = A o B, collapse(2) over (i, j)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        2500        1     0.001669     0.004911     0.34     0.34     OK
+        2500        2     0.001669     0.002529     0.66     0.33     OK
+        2500        4     0.001669     0.001583     1.05     0.26     OK
+        2500        8     0.001669     0.001589     1.05     0.13     OK

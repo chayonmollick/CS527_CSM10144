@@ -1,0 +1,11 @@
+P074: Jacobi iteration for Ax = b
+3x3 example: x = [1.000000 2.000000 3.000000] after 29 iterations (exact [1 2 3])  OK
+
+N = 2000, tol = 1e-10: serial converged in 17 iterations, max |b - Ax| / |a_ii| = 3.34e-11  OK
+check = same iteration count and the same x as the serial solver
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        2000        1     0.054718     0.055102     0.99     0.99     OK
+        2000        2     0.054718     0.028141     1.94     0.97     OK
+        2000        4     0.054718     0.014505     3.77     0.94     OK
+        2000        8     0.054718     0.010952     5.00     0.62     OK
+parallel: 17 iterations, max |b - Ax| / |a_ii| = 3.34e-11

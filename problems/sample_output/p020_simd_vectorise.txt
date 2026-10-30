@@ -1,0 +1,26 @@
+P020: SIMD vs threads, N = 5000000
+SAXPY z = a*x + y:
+  version               threads      time(s)  speedup  check
+  plain loop                  1     0.004599     1.00     OK
+  omp simd                    1     0.002927     1.57     OK
+  parallel for                1     0.002303     2.00     OK
+  parallel for                2     0.001869     2.46     OK
+  parallel for                4     0.001607     2.86     OK
+  parallel for                8     0.001634     2.81     OK
+  parallel for simd           1     0.001422     3.23     OK
+  parallel for simd           2     0.001474     3.12     OK
+  parallel for simd           4     0.001427     3.22     OK
+  parallel for simd           8     0.001510     3.05     OK
+Dot product s = x . y:
+  version               threads      time(s)  speedup  check
+  plain loop                  1     0.004130     1.00     OK
+  omp simd reduction          1     0.002083     1.98     OK
+  parallel for                1     0.004209     0.98     OK
+  parallel for                2     0.002050     2.01     OK
+  parallel for                4     0.001119     3.69     OK
+  parallel for                8     0.000860     4.80     OK
+  parallel for simd           1     0.001991     2.07     OK
+  parallel for simd           2     0.001074     3.85     OK
+  parallel for simd           4     0.000998     4.14     OK
+  parallel for simd           8     0.000845     4.89     OK
+  s = -740.1138676813 (plain loop)

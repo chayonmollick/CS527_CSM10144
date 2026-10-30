@@ -1,0 +1,46 @@
+P001: hello threads (10 processors reported by omp_get_num_procs)
+Before any parallel region (a team of one: thread 0 of 1, not in parallel):
+  before:                      num_threads=1   thread_num=0   max_threads=10  num_procs=10  in_parallel=0
+
+Parallel region with omp_set_num_threads(1):
+    hello from thread 0 of 1
+  inside (master thread):      num_threads=1   thread_num=0   max_threads=1   num_procs=10  in_parallel=0
+  asked for 1 threads: team size 1, hellos counted 1  -> OK
+
+Parallel region with omp_set_num_threads(2):
+    hello from thread 0 of 2
+  inside (master thread):      num_threads=2   thread_num=0   max_threads=2   num_procs=10  in_parallel=1
+    hello from thread 1 of 2
+  asked for 2 threads: team size 2, hellos counted 2  -> OK
+
+Parallel region with omp_set_num_threads(4):
+    hello from thread 2 of 4
+    hello from thread 0 of 4
+    hello from thread 3 of 4
+    hello from thread 1 of 4
+  inside (master thread):      num_threads=4   thread_num=0   max_threads=4   num_procs=10  in_parallel=1
+  asked for 4 threads: team size 4, hellos counted 4  -> OK
+
+Parallel region with omp_set_num_threads(8):
+    hello from thread 3 of 8
+    hello from thread 2 of 8
+    hello from thread 6 of 8
+    hello from thread 0 of 8
+    hello from thread 5 of 8
+  inside (master thread):      num_threads=8   thread_num=0   max_threads=8   num_procs=10  in_parallel=1
+    hello from thread 4 of 8
+    hello from thread 7 of 8
+    hello from thread 1 of 8
+  asked for 8 threads: team size 8, hellos counted 8  -> OK
+
+Parallel region with omp_set_num_threads(20):
+  inside (master thread):      num_threads=20  thread_num=0   max_threads=20  num_procs=10  in_parallel=1
+  asked for 20 threads: team size 20, hellos counted 20  -> OK
+
+num_threads(3) clause on one region -> team of 3 (OK); max_threads afterwards still 20
+
+After the regions (back to a team of one):
+  after:                       num_threads=1   thread_num=0   max_threads=20  num_procs=10  in_parallel=0
+
+20 threads (2 x cores) ran even though there are only 10 cores: threads are time-shared (oversubscribed), not an error.
+Overall check: OK

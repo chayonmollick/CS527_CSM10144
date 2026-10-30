@@ -1,0 +1,12 @@
+P034: N = 20000000
+  input                   sorted   descents  palindrome  check
+  sorted (i/3)               yes          0          no     OK
+  unsorted at the end         no          1          no     OK
+  palindrome                  no    9999999         yes     OK
+  random                      no    9991688          no     OK
+Timing on the sorted array (both loops):
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    20000000        1     0.005601     0.005599     1.00     1.00     OK
+    20000000        2     0.005601     0.002891     1.94     0.97     OK
+    20000000        4     0.005601     0.001486     3.77     0.94     OK
+    20000000        8     0.005601     0.001260     4.45     0.56     OK

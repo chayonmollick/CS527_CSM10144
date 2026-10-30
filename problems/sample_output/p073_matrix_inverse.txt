@@ -1,0 +1,18 @@
+P073: Gauss-Jordan inverse with partial pivoting
+A (3x3 example) =
+    0.000    1.000    2.000
+    1.000    0.000    3.000
+    4.000   -3.000    8.000
+inv(A) =
+   -4.500    7.000   -1.500
+   -2.000    4.000   -1.000
+    1.500   -2.000    0.500
+3x3 example vs exact inverse: OK
+
+N = 600, serial: max |A*inv(A) - I| = 5.09e-14  OK
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+         600        1     0.091701     0.090844     1.01     1.01     OK
+         600        2     0.091701     0.054168     1.69     0.85     OK
+         600        4     0.091701     0.042286     2.17     0.54     OK
+         600        8     0.091701     0.041786     2.19     0.27     OK
+parallel: max |A*inv(A) - I| = 5.09e-14  OK

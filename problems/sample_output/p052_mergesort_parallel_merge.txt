@@ -1,0 +1,16 @@
+P052: merge sort with tasks, N = 2000000, cutoffs: sort 2048, merge 8192; serial OK
+Lab 9 limit (serial merges on the critical path): work/span ~ log2(N)/2 = 10.5
+
+(a) Lab 9: parallel recursion, serial merge
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     2000000        1     0.122113     0.121572     1.00     1.00     OK
+     2000000        2     0.122113     0.064940     1.88     0.94     OK
+     2000000        4     0.122113     0.037177     3.28     0.82     OK
+     2000000        8     0.122113     0.030314     4.03     0.50     OK
+
+(b) parallel recursion + parallel merge (+ parallel copy back)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     2000000        1     0.122113     0.123793     0.99     0.99     OK
+     2000000        2     0.122113     0.062539     1.95     0.98     OK
+     2000000        4     0.122113     0.039763     3.07     0.77     OK
+     2000000        8     0.122113     0.025093     4.87     0.61     OK

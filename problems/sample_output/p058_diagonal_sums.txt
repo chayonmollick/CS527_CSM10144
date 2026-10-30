@@ -1,0 +1,27 @@
+Worked example: A = [ 1 2 3 4; 5 6 7 8; 9 10 11 12; 13 14 15 16 ]
+  trace = 34 (1+6+11+16 = 34), anti-diagonal = 34 (4+7+10+13 = 34), border = 102 (102)
+  diagonal sums for d = j-i = -3..3: 13 23 30 34 21 11 4   (expected 13 23 30 34 21 11 4)
+
+P058: N = 3000, integer entries in [-50, 50]
+serial: trace = -374, anti-diagonal = -800, border = 783
+
+Part 1: trace + anti-diagonal + border in one loop, reduction(+:t, a, b)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.000011     0.000011     1.00     1.00     OK
+        3000        2     0.000011     0.000022     0.50     0.25     OK
+        3000        4     0.000011     0.000023     0.48     0.12     OK
+        3000        8     0.000011     0.000050     0.22     0.03     OK
+
+Part 2: the 5999 diagonal sums (serial = row-by-row loop); sum of all D = 28395, sum of A = 28395: OK
+(a) parallel over diagonals k, schedule(dynamic, 16), stride N+1 access
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.003077     0.006052     0.51     0.51     OK
+        3000        2     0.003077     0.002491     1.24     0.62     OK
+        3000        4     0.003077     0.001415     2.17     0.54     OK
+        3000        8     0.003077     0.001208     2.55     0.32     OK
+(b) parallel over rows i, reduction(+:D[:2N-1]), contiguous access
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.003077     0.002284     1.35     1.35     OK
+        3000        2     0.003077     0.001178     2.61     1.31     OK
+        3000        4     0.003077     0.000729     4.22     1.06     OK
+        3000        8     0.003077     0.000565     5.45     0.68     OK

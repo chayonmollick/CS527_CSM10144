@@ -1,0 +1,43 @@
+Worked example (3x4):
+  A:
+      1   2   3   4
+      5   6   7   8
+      9  10  11  12
+  horizontal flip (rows reversed):
+      4   3   2   1
+      8   7   6   5
+     12  11  10   9
+  vertical flip (row order reversed; middle row stays):
+      9  10  11  12
+      5   6   7   8
+      1   2   3   4
+  rotate 180:
+     12  11  10   9
+      8   7   6   5
+      4   3   2   1
+
+P064: in-place flips of a 3000 x 3000 matrix (the tables' N column shows M*N)
+
+(1) horizontal flip: parallel over rows i, swap A[i][j] <-> A[i][N-1-j] for j < N/2
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     9000000        1     0.002288     0.001815     1.26     1.26     OK
+     9000000        2     0.002288     0.001219     1.88     0.94     OK
+     9000000        4     0.002288     0.000902     2.54     0.63     OK
+     9000000        8     0.002288     0.000784     2.92     0.36     OK
+
+(2) vertical flip: parallel over i < M/2, swap row i <-> row M-1-i
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     9000000        1     0.001658     0.001544     1.07     1.07     OK
+     9000000        2     0.001658     0.000864     1.92     0.96     OK
+     9000000        4     0.001658     0.000629     2.64     0.66     OK
+     9000000        8     0.001658     0.000572     2.90     0.36     OK
+
+(3) rotate 180: parallel over k < M*N/2, swap A[k] <-> A[M*N-1-k]
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     9000000        1     0.001326     0.001315     1.01     1.01     OK
+     9000000        2     0.001326     0.000680     1.95     0.97     OK
+     9000000        4     0.001326     0.000552     2.40     0.60     OK
+     9000000        8     0.001326     0.000501     2.65     0.33     OK
+
+Checks: flip_h twice = A: OK, flip_h then flip_v = rotate 180: OK
+Pitfall: vertical flip looping over all M rows leaves A unchanged: yes (each pair swapped twice)

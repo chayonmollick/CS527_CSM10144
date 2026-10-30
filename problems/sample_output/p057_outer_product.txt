@@ -1,0 +1,40 @@
+Worked example: x = [1 2 3], y = [1 0 -1 2]
+  A = x y^T (3x4) =
+         1      0     -1      2
+         2      0     -2      4
+         3      0     -3      6
+  B = ones + 2 x y^T =
+         3      1     -1      5
+         5      1     -3      9
+         7      1     -5     13
+
+P057: x has 3000, y has 3000 entries, A and B are 3000 x 3000, alpha = 0.5
+
+Part 1: A = x y^T, collapse(2)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     9000000        1     0.003051     0.003417     0.89     0.89     OK
+     9000000        2     0.003051     0.001592     1.92     0.96     OK
+     9000000        4     0.003051     0.001130     2.70     0.67     OK
+     9000000        8     0.003051     0.001022     2.99     0.37     OK
+
+Part 2: B += alpha x y^T (rank-1 update), collapse(2)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     9000000        1     0.002376     0.003397     0.70     0.70     OK
+     9000000        2     0.002376     0.001738     1.37     0.68     OK
+     9000000        4     0.002376     0.001431     1.66     0.42     OK
+     9000000        8     0.002376     0.001346     1.77     0.22     OK
+
+Part 3: A = x y^T with only 3 rows (3 x 3000000)
+(a) parallel for on i only: at most 3 threads have work
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     9000000        1     0.002426     0.002258     1.07     1.07     OK
+     9000000        2     0.002426     0.001688     1.44     0.72     OK
+     9000000        4     0.002426     0.001328     1.83     0.46     OK
+     9000000        8     0.002426     0.001179     2.06     0.26     OK
+(b) collapse(2): all 9000000 (i, j) pairs shared among all threads
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     9000000        1     0.002426     0.003157     0.77     0.77     OK
+     9000000        2     0.002426     0.001578     1.54     0.77     OK
+     9000000        4     0.002426     0.001218     1.99     0.50     OK
+     9000000        8     0.002426     0.001202     2.02     0.25     OK
+Threads that got work in a team of 8: parallel for on i = 3, collapse(2) = 8

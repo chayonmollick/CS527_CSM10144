@@ -1,0 +1,11 @@
+P031: x[i/2] += f(i), n = 20000000, x has 10000000 elements
+Race demo: parallel for on the original loop, schedule(static,1):
+  2 threads: 6446934 of 10000000 elements wrong (lost updates; varies per run, 0 = lucky)
+  4 threads: 2278960 of 10000000 elements wrong (lost updates; varies per run, 0 = lucky)
+  8 threads: 248401 of 10000000 elements wrong (lost updates; varies per run, 0 = lucky)
+Fixes: A = loop over output index j (owner computes), B = atomic update
+ threads    serial(s)         A(s)   speedA         B(s)   speedB  check
+       1     0.027018     0.008642     3.13     0.019051     1.42     OK
+       2     0.027018     0.004422     6.11     0.010056     2.69     OK
+       4     0.027018     0.002222    12.16     0.005468     4.94     OK
+       8     0.027018     0.001880    14.37     0.004463     6.05     OK

@@ -1,0 +1,28 @@
+P053: sort rows / columns of a 1000 x 1000 matrix (qsort per row or column)
+
+(a) sort each row, parallel for schedule(static)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.036462     0.036496     1.00     1.00     OK
+     1000000        2     0.036462     0.018571     1.96     0.98     OK
+     1000000        4     0.036462     0.009551     3.82     0.95     OK
+     1000000        8     0.036462     0.006323     5.77     0.72     OK
+
+(b) jagged rows (lengths 1 .. 1999, growing with r), schedule(static)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.037551     0.037717     1.00     1.00     OK
+     1000000        2     0.037551     0.029245     1.28     0.64     OK
+     1000000        4     0.037551     0.017622     2.13     0.53     OK
+     1000000        8     0.037551     0.009603     3.91     0.49     OK
+    same rows, schedule(dynamic)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.037551     0.037455     1.00     1.00     OK
+     1000000        2     0.037551     0.019213     1.95     0.98     OK
+     1000000        4     0.037551     0.010095     3.72     0.93     OK
+     1000000        8     0.037551     0.006513     5.77     0.72     OK
+
+(c) sort each column (private column buffer per thread)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.037170     0.037109     1.00     1.00     OK
+     1000000        2     0.037170     0.018858     1.97     0.99     OK
+     1000000        4     0.037170     0.009585     3.88     0.97     OK
+     1000000        8     0.037170     0.006387     5.82     0.73     OK

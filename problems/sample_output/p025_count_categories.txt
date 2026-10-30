@@ -1,0 +1,8 @@
+P025: N = 20000000, data in [-50, 50], range [-10, 20]
+  positive 9898195, negative 9903048, zero 198757, in range 6139412
+  pos + neg + zero == N: OK
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    20000000        1     0.052532     0.055023     0.95     0.95     OK
+    20000000        2     0.052532     0.028019     1.87     0.94     OK
+    20000000        4     0.052532     0.014698     3.57     0.89     OK
+    20000000        8     0.052532     0.009376     5.60     0.70     OK

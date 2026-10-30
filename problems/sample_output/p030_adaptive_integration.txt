@@ -1,0 +1,9 @@
+P030: integral of sqrt(1-x^2) on [0,1], N = 200000 intervals, K = 100, 20100182 sub-steps in total
+  schedule(static), 4 threads, share of the work: 3% 10% 20% 66%
+  4*integral = 3.141592653590, error vs pi = 3.11e-15
+ threads     serial     static speedup    dynamic speedup     guided speedup  check
+       1   0.017528   0.016815    1.04   0.016878    1.04   0.016535    1.06     OK
+       2   0.017528   0.013884    1.26   0.008767    2.00   0.008563    2.05     OK
+       4   0.017528   0.010562    1.66   0.004581    3.83   0.004356    4.02     OK
+       8   0.017528   0.008045    2.18   0.003343    5.24   0.003092    5.67     OK
+  (dynamic uses chunk = 64)

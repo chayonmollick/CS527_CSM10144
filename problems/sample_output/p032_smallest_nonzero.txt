@@ -1,0 +1,12 @@
+P032: smallest nonzero element (-1 if none)
+  normal (7 planted)           n = 20000000  serial           7  min-red           7  udr           7  OK
+  all zeros                    n = 20000000  serial          -1  min-red          -1  udr          -1  OK
+  empty                        n = 0         serial          -1  min-red          -1  udr          -1  OK
+  single nonzero (42)          n = 20000000  serial          42  min-red          42  udr          42  OK
+  single nonzero = INT_MAX     n = 20000000  serial  2147483647  min-red  2147483647  udr  2147483647  OK
+Timing on the normal array, N = 20000000: A = reduction(min:), B = declare reduction(minnz)
+ threads    serial(s)         A(s)   speedA         B(s)   speedB  check
+       1     0.014260     0.011738     1.21     0.011019     1.29     OK
+       2     0.014260     0.005853     2.44     0.005613     2.54     OK
+       4     0.014260     0.003070     4.64     0.002871     4.97     OK
+       8     0.014260     0.002120     6.73     0.002008     7.10     OK

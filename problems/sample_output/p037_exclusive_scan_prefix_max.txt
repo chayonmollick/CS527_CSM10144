@@ -1,0 +1,15 @@
+P037: exclusive prefix sum and prefix max, N = 10000000
+
+(a) exclusive prefix sum: out[N-1] = -1347685606
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    10000000        1     0.003540     0.005503     0.64     0.64     OK
+    10000000        2     0.003540     0.002721     1.30     0.65     OK
+    10000000        4     0.003540     0.001976     1.79     0.45     OK
+    10000000        8     0.003540     0.001956     1.81     0.23     OK
+
+(b) prefix max: m[0] = -447748, m[N-1] = 1000000
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    10000000        1     0.002673     0.005035     0.53     0.53     OK
+    10000000        2     0.002673     0.002553     1.05     0.52     OK
+    10000000        4     0.002673     0.001417     1.89     0.47     OK
+    10000000        8     0.002673     0.001286     2.08     0.26     OK

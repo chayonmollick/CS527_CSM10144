@@ -1,0 +1,26 @@
+P089: task dependencies
+(a) DAG  A -> {B, C} -> D  on arrays of 2000000 doubles
+serial: max |d[i] - 1| = 2.2e-16 (sin^2 + cos^2 = 1)  OK
+one run with 4 threads, order numbers (start-stop):  A 1-2  B 3-6  C 4-5  D 7-8
+A before B and C, D after both: OK;  B and C overlapped in time: yes
+
+DAG with depend (check: d equal to serial, order respected)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     2000000        1     0.011381     0.009530     1.19     1.19     OK
+     2000000        2     0.011381     0.005433     2.09     1.05     OK
+     2000000        4     0.011381     0.005405     2.11     0.53     OK
+     2000000        8     0.011381     0.005359     2.12     0.27     OK
+DAG with taskwait instead of depend (check: d equal to serial)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     2000000        1     0.011381     0.009555     1.19     1.19     OK
+     2000000        2     0.011381     0.005366     2.12     1.06     OK
+     2000000        4     0.011381     0.005351     2.13     0.53     OK
+     2000000        8     0.011381     0.005403     2.11     0.26     OK
+
+(b) Fibonacci f[0..89] with one task per entry (serial f[89] = 1779979416004714189)
+ threads                WITH depend      WITHOUT depend (atomic, safe)
+       1         OK (20 of 20 runs)                     23 wrong entries
+       2         OK (20 of 20 runs)                     87 wrong entries
+       4         OK (20 of 20 runs)                     86 wrong entries
+       8         OK (20 of 20 runs)                     87 wrong entries
+(without depend the count varies from run to run; it can even be 0 by luck)

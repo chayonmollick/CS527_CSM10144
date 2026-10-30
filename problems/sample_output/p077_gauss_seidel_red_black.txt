@@ -1,0 +1,31 @@
+P077: equation solver, red-black Gauss-Seidel vs Jacobi
+colouring of a 6 x 6 interior (R = (i+j) even, updated first; B = odd):
+    R B R B R B
+    B R B R B R
+    R B R B R B
+    B R B R B R
+    R B R B R B
+    B R B R B R
+
+Part 1: run to convergence, Nc = 100, tol = 1e-05 (average change per point), 10 threads
+  sequential Gauss-Seidel :   4864 sweeps
+  red-black serial        :   4763 sweeps, max |RB - GS|     = 2.85e-02
+  red-black parallel      :   4763 sweeps, equals RB serial exactly: OK
+  Jacobi serial           :   7407 sweeps, max |Jacobi - GS| = 3.51e-02
+  Jacobi parallel         :   7407 sweeps, equals Jacobi serial exactly: OK
+  all converged (fewer than 50000 sweeps): OK
+
+Part 2: timing, N = 1000, 100 sweeps each (tol = 0, so the sweep cap stops it)
+Red-black Gauss-Seidel (check: parallel grid == serial red-black grid exactly)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1000        1     0.064162     0.065504     0.98     0.98     OK
+        1000        2     0.064162     0.034482     1.86     0.93     OK
+        1000        4     0.064162     0.022047     2.91     0.73     OK
+        1000        8     0.064162     0.022252     2.88     0.36     OK
+
+Jacobi, double buffer (check: parallel grid == serial Jacobi grid exactly)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1000        1     0.066631     0.065883     1.01     1.01     OK
+        1000        2     0.066631     0.034877     1.91     0.96     OK
+        1000        4     0.066631     0.021380     3.12     0.78     OK
+        1000        8     0.066631     0.021006     3.17     0.40     OK

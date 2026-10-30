@@ -1,0 +1,20 @@
+P019: a[i] = sqrt(b[i]) + c[i]*d, sequential vs OpenMP with 1 thread
+Large N = 10000000 (one call):
+  sequential code              0.005756 s
+  OpenMP, 1 thread             0.005404 s
+  ratio omp1 / sequential         0.939    results OK
+Small N = 1000 (called 20000 times, time per call):
+  sequential code                 0.504 us
+  OpenMP, 1 thread                0.594 us
+  ratio omp1 / sequential         1.179    results OK
+Cost of one empty parallel region:
+  1 thread(s)                     0.077 us
+  2 thread(s)                     4.409 us
+  4 thread(s)                    13.429 us
+  8 thread(s)                    32.153 us
+Speedup table, large N:
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    10000000        1     0.005756     0.005646     1.02     1.02     OK
+    10000000        2     0.005756     0.003040     1.89     0.95     OK
+    10000000        4     0.005756     0.002662     2.16     0.54     OK
+    10000000        8     0.005756     0.002671     2.15     0.27     OK

@@ -1,0 +1,19 @@
+P050: k-th smallest, N = 5000000: k=1 -> -999999908, k=N/2 -> -73722269, k=N -> 999999517 (from a sorted copy)
+
+(a) serial quickselect (incl. copying the array): 0.024983 s, k = 1, N/2, N OK
+
+(b) parallel radix select, 4 passes of 8-bit histograms (serial = quickselect, timed for k = N/2, check = all three k)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     5000000        1     0.024983     0.009600     2.60     2.60     OK
+     5000000        2     0.024983     0.004977     5.02     2.51     OK
+     5000000        4     0.024983     0.002667     9.37     2.34     OK
+     5000000        8     0.024983     0.001919    13.02     1.63     OK
+
+(c) parallel bisection on the value, reduction(+) count per step (serial = quickselect, timed for k = N/2, check = all three k)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     5000000        1     0.024983     0.041369     0.60     0.60     OK
+     5000000        2     0.024983     0.021331     1.17     0.59     OK
+     5000000        4     0.024983     0.011191     2.23     0.56     OK
+     5000000        8     0.024983     0.010439     2.39     0.30     OK
+
+duplicates check (N = 100000, values 0..99, all methods, 1-8 threads): OK

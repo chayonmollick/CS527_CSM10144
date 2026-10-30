@@ -1,0 +1,17 @@
+P008: pi by the midpoint rule, N = 200000000, pi = 3.141592653590 (error 6.8e-13)
+each timing = 1 round(s) of N iterations
+timer resolution omp_get_wtick() = 1.0e-06 s; serial time = 0.1555 s = 155492 ticks
+
+ threads      time(s)  speedup   effic. Karp-Flatt e  check
+       1     0.155341     1.00     1.00            -     OK
+       2     0.079829     1.95     0.97       0.0268     OK
+       3     0.056523     2.75     0.92       0.0453     OK
+       4     0.042492     3.66     0.91       0.0310     OK
+       5     0.034646     4.49     0.90       0.0285     OK
+       6     0.029314     5.30     0.88       0.0262     OK
+       7     0.025520     6.09     0.87       0.0248     OK
+       8     0.022311     6.97     0.87       0.0211     OK
+
+Serial fraction from p = 8: e = 0.0211
+Amdahl prediction: S(16) = 12.15, S(64) = 27.46, limit 1/e = 47.33
+checks: timings positive, results match serial, predictions <= 1/e: OK

@@ -1,0 +1,21 @@
+Worked example: A (2x3) = [1 2 3; 4 5 6], B (3x2) = [7 8; 9 10; 11 12]
+  C = A*B (2x2) = [58 64; 139 154]   (expected [58 64; 139 154])
+  B*B: (3x2)*(3x2) ->
+  dimension error: A is 3 x 2, B is 3 x 2: columns of A (2) must equal rows of B (3)
+  rejected as expected: OK
+
+P065: C (400 x 500) = A (400 x 600) * B (600 x 500)
+(the tables' N column shows m)
+
+(1) ijk order, collapse(2) over (i, j): 200000 iterations
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+         400        1     0.083201     0.084806     0.98     0.98     OK
+         400        2     0.083201     0.042786     1.94     0.97     OK
+         400        4     0.083201     0.022210     3.75     0.94     OK
+         400        8     0.083201     0.016244     5.12     0.64     OK
+(2) ikj (row-wise) order, parallel over i   [serial ikj is 2.7x faster than serial ijk]
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+         400        1     0.031302     0.031089     1.01     1.01     OK
+         400        2     0.031302     0.015827     1.98     0.99     OK
+         400        4     0.031302     0.010985     2.85     0.71     OK
+         400        8     0.031302     0.006840     4.58     0.57     OK

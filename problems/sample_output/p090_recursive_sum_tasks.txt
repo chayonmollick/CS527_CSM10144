@@ -1,0 +1,27 @@
+P090: recursive sum and max with tasks
+example [3 1 4 1 5 9 2 6], cutoff 2: leaves [3 1] [4 1] [5 9] [2 6]
+  sums 4 5 14 8 -> 9 22 -> 31, max 9; tasks give sum = 31, max = 9  OK
+
+N = 20000000: serial sum = 10000225349.388830, max = 999.999941
+
+Tasks, cutoff = 100000 (check: sum within 1e-9, max exact)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    20000000        1     0.020670     0.020061     1.03     1.03     OK
+    20000000        2     0.020670     0.010185     2.03     1.01     OK
+    20000000        4     0.020670     0.006492     3.18     0.80     OK
+    20000000        8     0.020670     0.004129     5.01     0.63     OK
+parallel for reduction(+:sum) reduction(max:mx)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    20000000        1     0.020670     0.019958     1.04     1.04     OK
+    20000000        2     0.020670     0.010219     2.02     1.01     OK
+    20000000        4     0.020670     0.005340     3.87     0.97     OK
+    20000000        8     0.020670     0.003421     6.04     0.76     OK
+
+Effect of the cutoff, 8 threads (tasks created = 2 * (leaves - 1))
+      cutoff     leaves        tasks      time(s)  speedup  check
+         100     262144       524286     0.160514     0.13     OK
+        1000      32768        65534     0.029548     0.70     OK
+       10000       2048         4094     0.004927     4.20     OK
+      100000        256          510     0.004206     4.91     OK
+     1000000         32           62     0.004179     4.95     OK
+    10000000          2            2     0.010174     2.03     OK

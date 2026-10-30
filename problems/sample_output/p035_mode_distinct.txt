@@ -1,0 +1,8 @@
+P035: hand tests: {3,1,3,2,1,3,0} OK, tie {2,1,2,1} OK, empty OK
+P035: N = 20000000, R = 1000: mode = 500 (419589 times), 1000 distinct values
+A = reduction(+:h[:R]), B = private histograms + critical (both + parallel mode/distinct)
+ threads    serial(s)         A(s)   speedA         B(s)   speedB  check
+       1     0.006199     0.005308     1.17     0.005355     1.16     OK
+       2     0.006199     0.002736     2.27     0.002929     2.12     OK
+       4     0.006199     0.001670     3.71     0.001725     3.59     OK
+       8     0.006199     0.001380     4.49     0.001362     4.55     OK

@@ -1,0 +1,16 @@
+P092: adaptive Simpson on [0,1], eps = 1e-10, W = 10000, task cutoff depth 20
+exact = 0.761263879213875  serial = 0.761263879214108  |error| = 2.33e-13  OK
+(a) tasks return l and r, taskwait, l + r   (N column = cutoff depth)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+          20        1     0.047645     0.046228     1.03     1.03     OK
+          20        2     0.047645     0.042260     1.13     0.56     OK
+          20        4     0.047645     0.021284     2.24     0.56     OK
+          20        8     0.047645     0.017225     2.77     0.35     OK
+    value 0.761263879214108
+(b) tasks add accepted pieces with atomic, no taskwait
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+          20        1     0.047645     0.053173     0.90     0.90     OK
+          20        2     0.047645     0.026853     1.77     0.89     OK
+          20        4     0.047645     0.015099     3.16     0.79     OK
+          20        8     0.047645     0.011716     4.07     0.51     OK
+    value 0.761263879214107

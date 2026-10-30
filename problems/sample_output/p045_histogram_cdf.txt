@@ -1,0 +1,21 @@
+P045: histogram + CDF, N = 10000000, B = 100 bins on [0.0, 10.0), total count OK
+
+(1) reduction(+:h[:B])
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    10000000        1     0.006992     0.007183     0.97     0.97     OK
+    10000000        2     0.006992     0.003621     1.93     0.97     OK
+    10000000        4     0.006992     0.001836     3.81     0.95     OK
+    10000000        8     0.006992     0.001535     4.56     0.57     OK
+
+(2) private histogram per thread + one atomic per bin
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    10000000        1     0.006992     0.007103     0.98     0.98     OK
+    10000000        2     0.006992     0.003635     1.92     0.96     OK
+    10000000        4     0.006992     0.001834     3.81     0.95     OK
+    10000000        8     0.006992     0.001530     4.57     0.57     OK
+
+CDF (triangular data: expect 0.125, 0.5, 0.875 at x = 2.5, 5, 7.5):
+  P(x <  2.500) = 0.1250
+  P(x <  5.000) = 0.5001
+  P(x <  7.500) = 0.8750
+  P(x < 10.000) = 1.0000

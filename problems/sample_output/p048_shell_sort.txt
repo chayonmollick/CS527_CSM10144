@@ -1,0 +1,17 @@
+P048: Shell sort (Knuth gaps, first gap 265720), N = 1000000, qsort 0.089031 s, serial OK
+
+(a) parallel for over subsequences, schedule(dynamic)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.079863     0.093759     0.85     0.85     OK
+     1000000        2     0.079863     0.070945     1.13     0.56     OK
+     1000000        4     0.079863     0.050461     1.58     0.40     OK
+     1000000        8     0.079863     0.075773     1.05     0.13     OK
+
+(b) parallel for over subsequences, schedule(static)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.079863     0.092097     0.87     0.87     OK
+     1000000        2     0.079863     0.050309     1.59     0.79     OK
+     1000000        4     0.079863     0.029411     2.72     0.68     OK
+     1000000        8     0.079863     0.024619     3.24     0.41     OK
+
+last pass (gap = 1, one subsequence, serial): 0.005428 s on the nearly sorted array

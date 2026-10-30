@@ -1,0 +1,13 @@
+P017: producer-consumer, items 1..100000, buffer of 64 slots, expected sum 5000050000
+
+version                               time(s)              sum  check
+(a) critical, 1 prod / 1 cons          0.0367       5000050000     OK
+(a) critical, 2 prod / 2 cons          0.0194       5000050000     OK
+(a) critical, 4 prod / 4 cons          0.0268       5000050000     OK
+(b) atomic count + flush, 1 / 1        0.0033       5000050000     OK
+
+Why not  while (cnt == B) ;  with a plain read? With no synchronisation inside the
+loop the compiler may load cnt ONCE into a register and spin forever, and the CPU may
+show this thread a stale buffer slot. atomic read forces a fresh read of cnt each
+time; flush orders 'write item' before 'count++' and 'see count' before 'read item'.
+All versions: sum correct and every item consumed exactly once: OK

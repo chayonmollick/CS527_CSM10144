@@ -1,0 +1,52 @@
+P040: loop-carried dependencies, N = 5000000, k = 1000
+
+(a) a[i] = a[i-1] + b[i]: FLOW (true, RAW) dependence, distance 1 -> carried.
+    Strategy: it is a prefix sum -> blocked two-pass scan.
+    naive parallel for (8 threads): 4374999 of 5000000 elements differ (race)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     5000000        1     0.001803     0.002644     0.68     0.68     OK
+     5000000        2     0.001803     0.001519     1.19     0.59     OK
+     5000000        4     0.001803     0.001306     1.38     0.35     OK
+     5000000        8     0.001803     0.001148     1.57     0.20     OK
+
+(b) a[i] = a[i+1] + c: ANTI (WAR) dependence -> carried (i reads what i+1 writes).
+    Strategy: read the OLD values from a copy: old = a; a[i] = old[i+1] + c.
+    naive parallel for (8 threads): 7 of 5000000 elements differ (race at block edges)
+    (timed runs include resetting a from the input: serial memcpy, parallel copy loop)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     5000000        1     0.002148     0.003892     0.55     0.55     OK
+     5000000        2     0.002148     0.002341     0.92     0.46     OK
+     5000000        4     0.002148     0.002397     0.90     0.22     OK
+     5000000        8     0.002148     0.002570     0.84     0.10     OK
+
+(c) a[i] = 2*b[i]; c[i] = a[i] + 1: dependence only INSIDE one iteration -> not carried.
+    Strategy: plain parallel for over the fused loop.
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     5000000        1     0.006764     0.006624     1.02     1.02     OK
+     5000000        2     0.006764     0.003398     1.99     1.00     OK
+     5000000        4     0.006764     0.001933     3.50     0.87     OK
+     5000000        8     0.006764     0.001806     3.75     0.47     OK
+
+(d) a[i] = a[i-k] + b[i]: FLOW dependence at distance k = 1000 -> carried.
+    Strategy d1: k independent chains i = r, r+k, r+2k, ... -> parallel for over r
+    (at most k-way parallel).
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     5000000        1     0.001326     0.015800     0.08     0.08     OK
+     5000000        2     0.001326     0.007969     0.17     0.08     OK
+     5000000        4     0.001326     0.004910     0.27     0.07     OK
+     5000000        8     0.001326     0.004510     0.29     0.04     OK
+    Strategy d2: blocks of k consecutive iterations are independent -> serial loop
+    over blocks, omp for inside (one barrier per block: N/k = 4999 barriers).
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     5000000        1     0.001326     0.001488     0.89     0.89     OK
+     5000000        2     0.001326     0.027602     0.05     0.02     OK
+     5000000        4     0.001326     0.056677     0.02     0.01     OK
+     5000000        8     0.001326     0.118844     0.01     0.00     OK
+
+(e) a[i] = 2*b[i]; c[i] = a[i-1] + 1: FLOW dependence between the two statements,
+    distance 1 -> carried. Strategy: loop fission (all a, barrier, then all c).
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     5000000        1     0.006478     0.004096     1.58     1.58     OK
+     5000000        2     0.006478     0.002476     2.62     1.31     OK
+     5000000        4     0.006478     0.001935     3.35     0.84     OK
+     5000000        8     0.006478     0.001817     3.57     0.45     OK

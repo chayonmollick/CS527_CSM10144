@@ -1,0 +1,13 @@
+Worked example: A = [0 2 1; 1 -2 -3; -1 1 2], b = [7 -12 7] (needs a row swap)
+  x = [1 2 3]   (expected [1 2 3]) 
+
+P071: Gaussian elimination with partial pivoting, N = 1000
+serial: solved, relative residual = 2.46e-15, max |x - x_true| = 4.78e-12
+
+elimination parallel over rows i, pivot search = parallel argmax, back substitution with reduction
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1000        1     0.092367     0.093189     0.99     0.99     OK
+        1000        2     0.092367     0.067595     1.37     0.68     OK
+        1000        4     0.092367     0.070413     1.31     0.33     OK
+        1000        8     0.092367     0.112365     0.82     0.10     OK
+parallel (8 threads): relative residual = 1.21e-15 -> OK, max |x - x_true| = 4.97e-12 -> OK

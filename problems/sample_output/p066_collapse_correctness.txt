@@ -1,0 +1,47 @@
+P066: collapse legality and correctness, N = 1500 (part b), NI = NJ = NK = 100 (part c)
+
+(a) for i { y[i] = 0; for j y[i] += A[i][j]*x[j]; }  with collapse(2)
+    NOT perfectly nested: "y[i] = 0" sits between the two loops.
+    OpenMP 4.5 / gcc 9 and 12 (checked): compile error "not enough perfectly nested loops".
+    gcc 14+ (OpenMP 5.1 'intervening code') compiles it, but the code between the
+    loops may run for EVERY (i, j) iteration: with gcc 15, y[i] ends up as just the
+    last product. Either way: do not collapse; move y[i] = 0 into its own loop or
+    use a private sum per row (fix 1 below).
+    (compile with -DDEMO_IMPERFECT to see it: an error on gcc 9/12, wrong y on gcc 15)
+
+(b) init loop first, then collapse(2) on: for i for j y[i] += A[i][j]*x[j]
+    Legal (perfectly nested, rectangular) but WRONG: the j iterations of one row
+    are spread over threads that all read-modify-write the same y[i].
+    race demo, schedule(static, 1):
+      1 thread(s):      0 of 1500 entries of y wrong -> OK (one thread cannot race)
+      2 thread(s):    366 of 1500 entries of y wrong -> WRONG (lost updates)
+      4 thread(s):     91 of 1500 entries of y wrong -> WRONG (lost updates)
+      8 thread(s):    444 of 1500 entries of y wrong -> WRONG (lost updates)
+
+    Fix 1: parallel for over i only (private sum, one write of y[i] per row)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1500        1     0.002530     0.001913     1.32     1.32     OK
+        1500        2     0.002530     0.000929     2.72     1.36     OK
+        1500        4     0.002530     0.000467     5.42     1.35     OK
+        1500        8     0.002530     0.000367     6.89     0.86     OK
+    Fix 2: collapse(2) + reduction(+:y[:n]) (private y per thread)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1500        1     0.002530     0.001992     1.27     1.27     OK
+        1500        2     0.002530     0.001067     2.37     1.19     OK
+        1500        4     0.002530     0.000567     4.46     1.12     OK
+        1500        8     0.002530     0.000541     4.68     0.58     OK
+    Fix 3: collapse(2) + atomic, 4 threads: 0.002956 s (serial 0.002530 s) -> OK, but slow
+
+(c) for i for j for k X[i][j] += f(i,j,k)
+    collapse(3): legal but WRONG, the k iterations of one (i, j) share X[i][j].
+    race demo, collapse(3) schedule(static, 1):
+      1 thread(s):      0 of 10000 entries of X wrong -> OK (one thread cannot race)
+      2 thread(s):     81 of 10000 entries of X wrong -> WRONG (lost updates)
+      4 thread(s):     61 of 10000 entries of X wrong -> WRONG (lost updates)
+      8 thread(s):     77 of 10000 entries of X wrong -> WRONG (lost updates)
+    collapse(2) on (i, j): correct, each (i, j) runs its whole k loop
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+       10000        1     0.000459     0.000481     0.95     0.95     OK
+       10000        2     0.000459     0.000247     1.86     0.93     OK
+       10000        4     0.000459     0.000135     3.40     0.85     OK
+       10000        8     0.000459     0.000129     3.56     0.44     OK

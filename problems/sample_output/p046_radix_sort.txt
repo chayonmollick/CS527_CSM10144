@@ -1,0 +1,23 @@
+P046: LSD radix sort, 32-bit keys, 8-bit digits (4 passes)
+speedup = serial radix / parallel radix, vs qsort = qsort / parallel radix
+
+N = 100000: qsort 0.008623 s, serial radix 0.000722 s (11.9x faster than qsort), serial OK
+           N  threads    serial(s)  parallel(s)  speedup  vs qsort  check
+      100000        1     0.000722     0.000709     1.02     12.16     OK
+      100000        2     0.000722     0.000554     1.30     15.56     OK
+      100000        4     0.000722     0.000531     1.36     16.24     OK
+      100000        8     0.000722     0.000673     1.07     12.81     OK
+
+N = 1000000: qsort 0.083298 s, serial radix 0.003024 s (27.5x faster than qsort), serial OK
+           N  threads    serial(s)  parallel(s)  speedup  vs qsort  check
+     1000000        1     0.003024     0.002966     1.02     28.08     OK
+     1000000        2     0.003024     0.001683     1.80     49.49     OK
+     1000000        4     0.003024     0.001004     3.01     82.97     OK
+     1000000        8     0.003024     0.001094     2.76     76.14     OK
+
+N = 10000000: qsort 0.819608 s, serial radix 0.031052 s (26.4x faster than qsort), serial OK
+           N  threads    serial(s)  parallel(s)  speedup  vs qsort  check
+    10000000        1     0.031052     0.030193     1.03     27.15     OK
+    10000000        2     0.031052     0.015536     2.00     52.76     OK
+    10000000        4     0.031052     0.010599     2.93     77.33     OK
+    10000000        8     0.031052     0.008762     3.54     93.54     OK

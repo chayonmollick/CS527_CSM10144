@@ -1,0 +1,18 @@
+P027: series sums, N = 100000000 (17 significant digits; watch the last ones)
+  order                  sum 1/i^2            4 sum (-1)^k/(2k+1)  H_N = sum 1/i      
+  serial forward         1.64493405783457503  3.14159264358932599  18.99789641385255479
+  serial backward        1.64493405684822647  3.14159264358979318  18.99789641385344652
+  parallel, 1 thread     1.64493405783457503  3.14159264358932599  18.99789641385255479
+  parallel, 2 threads    1.64493405679886417  3.14159264359025059  18.99789641385300953
+  parallel, 4 threads    1.64493405683981453  3.14159264358981716  18.99789641384988315
+  parallel, 8 threads    1.64493405684703120  3.14159264358987889  18.99789641385189753
+  limit / asymptotic     1.64493406684822641  3.14159265358979312  18.99789641385390127
+  (truncation error ~1/N for the first two; the H_N line is ln N + gamma + 1/(2N) - 1/(12N^2))
+  forward - backward:    9.863e-10  -4.672e-13  -8.917e-13
+Timing (check: parallel within 4.4e-08 = 2*N*DBL_EPSILON relative of serial forward):
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+   100000000        1     0.121913     0.116399     1.05     1.05     OK
+   100000000        2     0.121913     0.059529     2.05     1.02     OK
+   100000000        4     0.121913     0.030450     4.00     1.00     OK
+   100000000        8     0.121913     0.017464     6.98     0.87     OK
+  serial forward vs backward within the same tolerance: OK

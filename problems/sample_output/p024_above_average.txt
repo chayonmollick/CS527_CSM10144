@@ -1,0 +1,7 @@
+P024: above-average count, N = 10000000: average = 500.146648, 4996004 elements above it
+  A = omp single computes avg, B = every thread computes its own avg
+ threads    serial(s)         A(s)   speedA         B(s)   speedB  check
+       1     0.047024     0.043841     1.07     0.043973     1.07     OK
+       2     0.047024     0.022559     2.08     0.022978     2.05     OK
+       4     0.047024     0.011978     3.93     0.012015     3.91     OK
+       8     0.047024     0.007569     6.21     0.007459     6.30     OK

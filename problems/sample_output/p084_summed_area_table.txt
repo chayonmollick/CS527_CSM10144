@@ -1,0 +1,31 @@
+P084: summed-area table
+4 x 4 example:      A               S
+     1   2   3   4       1    3    6   10
+     5   6   7   8       6   14   24   36
+     9  10  11  12      15   33   54   78
+    13  14  15  16      28   60   96  136
+sum of rows 1..2, cols 1..2 = S[2][2] - S[0][2] - S[2][0] + S[0][0] = 54 - 6 - 15 + 1 = 34 (6+7+10+11 = 34)  OK
+
+H = 3000, W = 2500, total = S[H-1][W-1] = 33745497
+
+Build S, version C: rows, then parallel for over single columns (check: S equal to serial)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     7500000        1     0.004693     0.016909     0.28     0.28     OK
+     7500000        2     0.004693     0.009058     0.52     0.26     OK
+     7500000        4     0.004693     0.005811     0.81     0.20     OK
+     7500000        8     0.004693     0.005007     0.94     0.12     OK
+
+Build S, version B: rows, then one block of columns per thread (check: S equal to serial)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     7500000        1     0.004693     0.004049     1.16     1.16     OK
+     7500000        2     0.004693     0.002737     1.71     0.86     OK
+     7500000        4     0.004693     0.002242     2.09     0.52     OK
+     7500000        8     0.004693     0.002360     1.99     0.25     OK
+
+first 20 queries vs brute-force sums: OK
+2000000 rectangle queries (check: answers equal to serial)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     2000000        1     0.030191     0.029248     1.03     1.03     OK
+     2000000        2     0.030191     0.016617     1.82     0.91     OK
+     2000000        4     0.030191     0.011580     2.61     0.65     OK
+     2000000        8     0.030191     0.010293     2.93     0.37     OK

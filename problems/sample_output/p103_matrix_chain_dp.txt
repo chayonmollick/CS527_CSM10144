@@ -1,0 +1,21 @@
+P103: wavefront dynamic programming
+CLRS example p = {30,35,15,5,10,20,25}: cost 15125 (expect 15125, OK), order ((A1(A2A3))((A4A5)A6))
+(1) matrix chain, n = 700 matrices: minimum cost 8315506
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+         700        1     0.032675     0.032744     1.00     1.00     OK
+         700        2     0.032675     0.023317     1.40     0.70     OK
+         700        4     0.032675     0.022175     1.47     0.37     OK
+         700        8     0.032675     0.030955     1.06     0.13     OK
+(2) LCS of two random ACGT strings of length 3000: LCS length 1945
+(2a) anti-diagonal wavefront, one cell at a time
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.004559     0.016657     0.27     0.27     OK
+        3000        2     0.004559     0.052032     0.09     0.04     OK
+        3000        4     0.004559     0.069874     0.07     0.02     OK
+        3000        8     0.004559     0.151486     0.03     0.00     OK
+(2b) tiled wavefront, 256 x 256 tiles
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.004559     0.006133     0.74     0.74     OK
+        3000        2     0.004559     0.003427     1.33     0.67     OK
+        3000        4     0.004559     0.002217     2.06     0.51     OK
+        3000        8     0.004559     0.002058     2.22     0.28     OK

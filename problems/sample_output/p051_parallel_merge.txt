@@ -1,0 +1,7 @@
+P051: parallel merge by co-rank (merge path), m = 10000000, n = 10000000
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    20000000        1     0.048128     0.047716     1.01     1.01     OK
+    20000000        2     0.048128     0.024544     1.96     0.98     OK
+    20000000        4     0.048128     0.012345     3.90     0.97     OK
+    20000000        8     0.048128     0.007921     6.08     0.76     OK
+edge cases (unequal sizes, empty, duplicates, all equal, disjoint; 1-8 threads): OK

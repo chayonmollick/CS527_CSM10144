@@ -1,0 +1,11 @@
+P002: tsum += omp_get_thread_num(), 2000 trials per version and p
+racy columns: number of WRONG trials (and one wrong value); fixes must never be wrong
+
+   p   expect   racy (wrong/val)          racy-wide   atomic critical  reduct.
+   2        1              0 (1)          0/201 (1)       OK       OK       OK
+   4        6              0 (6)        200/201 (2)       OK       OK       OK
+   8       28             3 (23)        201/201 (7)       OK       OK       OK
+  16      120           23 (107)       201/201 (34)       OK       OK       OK
+
+A racy count of 0 does NOT prove the code correct: the race is timing dependent.
+Fixes (atomic, critical, reduction) correct for every p and trial: OK

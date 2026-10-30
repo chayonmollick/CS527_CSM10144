@@ -1,0 +1,35 @@
+Worked example: A = [3 1 4 1; 5 2 6 2; 2 1 3 1; 6 1 7 1]
+  row sums 9 15 7 15 -> max row = 1 (sum 15) / 1 (sum 15)  (expected 1: tie with row 3)
+  col sums 16 5 20 5 -> min col = 1 (sum 5)  (expected 1: tie with col 3)
+  row maxima = 4 6 3 7  (expected 4 6 3 7)
+
+P062: N = 4000, entries in [0, 99]
+
+Part 1: row with max sum = 3589 (sum 203863); the last row is a copy of it (tie)
+(a) per-thread best + critical
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        4000        1     0.004151     0.004105     1.01     1.01     OK
+        4000        2     0.004151     0.002075     2.00     1.00     OK
+        4000        4     0.004151     0.001344     3.09     0.77     OK
+        4000        8     0.004151     0.001126     3.69     0.46     OK
+(b) row sums in parallel, then argmax with declare reduction(maxloc)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        4000        1     0.004151     0.004122     1.01     1.01     OK
+        4000        2     0.004151     0.002088     1.99     0.99     OK
+        4000        4     0.004151     0.001362     3.05     0.76     OK
+        4000        8     0.004151     0.000983     4.22     0.53     OK
+
+Part 2: column with min sum = 430 (sum 190772); the last column is a copy of it (tie)
+column sums with reduction(+:C[:n]), argmin with per-thread best + critical
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        4000        1     0.004069     0.004071     1.00     1.00     OK
+        4000        2     0.004069     0.002102     1.94     0.97     OK
+        4000        4     0.004069     0.001289     3.16     0.79     OK
+        4000        8     0.004069     0.001019     3.99     0.50     OK
+
+Part 3: maximum element of every row, parallel over rows
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        4000        1     0.004038     0.004024     1.00     1.00     OK
+        4000        2     0.004038     0.002057     1.96     0.98     OK
+        4000        4     0.004038     0.001059     3.81     0.95     OK
+        4000        8     0.004038     0.000820     4.92     0.62     OK

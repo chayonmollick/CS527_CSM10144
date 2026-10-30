@@ -1,0 +1,52 @@
+Worked examples:
+  A (3x3):
+      1   2   3
+      4   5   6
+      7   8   9
+  clockwise, out of place      (expected 7 4 1 / 8 5 2 / 9 6 3):
+      7   4   1
+      8   5   2
+      9   6   3
+  anticlockwise, in place      (expected 3 6 9 / 2 5 8 / 1 4 7):
+      3   6   9
+      2   5   8
+      1   4   7
+  A (4x4):
+      1   2   3   4
+      5   6   7   8
+      9  10  11  12
+     13  14  15  16
+  clockwise, in place (expected 13 9 5 1 / 14 10 6 2 / 15 11 7 3 / 16 12 8 4):
+     13   9   5   1
+     14  10   6   2
+     15  11   7   3
+     16  12   8   4
+
+P063: rotate an N x N matrix, N = 3000
+
+(1a) clockwise, out of place: B[j][N-1-i] = A[i][j], parallel over i
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.007517     0.006397     1.18     1.18     OK
+        3000        2     0.007517     0.003272     2.30     1.15     OK
+        3000        4     0.007517     0.002528     2.97     0.74     OK
+        3000        8     0.007517     0.002257     3.33     0.42     OK
+(1b) anticlockwise, out of place: B[N-1-j][i] = A[i][j], parallel over i
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.005690     0.005675     1.00     1.00     OK
+        3000        2     0.005690     0.002976     1.91     0.96     OK
+        3000        4     0.005690     0.001858     3.06     0.77     OK
+        3000        8     0.005690     0.001703     3.34     0.42     OK
+(2a) clockwise, in place: transpose, barrier, reverse each row
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.004613     0.004298     1.07     1.07     OK
+        3000        2     0.004613     0.002850     1.62     0.81     OK
+        3000        4     0.004613     0.001767     2.61     0.65     OK
+        3000        8     0.004613     0.001695     2.72     0.34     OK
+(2b) anticlockwise, in place: transpose, barrier, swap row i with row N-1-i
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.004165     0.004084     1.02     1.02     OK
+        3000        2     0.004165     0.002265     1.84     0.92     OK
+        3000        4     0.004165     0.001619     2.57     0.64     OK
+        3000        8     0.004165     0.001568     2.66     0.33     OK
+
+Checks: 4 clockwise turns = A: OK, clockwise then anticlockwise = A: OK

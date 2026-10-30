@@ -1,0 +1,16 @@
+P006: private variables starting at 42, 4 threads (values of threads 0..3)
+
+threadprivate WITHOUT copyin: each thread has its own copy
+  parallel (no copyin): tp =              42  -1  -1  -1   OK
+
+The four ways (every thread must see 42):
+  firstprivate(x):                        42  42  42  42   OK
+  single copyprivate(y):                  42  42  42  42   OK
+  threadprivate tp + copyin(tp):          42  42  42  42   OK
+  int z = read_value(); inside region:    42  42  42  42   OK
+
+threadprivate values PERSIST between regions (same team, dynamic off):
+  region 2 sees tp = 100 + thread:       100 101 102 103   OK
+
+The four ways with 1, 2, 4, 8 threads:  p=1 OK  p=2 OK  p=4 OK  p=8 OK
+Overall check: OK

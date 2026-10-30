@@ -1,0 +1,13 @@
+P094: BFS from vertex 0, n = 1000000, m = 4000000: 999673 reached, max distance 9
+(a) atomic exchange to claim, atomic index to append
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.049005     0.053432     0.92     0.92     OK
+     1000000        2     0.049005     0.030187     1.62     0.81     OK
+     1000000        4     0.049005     0.024303     2.02     0.50     OK
+     1000000        8     0.049005     0.060404     0.81     0.10     OK
+(b) atomic exchange to claim, per-thread buffers + one atomic per thread
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.049005     0.053860     0.91     0.91     OK
+     1000000        2     0.049005     0.027464     1.78     0.89     OK
+     1000000        4     0.049005     0.013814     3.55     0.89     OK
+     1000000        8     0.049005     0.011495     4.26     0.53     OK

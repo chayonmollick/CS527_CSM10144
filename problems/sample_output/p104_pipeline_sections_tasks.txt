@@ -1,0 +1,14 @@
+P104: 3-stage pipeline, B = 64 blocks of S = 16384 values; out[B-1] = 2028537.619008
+(a) tasks + depend (pipeline: at most 3 stages at once)   [N column = B*S]
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1048576        1     0.045734     0.045721     1.00     1.00     OK
+     1048576        2     0.045734     0.023677     1.93     0.97     OK
+     1048576        4     0.045734     0.016879     2.71     0.68     OK
+     1048576        8     0.045734     0.016808     2.72     0.34     OK
+(b) stages one after another, parallel for inside each stage
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1048576        1     0.045734     0.045896     1.00     1.00     OK
+     1048576        2     0.045734     0.025079     1.82     0.91     OK
+     1048576        4     0.045734     0.015842     2.89     0.72     OK
+     1048576        8     0.045734     0.017069     2.68     0.33     OK
+(c) parallel sections, 3 threads (one per stage): 0.016547 s, speedup 2.76, OK

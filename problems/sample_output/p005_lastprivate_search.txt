@@ -1,0 +1,21 @@
+P005: last index with a[i] % 100 == 7, N = 20000000
+Dataset A (random, ~1% matches): serial answer 19999935
+Dataset B (matches only at N/20 and N/10): serial answer 2000000
+
+Part 1: the wrong ways (failures are expected; they show the bug)
+ threads    racy shared: wrong runs      naive lastprivate A      naive lastprivate B
+       1                      0 / 5         19999935 right            2000000 right  
+       2                      1 / 5         19999935 right                 -1 WRONG  
+       4                      2 / 5         19999935 right                 -1 WRONG  
+       8                      5 / 5         19999935 right                 -1 WRONG  
+(naive lastprivate is right on A only by luck: the last chunk happens to contain a match)
+
+Part 2: correct versions, timed on dataset A, also checked on dataset B
+ threads    serial(s)  critical(s)  speedup   max-red(s)  speedup  check
+       1     0.010169     0.012102     0.84     0.011590     0.88     OK
+       2     0.010169     0.010180     1.00     0.005818     1.75     OK
+       4     0.010169     0.014353     0.71     0.003489     2.91     OK
+       8     0.010169     0.020644     0.49     0.002950     3.45     OK
+
+Part 3: lastprivate(x) with x = a[i] % 100 set in EVERY iteration: x = 1, a[N-1] % 100 = 1  OK
+Correct versions (critical, reduction(max), lastprivate used properly): OK

@@ -1,0 +1,21 @@
+P097: K-means, N = 500000 points, K = 8, 10 iterations; serial centroids:
+  c0  (  947.373,   513.145)
+  c1  (   49.778,   402.268)
+  c2  (  186.127,   305.900)
+  c3  (  757.217,   576.645)
+  c4  (  183.359,   715.519)
+  c5  (  300.333,   722.269)
+  c6  (  413.250,   796.802)
+  c7  (  866.116,   200.004)
+(a) parallel for + reduction(+:sx[:K], sy[:K], cnt[:K])
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+      500000        1     0.085538     0.075987     1.13     1.13     OK
+      500000        2     0.085538     0.038785     2.21     1.10     OK
+      500000        4     0.085538     0.020225     4.23     1.06     OK
+      500000        8     0.085538     0.014370     5.95     0.74     OK
+(b) per-thread sums merged in a critical section
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+      500000        1     0.085538     0.073804     1.16     1.16     OK
+      500000        2     0.085538     0.037713     2.27     1.13     OK
+      500000        4     0.085538     0.019369     4.42     1.10     OK
+      500000        8     0.085538     0.013722     6.23     0.78     OK

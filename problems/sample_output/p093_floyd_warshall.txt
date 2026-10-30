@@ -1,0 +1,24 @@
+P093: Floyd-Warshall, n = 500 vertices
+4-vertex example, input (INF = no edge):
+       0    3  INF    7
+       8    0    2  INF
+       5  INF    0    1
+       2  INF  INF    0
+shortest distances (parallel):  OK
+       0    3    5    6
+       5    0    2    3
+       3    6    0    1
+       2    5    7    0
+serial: 250000 of 250000 ordered pairs reachable, d[0][n-1] = 4
+(a) parallel for on i inside the k loop
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+         500        1     0.078034     0.077478     1.01     1.01     OK
+         500        2     0.078034     0.044283     1.76     0.88     OK
+         500        4     0.078034     0.029571     2.64     0.66     OK
+         500        8     0.078034     0.034584     2.26     0.28     OK
+(b) one parallel region, omp for on i (barrier per k)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+         500        1     0.078034     0.073987     1.05     1.05     OK
+         500        2     0.078034     0.041938     1.86     0.93     OK
+         500        4     0.078034     0.026200     2.98     0.74     OK
+         500        8     0.078034     0.028791     2.71     0.34     OK

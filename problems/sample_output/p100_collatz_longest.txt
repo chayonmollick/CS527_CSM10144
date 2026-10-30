@@ -1,0 +1,13 @@
+P100: longest Collatz chain below N = 1000000: start 837799, length 525 (known 837799, 525: OK)
+(a) per-thread best + critical, schedule(dynamic, 1000)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.127741     0.091308     1.40     1.40     OK
+     1000000        2     0.127741     0.046282     2.76     1.38     OK
+     1000000        4     0.127741     0.023420     5.45     1.36     OK
+     1000000        8     0.127741     0.014433     8.85     1.11     OK
+(b) declare reduction(maxloc : Best), schedule(dynamic, 1000)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.127741     0.092522     1.38     1.38     OK
+     1000000        2     0.127741     0.046635     2.74     1.37     OK
+     1000000        4     0.127741     0.023881     5.35     1.34     OK
+     1000000        8     0.127741     0.014456     8.84     1.10     OK

@@ -1,0 +1,15 @@
+P042: Fibonacci mod 1e9+7, F(N) = 490189494 for N = 10000000; F(100) = 687995182 (expect 687995182) OK
+
+(a) each F(i) independently by fast doubling, parallel for, N = 1000000
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.001284     0.123977     0.01     0.01     OK
+     1000000        2     0.001284     0.066718     0.02     0.01     OK
+     1000000        4     0.001284     0.034866     0.04     0.01     OK
+     1000000        8     0.001284     0.023191     0.06     0.01     OK
+
+(b) blocked: fast doubling to each block start, then iterate, N = 10000000
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    10000000        1     0.007499     0.007549     0.99     0.99     OK
+    10000000        2     0.007499     0.003748     2.00     1.00     OK
+    10000000        4     0.007499     0.001930     3.89     0.97     OK
+    10000000        8     0.007499     0.001460     5.14     0.64     OK

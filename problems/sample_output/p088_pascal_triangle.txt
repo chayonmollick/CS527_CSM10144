@@ -1,0 +1,37 @@
+P088: Pascal's triangle mod 1000000007
+rows 0..10 (parallel):
+                       1
+                     1   1
+                   1   2   1
+                 1   3   3   1
+               1   4   6   4   1
+             1   5  10  10   5   1
+           1   6  15  20  15   6   1
+         1   7  21  35  35  21   7   1
+       1   8  28  56  70  56  28   8   1
+     1   9  36  84 126 126  84  36   9   1
+   1  10  45 120 210 252 210 120  45  10   1
+
+rows 0..60 vs exact C(r,c) = r!/(c!(r-c)!) mod M: OK;  row 4000 vs factorial formula: OK
+C(60, 30) = 118264581564861424
+
+Whole triangle, rows 0..4000 (8006001 entries): omp for over each row (check: equal to serial)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        4000        1     0.006161     0.004997     1.23     1.23     OK
+        4000        2     0.006161     0.027308     0.23     0.11     OK
+        4000        4     0.006161     0.046635     0.13     0.03     OK
+        4000        8     0.006161     0.097252     0.06     0.01     OK
+
+Only row 10000, two row buffers (check: equal to serial and to the factorial formula)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+       10000        1     0.024905     0.025430     0.98     0.98     OK
+       10000        2     0.024905     0.076151     0.33     0.16     OK
+       10000        4     0.024905     0.116306     0.21     0.05     OK
+       10000        8     0.024905     0.247239     0.10     0.01     OK
+
+Triangle rows 0..300 with one task per entry + depend (45451 tasks; check: equal to serial)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+         300        1     0.000027     0.006947     0.00     0.00     OK
+         300        2     0.000027     0.009714     0.00     0.00     OK
+         300        4     0.000027     0.019903     0.00     0.00     OK
+         300        8     0.000027     0.060382     0.00     0.00     OK

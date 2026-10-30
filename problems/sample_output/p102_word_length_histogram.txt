@@ -1,0 +1,14 @@
+P102: text of 30000000 chars: 3738331 words, 466447 sentences, longest word 30 letters at 10434
+length: 1:305374 2:305012 3:305797 4:304688 5:306146 6:305319 7:305479 8:305046 9:305375 10:304753 11:304833 12:305575 13:4057 14:4152 15:4147 16:4282 17:4081 18:4174 19:4220 20:4154 21+:41667
+(a) parallel for, reduction(+:hist, sentences), longest per thread + critical
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    30000000        1     0.052812     0.053063     1.00     1.00     OK
+    30000000        2     0.052812     0.027124     1.95     0.97     OK
+    30000000        4     0.052812     0.013742     3.84     0.96     OK
+    30000000        8     0.052812     0.009763     5.41     0.68     OK
+(b) explicit chunks, private Stats per thread, merged in critical
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    30000000        1     0.052812     0.052393     1.01     1.01     OK
+    30000000        2     0.052812     0.026661     1.98     0.99     OK
+    30000000        4     0.052812     0.013503     3.91     0.98     OK
+    30000000        8     0.052812     0.009571     5.52     0.69     OK

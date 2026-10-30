@@ -1,0 +1,36 @@
+Worked example (3x3):
+  A =
+      1.0000   2.0000   1.0000
+      2.0000   2.0000   4.0000
+      3.0000   6.0000   9.0000
+  rows normalised (each row sums to 1) =
+      0.2500   0.5000   0.2500
+      0.2500   0.2500   0.5000
+      0.1667   0.3333   0.5000
+  columns standardised (col 0 = 1,2,3 -> -1.2247 0 1.2247) =
+     -1.2247  -0.7071  -1.1112
+      0.0000  -0.7071  -0.2020
+      1.2247   1.4142   1.3132
+
+P061: A is 3000 x 2000 (M rows, N columns; the tables' N column shows M)
+
+Part 1: row normalisation, parallel over rows (rows sum to 1: OK)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.005617     0.005076     1.11     1.11     OK
+        3000        2     0.005617     0.002408     2.33     1.17     OK
+        3000        4     0.005617     0.001333     4.21     1.05     OK
+        3000        8     0.005617     0.001018     5.52     0.69     OK
+
+Part 2: column standardisation (columns have mean 0, sd 1: OK)
+(a) parallel over columns j (stride-N access)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.005189     0.013744     0.38     0.38     OK
+        3000        2     0.005189     0.007007     0.74     0.37     OK
+        3000        4     0.005189     0.003979     1.30     0.33     OK
+        3000        8     0.005189     0.003479     1.49     0.19     OK
+(b) parallel over rows, reduction(+:mean[:n]) and reduction(+:sq[:n])
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        3000        1     0.005189     0.005193     1.00     1.00     OK
+        3000        2     0.005189     0.002685     1.93     0.97     OK
+        3000        4     0.005189     0.002169     2.39     0.60     OK
+        3000        8     0.005189     0.001857     2.79     0.35     OK

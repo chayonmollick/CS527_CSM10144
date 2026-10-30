@@ -1,0 +1,14 @@
+Worked example: [[1,1],[1,0]]^10 = [[89,55],[55,34]] using 5 multiplications (expected [[89,55],[55,34]], 5)
+                [[1,1],[1,0]]^0  = [[1,0],[0,1]] (identity)
+
+P067: A^p mod 1000003, N = 250, p = 1000
+check: squaring vs naive (12 multiplications) for p = 13: OK
+repeated squaring uses 15 multiplications (naive would use 999)
+check: A^p == A^(p-1) * A: OK
+
+A^p, exponent loop serial, each multiply parallel over rows
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+         250        1     0.068042     0.069518     0.98     0.98     OK
+         250        2     0.068042     0.040764     1.67     0.83     OK
+         250        4     0.068042     0.021753     3.13     0.78     OK
+         250        8     0.068042     0.015834     4.30     0.54     OK

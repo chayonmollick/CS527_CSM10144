@@ -1,0 +1,22 @@
+P099: perfect numbers and amicable pairs below N = 200000
+perfect numbers below 200000: 6 28 496 8128
+amicable pairs below 200000: (220,284) (1184,1210) (2620,2924) (5020,5564) (6232,6368) (10744,10856) (12285,14595) (17296,18416) (63020,76084) (66928,66992) (67095,71145) (69615,87633) (79750,88730) (100485,124155) (122265,139815) (122368,123152) (141664,153176) (142310,168730) (171856,176336) (176272,180848)
+4 perfect numbers (known: 4, OK), 20 amicable pairs
+(a) schedule(static)    - contiguous blocks   [check: s[] equals serial]
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+      200000        1     0.046047     0.037950     1.21     1.21     OK
+      200000        2     0.046047     0.023902     1.93     0.96     OK
+      200000        4     0.046047     0.012937     3.56     0.89     OK
+      200000        8     0.046047     0.009731     4.73     0.59     OK
+(b) schedule(static, 1) - cyclic   [check: s[] equals serial]
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+      200000        1     0.046047     0.045886     1.00     1.00     OK
+      200000        2     0.046047     0.023905     1.93     0.96     OK
+      200000        4     0.046047     0.012388     3.72     0.93     OK
+      200000        8     0.046047     0.010313     4.46     0.56     OK
+(c) schedule(dynamic, 256)   [check: s[] equals serial]
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+      200000        1     0.046047     0.039584     1.16     1.16     OK
+      200000        2     0.046047     0.020180     2.28     1.14     OK
+      200000        4     0.046047     0.010169     4.53     1.13     OK
+      200000        8     0.046047     0.008358     5.51     0.69     OK

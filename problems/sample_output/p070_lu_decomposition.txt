@@ -1,0 +1,21 @@
+Worked example: A = [2 1 1; 4 3 3; 8 7 9]
+  L = [1 0 0; 2 1 0; 4 3 1]   (expected [1 0 0; 2 1 0; 4 3 1])
+  U = [2 1 1; 0 1 1; 0 0 2]   (expected [2 1 1; 0 1 1; 0 0 2])
+
+P070: LU of a strictly diagonally dominant N x N matrix, N = 1000
+serial: max |L*U - A| / max|A| = 4.10e-15  -> OK
+
+(a) k loop sequential; rows i shared by omp for (one parallel region)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1000        1     0.091054     0.091091     1.00     1.00     OK
+        1000        2     0.091054     0.054644     1.67     0.83     OK
+        1000        4     0.091054     0.037828     2.41     0.60     OK
+        1000        8     0.091054     0.046439     1.96     0.25     OK
+    parallel factors: max |L*U - A| / max|A| = 4.10e-15 -> OK
+(b) k loop sequential; multipliers, barrier, then collapse(2) over (i, j)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1000        1     0.091054     0.125089     0.73     0.73     OK
+        1000        2     0.091054     0.075685     1.20     0.60     OK
+        1000        4     0.091054     0.069687     1.31     0.33     OK
+        1000        8     0.091054     0.085977     1.06     0.13     OK
+    parallel factors: max |L*U - A| / max|A| = 4.10e-15 -> OK

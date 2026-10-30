@@ -1,0 +1,27 @@
+Worked example: A = [1 2 3; 0 4 5; 0 0 6], B = [1 1 1; 0 1 1; 0 0 1]
+  C = A*B = [1 3 6; 0 4 9; 0 0 6]   (expected [1 3 6; 0 4 9; 0 0 6])
+
+P069: upper x upper, N = 1000: 167167000 multiply-adds (full product: 1000000000)
+serial triangular product = full product: OK
+schedule(static), 4 threads: thread 0's rows hold 58% of the work (ideal 25%)
+
+(1) schedule(static): contiguous row blocks, unbalanced
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1000        1     0.046241     0.046080     1.00     1.00     OK
+        1000        2     0.046241     0.039970     1.16     0.58     OK
+        1000        4     0.046241     0.026663     1.73     0.43     OK
+        1000        8     0.046241     0.018294     2.53     0.32     OK
+
+(2) schedule(static, 1): rows dealt round robin
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1000        1     0.046241     0.051561     0.90     0.90     OK
+        1000        2     0.046241     0.026207     1.76     0.88     OK
+        1000        4     0.046241     0.013863     3.34     0.83     OK
+        1000        8     0.046241     0.010453     4.42     0.55     OK
+
+(3) schedule(dynamic, 4): chunks of 4 rows to any free thread
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1000        1     0.046241     0.050353     0.92     0.92     OK
+        1000        2     0.046241     0.025684     1.80     0.90     OK
+        1000        4     0.046241     0.013749     3.36     0.84     OK
+        1000        8     0.046241     0.009096     5.08     0.64     OK

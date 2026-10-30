@@ -1,0 +1,26 @@
+P079: 2D heat equation, explicit steps, r = 0.20
+7 x 7 plate after 10 steps:
+ 100.00 100.00 100.00 100.00 100.00 100.00 100.00
+   0.00  46.21  61.77  65.60  61.77  46.21   0.00
+   0.00  23.91  36.74  40.59  36.74  23.91   0.00
+   0.00  13.49  22.13  25.00  22.13  13.49   0.00
+   0.00   7.85  13.26  15.14  13.26   7.85   0.00
+   0.00   3.79   6.47   7.42   6.47   3.79   0.00
+   0.00   0.00   0.00   0.00   0.00   0.00   0.00
+7 x 7 example, parallel == serial: OK
+
+N = 1000, T = 100 steps; centre value after T steps = 25.000000
+
+Version A: parallel for per step (check: equal to serial exactly)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1000        1     0.046446     0.045002     1.03     1.03     OK
+        1000        2     0.046446     0.024256     1.91     0.96     OK
+        1000        4     0.046446     0.017579     2.64     0.66     OK
+        1000        8     0.046446     0.017563     2.64     0.33     OK
+
+Version B: one parallel region, omp for per step (check: equal to serial exactly)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1000        1     0.046446     0.053637     0.87     0.87     OK
+        1000        2     0.046446     0.026900     1.73     0.86     OK
+        1000        4     0.046446     0.015087     3.08     0.77     OK
+        1000        8     0.046446     0.016329     2.84     0.36     OK

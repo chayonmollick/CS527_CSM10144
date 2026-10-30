@@ -1,0 +1,15 @@
+P043: polynomial evaluation
+
+(a) degree D = 500 at M = 100000 points (parallel over points)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+      100000        1     0.032069     0.032332     0.99     0.99     OK
+      100000        2     0.032069     0.017830     1.80     0.90     OK
+      100000        4     0.032069     0.011158     2.87     0.72     OK
+      100000        8     0.032069     0.006631     4.84     0.60     OK
+
+(b) one polynomial of degree D = 10000000 at x = -0.9999995 (blocked Horner + reduction), p(x) = -439.9314236762
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    10000001        1     0.008273     0.008101     1.02     1.02     OK
+    10000001        2     0.008273     0.004065     2.04     1.02     OK
+    10000001        4     0.008273     0.002240     3.69     0.92     OK
+    10000001        8     0.008273     0.001644     5.03     0.63     OK

@@ -1,0 +1,14 @@
+P022: z = 2*x + -1*y + 0.5*w, N = 4000000  (5 flops per 32 bytes = 6.4 bytes/flop)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     4000000        1     0.001905     0.001836     1.04     1.04     OK
+     4000000        2     0.001905     0.001619     1.18     0.59     OK
+     4000000        4     0.001905     0.001647     1.16     0.29     OK
+     4000000        8     0.001905     0.001566     1.22     0.15     OK
+  bandwidth: serial 67.2 GB/s, best parallel 81.7 GB/s
+P022: s = x + y + w, N = 4000000  (2 flops per 32 bytes = 16 bytes/flop)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     4000000        1     0.003428     0.001518     2.26     2.26     OK
+     4000000        2     0.003428     0.001480     2.32     1.16     OK
+     4000000        4     0.003428     0.001559     2.20     0.55     OK
+     4000000        8     0.003428     0.001434     2.39     0.30     OK
+  bandwidth: serial 37.3 GB/s, best parallel 89.3 GB/s

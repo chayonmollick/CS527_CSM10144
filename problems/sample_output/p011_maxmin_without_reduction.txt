@@ -1,0 +1,14 @@
+P011: max and min of N = 20000000 ints, serial max = 999999980, min = -999999963, serial time 0.00985 s
+time in seconds (speedup = serial / parallel); (a) uses the first 2000000 elements
+and is compared with serial on those (0.00098 s)
+ threads    (a) crit/elem   (b) local+crit   (c) array[tid]   (d) check+crit    (e) reduction  check
+       1  0.00841 ( 0.12)  0.00961 ( 1.03)  0.00980 ( 1.01)  0.00863 ( 1.14)  0.00958 ( 1.03)     OK
+       2  0.01594 ( 0.06)  0.00508 ( 1.94)  0.00502 ( 1.96)  0.00436 ( 2.26)  0.00497 ( 1.98)     OK
+       4  0.02664 ( 0.04)  0.00258 ( 3.81)  0.00259 ( 3.81)  0.00251 ( 3.92)  0.00257 ( 3.84)     OK
+       8  0.03319 ( 0.03)  0.00185 ( 5.32)  0.00183 ( 5.38)  0.00208 ( 4.73)  0.00166 ( 5.94)     OK
+
+Why (d) re-checks inside the critical: between the unlocked test (v > max) and
+getting the lock, another thread may have stored a LARGER max. Without the re-check
+we would overwrite it with the smaller v (lost update). The unlocked test is only
+a filter; the decision is made under the lock.
+All versions match serial: OK

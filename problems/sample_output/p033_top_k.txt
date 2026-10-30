@@ -1,0 +1,11 @@
+P033: top 3 of {5, 9, 1, 9, 7, 9, 9}: a[1] a[3] a[5]  OK
+P033: N = 10000000
+  serial                  a[709488] = 999999  a[980830] = 999999  a[1782652] = 999999
+  by sorting a copy       a[709488] = 999999  a[980830] = 999999  a[1782652] = 999999
+  serial == sorting: OK
+A = critical merge, B = per-thread array + serial merge
+ threads    serial(s)         A(s)   speedA         B(s)   speedB  check
+       1     0.006418     0.004903     1.31     0.004935     1.30     OK
+       2     0.006418     0.002571     2.50     0.002542     2.52     OK
+       4     0.006418     0.001293     4.96     0.001300     4.94     OK
+       8     0.006418     0.000919     6.98     0.000888     7.23     OK

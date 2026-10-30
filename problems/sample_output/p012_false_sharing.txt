@@ -1,0 +1,14 @@
+P012: count multiples of 3 below N = 100000000: serial 33333334 (formula 33333334), serial time 0.0254 s
+address gap between neighbouring counters: (a) 8 bytes, (b) 128 bytes
+time in seconds (speedup = same version on 1 thread / on p threads);
+last column = false-sharing penalty, time (a) / time (b)
+ threads       (a) adjacent         (b) padded          (c) local  (a)/(b)  check
+       1     0.1332 ( 1.00)     0.1237 ( 1.00)     0.0398 ( 1.00)     1.08     OK
+       2     0.0700 ( 1.90)     0.0638 ( 1.94)     0.0203 ( 1.96)     1.10     OK
+       4     0.0374 ( 3.56)     0.0332 ( 3.73)     0.0103 ( 3.88)     1.13     OK
+       8     0.0304 ( 4.38)     0.0234 ( 5.29)     0.0088 ( 4.53)     1.30     OK
+
+(a) vs (b): same work, only the memory layout differs -> the gap is false sharing
+(none on 1 thread; grows with threads; largest on x86 with many cores/sockets).
+(c) is fastest: the counter stays in a register, no store per iteration at all.
+All totals correct: OK

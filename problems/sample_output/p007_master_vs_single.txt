@@ -1,0 +1,12 @@
+P007: master without barrier, N = 1000000, f() takes 20 ms and returns 3
+correct result: b[i] = 3*i; the buggy column counts elements computed with a == 0
+
+ threads    buggy master: wrong   b[N-1] (buggy)     single   master+barrier
+       1              0 ( 0.0%)          2999997         OK               OK
+       2         500000 (50.0%)                0         OK               OK
+       4         750000 (75.0%)                0         OK               OK
+       8         875000 (87.5%)                0         OK               OK
+
+With p threads about (p-1)/p of b is wrong: every chunk except thread 0's.
+(1 thread is always right; a 0 count for p > 1 only means the race was not hit.)
+Correct versions (single, master + barrier): OK

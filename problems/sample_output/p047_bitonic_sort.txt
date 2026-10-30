@@ -1,0 +1,6 @@
+P047: bitonic sort, N = 1000000 padded to M = 1048576 (210 stages), qsort 0.094333 s, serial bitonic OK
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+     1000000        1     0.167157     0.163508     1.02     1.02     OK
+     1000000        2     0.167157     0.087005     1.92     0.96     OK
+     1000000        4     0.167157     0.048513     3.45     0.86     OK
+     1000000        8     0.167157     0.044827     3.73     0.47     OK

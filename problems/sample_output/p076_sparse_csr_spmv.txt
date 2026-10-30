@@ -1,0 +1,29 @@
+P076: CSR sparse matrix-vector product with uneven rows
+5x5 example: row_ptr = {0,2,3,8,9,11}, col_idx = {0,4, 1, 0,1,2,3,4, 3, 1,4}
+             val = {10,2, 3, 1,1,1,1,1, 4, 5,6}, x = [1 2 3 4 5]
+             y = [20 6 15 16 40] (expected [20 6 15 16 40])  OK
+dense check (N = 300 generated matrix, CSR product vs dense product): OK
+
+N = 400000 rows, nnz = 5596000, row lengths 4 (normal) and 4000 (heavy)
+static, 4 threads: thread 0 gets rows 0..99999 = 79% of the nonzeros (ideal 25%)
+
+schedule(static)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+      400000        1     0.006757     0.004579     1.48     1.48     OK
+      400000        2     0.006757     0.004121     1.64     0.82     OK
+      400000        4     0.006757     0.003680     1.84     0.46     OK
+      400000        8     0.006757     0.002839     2.38     0.30     OK
+
+schedule(dynamic, chunk) with chunk = 64 rows
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+      400000        1     0.006757     0.004708     1.44     1.44     OK
+      400000        2     0.006757     0.002580     2.62     1.31     OK
+      400000        4     0.006757     0.001582     4.27     1.07     OK
+      400000        8     0.006757     0.001499     4.51     0.56     OK
+
+schedule(guided)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+      400000        1     0.006757     0.004588     1.47     1.47     OK
+      400000        2     0.006757     0.003886     1.74     0.87     OK
+      400000        4     0.006757     0.003629     1.86     0.47     OK
+      400000        8     0.006757     0.001886     3.58     0.45     OK

@@ -1,0 +1,16 @@
+P095: connected components, n = 500000, m = 750000: 27113 components, largest 470202 vertices
+serial union-find 0.008560 s (check); serial label propagation 0.027217 s, 12 sweeps, OK
+(a) Jacobi label propagation on CSR, double buffer
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+      500000        1     0.027217     0.066897     0.41     0.41     OK
+      500000        2     0.027217     0.034098     0.80     0.40     OK
+      500000        4     0.027217     0.017762     1.53     0.38     OK
+      500000        8     0.027217     0.014810     1.84     0.23     OK
+    22 sweeps
+(b) in-place label propagation on the edge list, atomic min via critical
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+      500000        1     0.027217     0.046977     0.58     0.58     OK
+      500000        2     0.027217     0.075707     0.36     0.18     OK
+      500000        4     0.027217     0.112877     0.24     0.06     OK
+      500000        8     0.027217     0.153006     0.18     0.02     OK
+    12 sweeps (last run; varies with timing)

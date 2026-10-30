@@ -1,0 +1,26 @@
+P003: nested parallelism, outer team 3, inner team 2
+Defaults: omp_get_nested() = 0, omp_get_max_active_levels() = 1, omp_get_level() in serial code = 0
+
+Case 1: work() called from serial code (one level: nesting setting irrelevant)
+  outer thread 0 -> inner thread 0 of 2   level=1 active_level=1
+  outer thread 0 -> inner thread 1 of 2   level=1 active_level=1
+  threads per level: level 1 = 2 (expect 2), level 2 = 0 (expect 0)  -> OK
+
+Case 2: nesting DISABLED (max_active_levels = 1), work() called by each outer thread
+  outer thread 0 -> inner thread 0 of 1   level=2 active_level=1
+  outer thread 1 -> inner thread 0 of 1   level=2 active_level=1
+  outer thread 2 -> inner thread 0 of 1   level=2 active_level=1
+  threads per level: level 1 = 3 (expect 3), level 2 = 3 (expect 3)  -> OK
+
+Case 3: nesting ENABLED (max_active_levels = 2), work() called by each outer thread
+  outer thread 0 -> inner thread 0 of 2   level=2 active_level=2
+  outer thread 0 -> inner thread 1 of 2   level=2 active_level=2
+  outer thread 1 -> inner thread 0 of 2   level=2 active_level=2
+  outer thread 1 -> inner thread 1 of 2   level=2 active_level=2
+  outer thread 2 -> inner thread 0 of 2   level=2 active_level=2
+  outer thread 2 -> inner thread 1 of 2   level=2 active_level=2
+  threads per level: level 1 = 3 (expect 3), level 2 = 6 (expect 6)  -> OK
+
+Case 3 runs 3 x 2 = 6 threads at level 2: each outer thread is thread 0
+(the master) of its own inner team, so only 3 new threads are created.
+Overall check: OK

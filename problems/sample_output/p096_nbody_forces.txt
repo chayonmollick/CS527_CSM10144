@@ -1,0 +1,20 @@
+P096: 2D gravity forces, N = 4000 particles, eps^2 = 0.0001
+serial full 0.020010 s, serial symmetric 0.016076 s (1.24x less time), symmetric OK
+(a) full N^2 loop, parallel for over i (no race)   [serial = full]
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        4000        1     0.020010     0.018673     1.07     1.07     OK
+        4000        2     0.020010     0.009453     2.12     1.06     OK
+        4000        4     0.020010     0.004812     4.16     1.04     OK
+        4000        8     0.020010     0.003635     5.50     0.69     OK
+(b1) symmetric j > i, atomic updates, dynamic   [serial = symmetric]
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        4000        1     0.016076     0.016149     1.00     1.00     OK
+        4000        2     0.016076     0.019502     0.82     0.41     OK
+        4000        4     0.016076     0.021173     0.76     0.19     OK
+        4000        8     0.016076     0.053429     0.30     0.04     OK
+(b2) symmetric j > i, per-thread force arrays + sum, dynamic   [serial = symmetric]
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        4000        1     0.016076     0.015690     1.02     1.02     OK
+        4000        2     0.016076     0.010887     1.48     0.74     OK
+        4000        4     0.016076     0.005592     2.87     0.72     OK
+        4000        8     0.016076     0.003779     4.25     0.53     OK

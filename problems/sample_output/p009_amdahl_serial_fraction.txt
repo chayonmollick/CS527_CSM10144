@@ -1,0 +1,29 @@
+P009: Amdahl's law with a serial fraction f, N = 12000000 items, serial time 0.0550 s
+speedup = serial time / time with f serial and p threads; Amdahl = 1/(f + (1-f)/p)
+
+     f  threads      time(s)   measured     Amdahl   meas/Amd  check
+  0.00        1     0.054889       1.00       1.00       1.00     OK
+  0.00        2     0.028169       1.95       2.00       0.98     OK
+  0.00        4     0.014941       3.68       4.00       0.92     OK
+  0.00        8     0.013222       4.16       8.00       0.52     OK
+       limit for p -> infinity: unbounded (f = 0)
+
+  0.05        1     0.054878       1.00       1.00       1.00     OK
+  0.05        2     0.030195       1.82       1.90       0.96     OK
+  0.05        4     0.016659       3.30       3.48       0.95     OK
+  0.05        8     0.015227       3.61       5.93       0.61     OK
+       limit for p -> infinity: 1/f = 20
+
+  0.20        1     0.055186       1.00       1.00       1.00     OK
+  0.20        2     0.033970       1.62       1.67       0.97     OK
+  0.20        4     0.022577       2.44       2.50       0.98     OK
+  0.20        8     0.021084       2.61       3.33       0.78     OK
+       limit for p -> infinity: 1/f = 5
+
+  0.50        1     0.054558       1.01       1.00       1.01     OK
+  0.50        2     0.041230       1.33       1.33       1.00     OK
+  0.50        4     0.034592       1.59       1.60       0.99     OK
+  0.50        8     0.033057       1.66       1.78       0.94     OK
+       limit for p -> infinity: 1/f = 2
+
+All results equal the serial sum: OK

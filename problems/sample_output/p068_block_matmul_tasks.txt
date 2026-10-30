@@ -1,0 +1,19 @@
+Worked example (cutoff 1, so the 3x3 is split into 1+2 halves):
+  A = [1 2 3; 4 5 6; 7 8 10], B = [1 0 2; 0 1 0; 3 0 1]
+  C = A*B = [10 2 5; 22 5 14; 37 8 24]
+  expected  [10 2 5; 22 5 14; 37 8 24]
+
+P068: C = A*B, N = 700, cutoff = 128 (serial ikj kernel below it)
+
+(a) recursive quadrants, 4 tasks per level + taskwait
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+         700        1     0.090500     0.091746     0.99     0.99     OK
+         700        2     0.090500     0.046266     1.96     0.98     OK
+         700        4     0.090500     0.028556     3.17     0.79     OK
+         700        8     0.090500     0.022448     4.03     0.50     OK
+(b) for comparison: parallel for over rows (ikj)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+         700        1     0.090500     0.098043     0.92     0.92     OK
+         700        2     0.090500     0.045575     1.99     0.99     OK
+         700        4     0.090500     0.025567     3.54     0.88     OK
+         700        8     0.090500     0.019525     4.64     0.58     OK

@@ -1,0 +1,21 @@
+P075: power iteration
+2x2 example [2 1; 1 2]: lambda = 3.000000000000 (exact 3), x = (0.707107, 0.707107), 2 iterations  OK
+
+N = 1500, exact dominant eigenvalue 8.0 (next largest 5.0)
+serial: lambda = 7.999999999997 after 34 iterations, |lambda - 8| = 2.6e-12, sin(angle to exact eigenvector) = 5.7e-07  OK
+
+Version A: a parallel for per loop (3 fork/joins per step)   (check: lambda vs serial and vs 8, eigenvector)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1500        1     0.060545     0.060220     1.01     1.01     OK
+        1500        2     0.060545     0.030729     1.97     0.99     OK
+        1500        4     0.060545     0.017495     3.46     0.87     OK
+        1500        8     0.060545     0.016104     3.76     0.47     OK
+lambda = 7.999999999997 after 34 iterations
+
+Version B: one parallel region, omp for + single   (check: lambda vs serial and vs 8, eigenvector)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1500        1     0.060545     0.060689     1.00     1.00     OK
+        1500        2     0.060545     0.031663     1.91     0.96     OK
+        1500        4     0.060545     0.017316     3.50     0.87     OK
+        1500        8     0.060545     0.023633     2.56     0.32     OK
+lambda = 7.999999999997 after 34 iterations

@@ -1,0 +1,18 @@
+P072: determinant by elimination with partial pivoting, N = 1000
+known-value tests (4 threads):
+  3x3 [2 -1 0; -1 2 -1; 0 -1 2]            expected 4                  serial 4                  parallel 4                  OK
+  3x3 [1 2 3; 4 5 6; 7 8 10]               expected -3                 serial -3                 parallel -3                 OK
+  3x3 [1 2 3; 4 5 6; 7 8 9]                exact 0; computed -9.52e-16 (rounding error, |det| < 1e-12: OK)
+  upper triangular: product of diagonal    expected 6.792511699e-135   serial 6.792511699e-135   parallel 6.792511699e-135   OK
+  upper triangular, rows reversed          expected 6.792511699e-135   serial 6.792511699e-135   parallel 6.792511699e-135   OK
+  anti-identity: (-1)^(N/2)                expected 1                  serial 1                  parallel 1                  OK
+  random with row N-1 = row 0: 0           expected 0                  serial 0                  parallel 0                  OK
+  random 2A: 2^N * det(A)                  expected -e^3098.872247     serial -e^3098.872247     parallel -e^3098.872247     OK
+
+random N x N matrix, entries in [-1, 1): det = -e^2405.725067
+elimination parallel over rows, pivot search = parallel argmax
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+        1000        1     0.091236     0.091986     0.99     0.99     OK
+        1000        2     0.091236     0.062441     1.46     0.73     OK
+        1000        4     0.091236     0.057936     1.57     0.39     OK
+        1000        8     0.091236     0.080870     1.13     0.14     OK

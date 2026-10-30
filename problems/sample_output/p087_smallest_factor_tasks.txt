@@ -1,0 +1,23 @@
+P087: smallest factor by trial division, tasks vs parallel for
+10 threads; times in seconds; B = block of candidates per task
+                   N                     factor    serial tasks B=1   tasks B   for+min  check
+             8999999 2999 * 3001           2999   0.00001   0.00476   0.00006   0.00005     OK
+          1000000007 prime           1000000007   0.00003   0.04558   0.00006   0.00003     OK
+          2000000014 even: factor 2           2   0.00000   0.00006   0.00005   0.00004     OK
+     100000980001501 p * q             10000019   0.00500   skipped   0.00134   0.00142     OK
+     200001960003002 2 * p * q                2   0.00000   skipped   0.00007   0.00195     OK
+
+N = 10000019 * 10000079 = 100000980001501, smallest factor 10000019
+(column N below = 10000018 candidates tested by the serial loop)
+Tasks, blocks of 10000 candidates (check: factor equal to serial)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    10000018        1     0.004970     0.005047     0.98     0.98     OK
+    10000018        2     0.004970     0.002602     1.91     0.96     OK
+    10000018        4     0.004970     0.001360     3.65     0.91     OK
+    10000018        8     0.004970     0.001353     3.67     0.46     OK
+parallel for + reduction(min:) (check: factor equal to serial)
+           N  threads    serial(s)  parallel(s)  speedup   effic.  check
+    10000018        1     0.004970     0.004976     1.00     1.00     OK
+    10000018        2     0.004970     0.002531     1.96     0.98     OK
+    10000018        4     0.004970     0.001289     3.86     0.96     OK
+    10000018        8     0.004970     0.001248     3.98     0.50     OK

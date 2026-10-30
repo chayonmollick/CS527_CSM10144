@@ -346,4 +346,7 @@ atomics (contention), more threads than cores (oversubscription).
 | `%d` warning for long | use `%ld` |
 | different result every run | race on a shared variable: make it private/reduction |
 | race demo prints the *correct* answer | at -O2 gcc keeps the shared counter in a register (one store per thread); declare it `volatile` or build with `-O0` to show the race (`practice/q23_counter_race.c`) |
+| segfault with `reduction(+:h[:R])` for a big R (e.g. 10^6 bins) | each thread's private copy lives on its stack: use per-thread `malloc`'d arrays merged at the end (`problems/p035`), or raise the limits (`ulimit -s unlimited; export OMP_STACKSIZE=512M`) |
+| tasks with `depend` give no speedup (one thread runs them all) | add `#pragma omp taskwait` at the end of the `single` block that creates them, so the creating thread joins in (seen with libgomp, `problems/p104`) |
+| a `critical`-based busy-wait loop is very slow on Linux | each retry takes the lock; keep the work small or use atomics + flush (`problems/p017`) |
 | warm-up `#pragma omp parallel { }` has no effect | gcc deletes empty regions; put a statement in it, e.g. `{ volatile int id = omp_get_thread_num(); (void)id; }` |

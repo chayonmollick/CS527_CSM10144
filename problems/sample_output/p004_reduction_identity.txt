@@ -1,0 +1,16 @@
+P004: reduction identities with 4 threads
+(x is set to a NON-identity value before each region; copies shown for threads 0..3)
+
++    before=100      copies started at: 0 0 0 0  final=110 (expect 110)  OK
+-    before=100      copies started at: 0 0 0 0  final=90 (expect 90)  OK
+*    before=3        copies started at: 1 1 1 1  final=48 (expect 48)  OK
+max  before=1000     copies started at: -2147483648 -2147483648 -2147483648 -2147483648  final=1000 (expect 1000)  OK
+min  before=-5       copies started at: 2147483647 2147483647 2147483647 2147483647  final=-5 (expect -5)  OK
+&&   before=0        copies started at: 1 1 1 1  final=0 (expect 0)  OK
+||   before=1        copies started at: 0 0 0 0  final=1 (expect 1)  OK
+&    before=0xff     copies started at: 0xffffffff 0xffffffff 0xffffffff 0xffffffff  final=0xf0 (expect 0xf0)  OK
+|    before=0x100    copies started at: 0x0 0x0 0x0 0x0  final=0x10f (expect 0x10f)  OK
+^    before=0x5      copies started at: 0x0 0x0 0x0 0x0  final=0xa (expect 0xa)  OK
+
+Same checks with 1, 2, 4, 8 threads:  p=1 OK  p=2 OK  p=4 OK  p=8 OK
+Overall check: OK
