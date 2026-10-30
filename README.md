@@ -10,15 +10,18 @@ lab-test variants.
 | [`session2/`](session2/) | Lab 8: array search, parallel sort, histogram, transpose, 2D convolution |
 | [`session3/`](session3/) | Lab 9: merge sort with tasks, static/dynamic/guided scheduling, even/odd count |
 | [`practice/`](practice/) | Practice bank: one program per likely test question, plus a template |
+| [`problems/`](problems/) | Problem bank: 104 solved problems (statement + tested solution), indexed in [`PROBLEMS.md`](PROBLEMS.md) |
+| [`GUIDE.md`](GUIDE.md) | **Start here for a new question:** exam-day steps, the solving method, where to find the closest solution, report template |
+| [`MATRIX_RULES.md`](MATRIX_RULES.md) | Matrix indexing, algebra rules, index maps, and which matrix loops are safe to parallelise |
 | [`CHEATSHEET.md`](CHEATSHEET.md) | Lab-day commands, OpenMP syntax, answers to every report question |
 
 ## Lab day
 ```
 git clone https://github.com/chayonmollick/CS527_CSM10144.git
 cd CS527_CSM10144
-make && make -C session2 && make -C session3 && make -C practice
+make && make -C session2 && make -C session3 && make -C practice && make -C problems
 ```
-For a new question: `cp practice/q00_template.c myq.c`, edit the three marked
+For a new question, follow [`GUIDE.md`](GUIDE.md), or quickly: `cp practice/q00_template.c myq.c`, edit the three marked
 parts, then `gcc -O2 -Wall -Wextra -fopenmp myq.c -o myq -lm`.
 
 ## Lab 7 tasks

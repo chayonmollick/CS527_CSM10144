@@ -4,6 +4,9 @@ Everything needed offline: lab-day commands, where each solution lives, OpenMP
 syntax, which construct fits which problem, and short answers to every report
 question from Labs 7, 8 and 9.
 
+Related: [`GUIDE.md`](GUIDE.md) (how to solve a new question), [`PROBLEMS.md`](PROBLEMS.md)
+(104 solved problems), [`MATRIX_RULES.md`](MATRIX_RULES.md) (matrix rules).
+
 ---
 
 ## 0. First five minutes in the lab
@@ -21,6 +24,7 @@ make                    # Lab 7  (task1..task5 in the root)
 make -C session2        # Lab 8
 make -C session3        # Lab 9
 make -C practice        # practice bank q01..q34
+make -C problems        # problem bank p000..p104
 ```
 
 - Compile one file: `gcc -O2 -Wall -Wextra -fopenmp file.c -o file -lm`
