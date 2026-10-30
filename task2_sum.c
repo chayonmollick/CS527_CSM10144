@@ -23,6 +23,18 @@ static long sum_naive_broken(const long *a, long n) {
     return sum;
 }
 
+/* Same race, but at -O2 gcc keeps `sum` above in a register per thread and stores
+ * it once, so the last thread's partial sum wins: wrong, yet the same every run.
+ * volatile forces the load/add/store on every iteration, so updates are lost at
+ * random and the total changes from run to run. */
+static long sum_naive_volatile(const long *a, long n) {
+    volatile long sum = 0;
+    #pragma omp parallel for
+    for (long i = 0; i < n; i++)
+        sum += a[i];
+    return sum;
+}
+
 static long sum_reduction(const long *a, long n) {
     long sum = 0;
     #pragma omp parallel for reduction(+:sum)
@@ -55,6 +67,11 @@ int main(void) {
     printf("[Step 1] Naive parallel sum (BROKEN, 8 threads), 5 runs:\n");
     for (int r = 0; r < 5; r++) {
         long s = sum_naive_broken(a, n);
+        printf("   run %d: %-12ld off by %ld\n", r + 1, s, expected - s);
+    }
+    printf("[Step 1b] Same race with a volatile sum (8 threads), 5 runs:\n");
+    for (int r = 0; r < 5; r++) {
+        long s = sum_naive_volatile(a, n);
         printf("   run %d: %-12ld off by %ld\n", r + 1, s, expected - s);
     }
 

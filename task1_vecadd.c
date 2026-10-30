@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define REPS 3                      /* each timing is the best of REPS runs */
+
 static void vec_add_serial(const double *a, const double *b, double *c, long n) {
     for (long i = 0; i < n; i++)
         c[i] = a[i] + b[i];
@@ -47,21 +49,34 @@ int main(void) {
             free(a); free(b); free(cs); free(cp);
             continue;
         }
-        /* integer-valued doubles -> addition is exact, so == is a fair check */
+        /* integer-valued doubles -> addition is exact, so == is a fair check.
+         * cs/cp are written here too: the first write to a page costs a page
+         * fault, which would otherwise be charged to whichever run comes first
+         * (-1, not 0: gcc turns a zero fill after malloc into calloc, which
+         * leaves the pages untouched). */
         for (long i = 0; i < n; i++) {
             a[i] = (double)(i % 1000);
             b[i] = (double)((i % 7) - 3);
+            cs[i] = cp[i] = -1.0;
         }
 
-        double t0 = omp_get_wtime();
-        vec_add_serial(a, b, cs, n);
-        double t_serial = omp_get_wtime() - t0;
+        double t_serial = 1e30;                 /* best of REPS runs */
+        for (int r = 0; r < REPS; r++) {
+            double t0 = omp_get_wtime();
+            vec_add_serial(a, b, cs, n);
+            double t = omp_get_wtime() - t0;
+            if (t < t_serial) t_serial = t;
+        }
 
         for (int ti = 0; ti < 4; ti++) {
             omp_set_num_threads(threads[ti]);
-            double p0 = omp_get_wtime();
-            vec_add_parallel(a, b, cp, n);
-            double t_par = omp_get_wtime() - p0;
+            double t_par = 1e30;
+            for (int r = 0; r < REPS; r++) {
+                double p0 = omp_get_wtime();
+                vec_add_parallel(a, b, cp, n);
+                double t = omp_get_wtime() - p0;
+                if (t < t_par) t_par = t;
+            }
             printf("%12ld %8d %12.6f %12.6f %9.2f %7s\n",
                    n, threads[ti], t_serial, t_par,
                    t_par > 0 ? t_serial / t_par : 0.0,

@@ -54,4 +54,5 @@ machine with `export OMP_NUM_THREADS=n` before running.
   the tables print `yes`/`verified` on success.
 - `task1` attempts `N` up to 1e8 (≈3.2 GB across four arrays) and skips a size
   gracefully if allocation fails.
-- Timing numbers in `REPORT.md` are to be filled from a run on the lab machine.
+- `REPORT.md` has timings measured on an Apple M4 (10 cores); rerun on the lab
+  machine for its own numbers.

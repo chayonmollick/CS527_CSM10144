@@ -25,15 +25,33 @@ static int max_val_reduction(const int *a, long n) {
     for (long i = 0; i < n; i++) if (a[i] > mx) mx = a[i];
     return mx;
 }
+static int min_val_reduction(const int *a, long n) {
+    int mn = INT_MAX;
+    #pragma omp parallel for reduction(min:mn)
+    for (long i = 0; i < n; i++) if (a[i] < mn) mn = a[i];
+    return mn;
+}
 
-/* (value,index) via a critical section (matches the lab's sample). */
+/* (value,index) via a critical section (the lab's sample). Threads reach equal
+ * values in no fixed order, so ties go to the smaller index to match serial. */
 static void max_idx_critical(const int *a, long n, int *val, long *idx) {
     int bv = a[0]; long bi = 0;
     #pragma omp parallel for
     for (long i = 1; i < n; i++) {
         #pragma omp critical
         {
-            if (a[i] > bv) { bv = a[i]; bi = i; }
+            if (a[i] > bv || (a[i] == bv && i < bi)) { bv = a[i]; bi = i; }
+        }
+    }
+    *val = bv; *idx = bi;
+}
+static void min_idx_critical(const int *a, long n, int *val, long *idx) {
+    int bv = a[0]; long bi = 0;
+    #pragma omp parallel for
+    for (long i = 1; i < n; i++) {
+        #pragma omp critical
+        {
+            if (a[i] < bv || (a[i] == bv && i < bi)) { bv = a[i]; bi = i; }
         }
     }
     *val = bv; *idx = bi;
@@ -51,7 +69,7 @@ static void max_idx_manual(const int *a, long n, int *val, long *idx) {
     {
         int tid = omp_get_thread_num();
         int bv = INT_MIN; long bi = -1;
-        #pragma omp for
+        #pragma omp for schedule(static)   /* thread t gets the t-th block, so ties resolve in index order */
         for (long i = 0; i < n; i++)
             if (a[i] > bv) { bv = a[i]; bi = i; }
         lv[tid] = bv; li[tid] = bi;
@@ -59,6 +77,27 @@ static void max_idx_manual(const int *a, long n, int *val, long *idx) {
     int bv = INT_MIN; long bi = 0;
     for (int t = 0; t < nt; t++)
         if (li[t] >= 0 && lv[t] > bv) { bv = lv[t]; bi = li[t]; }
+    *val = bv; *idx = bi;
+    free(lv); free(li);
+}
+static void min_idx_manual(const int *a, long n, int *val, long *idx) {
+    int nt = omp_get_max_threads();
+    int  *lv = malloc((size_t)nt * sizeof(int));
+    long *li = malloc((size_t)nt * sizeof(long));
+    for (int t = 0; t < nt; t++) { lv[t] = INT_MAX; li[t] = -1; }
+
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        int bv = INT_MAX; long bi = -1;
+        #pragma omp for schedule(static)
+        for (long i = 0; i < n; i++)
+            if (a[i] < bv) { bv = a[i]; bi = i; }
+        lv[tid] = bv; li[tid] = bi;
+    }
+    int bv = INT_MAX; long bi = 0;
+    for (int t = 0; t < nt; t++)
+        if (li[t] >= 0 && lv[t] < bv) { bv = lv[t]; bi = li[t]; }
     *val = bv; *idx = bi;
     free(lv); free(li);
 }
@@ -85,12 +124,18 @@ int main(void) {
     printf("manual (value,index)  = (%d,%ld)  (%s)\n",
            cv, ci, (cv == sv && ci == si) ? "OK" : "WRONG");
 
+    printf("reduction(min:) value = %d  (%s)\n",
+           min_val_reduction(a, n), min_val_reduction(a, n) == mv ? "OK" : "WRONG");
+    min_idx_manual(a, n, &cv, &ci);
+    printf("manual min (val,idx)  = (%d,%ld)  (%s)\n",
+           cv, ci, (cv == mv && ci == mi) ? "OK" : "WRONG");
+
     /* timing: manual at full sizes; critical only at a small N (it serialises
      * every iteration and does not scale to 1e8). */
     const long sizes[]  = {10000000L, 100000000L};
     const int  threads[] = {1, 2, 4, 8};
-    printf("\n[manual per-thread reduction] timing for (max,index):\n");
-    printf("%12s %8s %12s\n", "N", "threads", "time(s)");
+    printf("\n[manual per-thread reduction] timing for (max,index) and (min,index):\n");
+    printf("%12s %8s %12s %12s\n", "N", "threads", "max(s)", "min(s)");
     for (int si2 = 0; si2 < 2; si2++) {
         for (int ti = 0; ti < 4; ti++) {
             omp_set_num_threads(threads[ti]);
@@ -98,7 +143,10 @@ int main(void) {
             double p0 = omp_get_wtime();
             max_idx_manual(a, sizes[si2], &v, &ix);
             double tp = omp_get_wtime() - p0;
-            printf("%12ld %8d %12.6f\n", sizes[si2], threads[ti], tp);
+            double q0 = omp_get_wtime();
+            min_idx_manual(a, sizes[si2], &v, &ix);
+            double tq = omp_get_wtime() - q0;
+            printf("%12ld %8d %12.6f %12.6f\n", sizes[si2], threads[ti], tp, tq);
         }
     }
 
@@ -113,8 +161,11 @@ int main(void) {
         int v2; long i2; double m0 = omp_get_wtime();
         max_idx_manual(a, smallN, &v2, &i2);
         double tm = omp_get_wtime() - m0;
+        int v3, v4; long i3, i4;
+        min_idx_critical(a, smallN, &v3, &i3);
+        min_idx_manual(a, smallN, &v4, &i4);
         printf("%8d %12.6f %12.6f  %s\n", threads[ti], tc, tm,
-               (v1 == v2 && i1 == i2) ? "" : "MISMATCH");
+               (v1 == v2 && i1 == i2 && v3 == v4 && i3 == i4) ? "max+min agree" : "MISMATCH");
     }
 
     free(a);

@@ -42,7 +42,10 @@ int main(void) {
     for (int si = 0; si < 2; si++) {
         int n = sizes[si];
         long n2 = (long)n * n;
+        /* Each rep opens a new parallel region. At N = 8 a call is only 64 adds,
+         * so the time is fork/join overhead; cap reps so that case stays short. */
         long reps = 200000000L / n2; if (reps < 1) reps = 1;
+        if (reps > 20000) reps = 20000;
 
         double *A  = malloc((size_t)n2 * sizeof(double));
         double *B  = malloc((size_t)n2 * sizeof(double));
