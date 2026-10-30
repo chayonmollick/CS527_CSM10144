@@ -1,0 +1,41 @@
+Q29: Tasks for lists, trees, taskloop, taskgroup
+
+(a) linked list, 20000 nodes: one task per node (single producer)
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.097945     0.149523      0.66        0.66      OK
+       2     0.097945     0.057434      1.71        0.85      OK
+       4     0.097945     0.036648      2.67        0.67      OK
+       8     0.097945     0.028815      3.40        0.42      OK
+(a2) same list: pointers copied to an array + parallel for
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.097945     0.106617      0.92        0.92      OK
+       2     0.097945     0.054214      1.81        0.90      OK
+       4     0.097945     0.038843      2.52        0.63      OK
+       8     0.097945     0.027199      3.60        0.45      OK
+
+(b) binary tree sum, 4194304 nodes, tasks for depth < 10: sum = 2094709919
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.004428     0.004540      0.98        0.98      OK
+       2     0.004428     0.002748      1.61        0.81      OK
+       4     0.004428     0.002837      1.56        0.39      OK
+       8     0.004428     0.002153      2.06        0.26      OK
+
+(c) taskloop grainsize(100000) (~100 tasks), y[i] = sqrt(x)*sin(x), N = 10000000
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.070459     0.070480      1.00        1.00      OK
+       2     0.070459     0.033108      2.13        1.06      OK
+       4     0.070459     0.018504      3.81        0.95      OK
+       8     0.070459     0.010849      6.49        0.81      OK
+grainsize effect at 8 threads (gcc runs the taskloop serially if it
+would create more than 64*threads = 512 tasks):
+ grainsize    tasks      time(s)   speedup   check
+      1000    10000     0.064877      1.09      OK
+     10000     1000     0.065656      1.07      OK
+     20000      500     0.011238      6.27      OK
+    100000      100     0.012250      5.75      OK
+   1250000        8     0.012751      5.53      OK
+
+(d) 4096 leaf tasks spawned recursively (no taskwait inside):
+    count after taskwait  = 0 (children only; usually < 4096)
+    count after taskgroup = 4096  OK
+    taskwait run's count after the parallel region = 4096  OK

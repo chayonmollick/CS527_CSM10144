@@ -1,0 +1,15 @@
+Q15: string operations on N = 100000000 chars (8 threads for checks)
+  vowels   serial 16025911 parallel 16025911 -> OK
+  words    serial 16669248 parallel 16669248 -> OK
+  "the"    serial 2971 parallel 2971 -> OK
+  freq[a..z]  -> OK   (a=3205716, e=3203668, z=3209002)
+  uppercase   -> OK   (first 30: KZWLFP BOBHRL FHBEY SBPOSWPD A)
+  palindrome  -> mirrored text: yes (OK), random text: no (OK)
+
+op              serial      t=1       S      t=2       S      t=4       S      t=8       S
+vowels        0.023866  0.023017   1.04  0.012166   1.96  0.006590   3.62  0.004172   5.72
+freq[26]      0.122571  0.122639   1.00  0.062290   1.97  0.032035   3.83  0.020369   6.02
+words         0.102196  0.108686   0.94  0.055173   1.85  0.028187   3.63  0.017426   5.86
+pattern       0.265019  0.263588   1.01  0.133363   1.99  0.068378   3.88  0.041208   6.43
+upper         0.037741  0.037484   1.01  0.018977   1.99  0.009880   3.82  0.007583   4.98
+palindrome    0.012717  0.013690   0.93  0.006894   1.84  0.003496   3.64  0.002743   4.64

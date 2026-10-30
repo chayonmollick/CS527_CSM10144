@@ -1,0 +1,28 @@
+Q08: count / first / last / all positions of a target (N = 10000000)
+correctness (8 threads):
+  target    42 (many ): count=100000    first=77        last=9999977   -> count OK, first OK, last OK, positions OK
+  target  1000 (once ): count=1         first=3333333   last=3333333   -> count OK, first OK, last OK, positions OK
+  target    -5 (never): count=0         first=-1        last=-1        -> count OK, first OK, last OK, positions OK
+
+timing: count/positions use target 42, first/last use absent target -5
+serial(s): count 0.002730  first 0.002923  last 0.002752  positions 0.005751
+ threads   count(s)     sp   first(s)     sp    last(s)     sp  allpos(s)     sp  check
+       1   0.002601   1.05   0.004964   0.59   0.004957   0.56   0.008333   0.69     OK
+       2   0.001318   2.07   0.002540   1.15   0.002474   1.11   0.004336   1.33     OK
+       4   0.000929   2.94   0.001305   2.24   0.001704   1.62   0.002548   2.26     OK
+       8   0.000738   3.70   0.001320   2.21   0.000897   3.07   0.001593   3.61     OK
+
+Q08: count / first / last / all positions of a target (N = 100000000)
+correctness (8 threads):
+  target    42 (many ): count=1000000   first=77        last=99999977  -> count OK, first OK, last OK, positions OK
+  target  1000 (once ): count=1         first=33333333  last=33333333  -> count OK, first OK, last OK, positions OK
+  target    -5 (never): count=0         first=-1        last=-1        -> count OK, first OK, last OK, positions OK
+
+timing: count/positions use target 42, first/last use absent target -5
+serial(s): count 0.028583  first 0.030480  last 0.034678  positions 0.057124
+ threads   count(s)     sp   first(s)     sp    last(s)     sp  allpos(s)     sp  check
+       1   0.025526   1.12   0.050473   0.60   0.038373   0.90   0.083488   0.68     OK
+       2   0.012837   2.23   0.025593   1.19   0.025558   1.36   0.058782   0.97     OK
+       4   0.009676   2.95   0.014193   2.15   0.013739   2.52   0.023590   2.42     OK
+       8   0.005851   4.89   0.009247   3.30   0.011744   2.95   0.078031   0.73     OK
+

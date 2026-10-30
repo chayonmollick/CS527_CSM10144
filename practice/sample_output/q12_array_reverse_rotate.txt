@@ -1,0 +1,18 @@
+Q12: reverse / rotate-left by k=333340 / swap adjacent pairs (N = 1000001)
+serial(s): reverse 0.000458  rotate(new) 0.000637  rotate(in-place) 0.000944  pairswap 0.000351
+serial rotate(new) vs serial rotate(in-place): OK
+ threads reverse(s)     sp  rotNew(s)     sp  rotInPl(s)     sp   pairs(s)     sp  check
+       1   0.000451   1.02   0.005985   0.11    0.001280   0.74   0.000096   3.66     OK
+       2   0.001079   0.42   0.001065   0.60    0.000676   1.40   0.000119   2.95     OK
+       4   0.000429   1.07   0.001317   0.48    0.000495   1.91   0.000130   2.70     OK
+       8   0.000309   1.48   0.000853   0.75    0.000721   1.31   0.000088   3.99     OK
+
+Q12: reverse / rotate-left by k=6666673 / swap adjacent pairs (N = 20000000)
+serial(s): reverse 0.004973  rotate(new) 0.005398  rotate(in-place) 0.008147  pairswap 0.006686
+serial rotate(new) vs serial rotate(in-place): OK
+ threads reverse(s)     sp  rotNew(s)     sp  rotInPl(s)     sp   pairs(s)     sp  check
+       1   0.003044   1.63   0.010674   0.51    0.006111   1.33   0.002397   2.79     OK
+       2   0.002014   2.47   0.007630   0.71    0.007690   1.06   0.001950   3.43     OK
+       4   0.002740   1.81   0.005334   1.01    0.003459   2.36   0.001495   4.47     OK
+       8   0.001454   3.42   0.002668   2.02    0.002921   2.79   0.001499   4.46     OK
+

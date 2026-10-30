@@ -1,0 +1,18 @@
+Q25: histogram of N = 10000000 values into 1024 bins
+serial: 0.0047 s, total = 10000000, bin counts between 9765 and 9768
+
+Correctness, 4 threads:
+    critical       OK
+    atomic         OK
+    lock per bin   OK
+    private+merge  OK
+    reduction      OK
+
+Timing: time in s (speedup = T_serial / T_parallel), T_serial = 0.0047 s
+method              1 thread            2 threads           4 threads           8 threads     
+critical          0.0452 (  0.10x)    0.0941 (  0.05x)    0.1758 (  0.03x)    0.2955 (  0.02x)
+atomic            0.0066 (  0.70x)    0.0363 (  0.13x)    0.0911 (  0.05x)    0.0993 (  0.05x)
+lock per bin      0.0393 (  0.12x)    0.0933 (  0.05x)    0.1250 (  0.04x)    0.1535 (  0.03x)
+private+merge     0.0089 (  0.53x)    0.0032 (  1.46x)    0.0037 (  1.26x)    0.0020 (  2.30x)
+reduction         0.0043 (  1.09x)    0.0026 (  1.78x)    0.0012 (  3.98x)    0.0008 (  5.58x)
+all timed runs equal serial: OK

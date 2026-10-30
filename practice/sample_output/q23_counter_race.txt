@@ -1,0 +1,28 @@
+Q23: shared counter incremented N = 10000000 times
+serial counter = 10000000  OK   (0.0037 s)
+
+[1] NO synchronisation (BROKEN), 4 threads, 5 runs:
+    run 1: counter = 3017594    lost 6982406 updates (69.8%) -> WRONG
+    run 2: counter = 2511971    lost 7488029 updates (74.9%) -> WRONG
+    run 3: counter = 2504837    lost 7495163 updates (75.0%) -> WRONG
+    run 4: counter = 2505602    lost 7494398 updates (74.9%) -> WRONG
+    run 5: counter = 2523101    lost 7476899 updates (74.8%) -> WRONG
+    same code with 1 thread: counter = 10000000 -> OK (nobody to race with)
+
+[2] Correct versions, 4 threads:
+    critical   counter = 10000000  OK
+    atomic     counter = 10000000  OK
+    omp_lock_t counter = 10000000  OK
+    reduction  counter = 10000000  OK
+
+[3] Timing (s) and speedup = T_serial / T_parallel, T_serial = 0.0037 s
+ threads            critical              atomic          omp_lock_t           reduction
+       1    0.0477 (   0.08x)    0.0193 (   0.19x)    0.0418 (   0.09x)    0.0026 (   1.40x)
+       2    0.2893 (   0.01x)    0.0324 (   0.11x)    0.6330 (   0.01x)    0.0013 (   2.84x)
+       4    0.4365 (   0.01x)    0.0600 (   0.06x)    0.4116 (   0.01x)    0.0008 (   4.64x)
+       8    0.1781 (   0.02x)    0.1646 (   0.02x)    0.1590 (   0.02x)    0.0006 (   6.13x)
+all timed runs gave counter == N: OK
+cost per increment with 8 threads:  critical 17.81 ns  atomic 16.46 ns  omp_lock_t 15.90 ns  reduction 0.06 ns
+(serial: 0.37 ns per increment)
+note: reduction beats serial even on 1 thread: its private copy is a plain
+register, while the volatile serial counter is loaded and stored every time.

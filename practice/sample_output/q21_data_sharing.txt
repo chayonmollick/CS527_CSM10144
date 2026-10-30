@@ -1,0 +1,63 @@
+Q21: data-sharing clauses with 4 threads
+
+[1] shared(x)
+    before: x = 0
+    inside thread 0: &x is the original's address? yes
+    inside thread 1: &x is the original's address? yes
+    inside thread 2: &x is the original's address? yes
+    inside thread 3: &x is the original's address? yes
+    after : x = 4  (each of the 4 threads added 1 to the SAME x) OK
+
+[2] private(p)
+    before: p = 100
+    inside thread 0: p = 0   (assigned here; value on entry undefined), &p is the original's address? no
+    inside thread 1: p = 10  (assigned here; value on entry undefined), &p is the original's address? no
+    inside thread 2: p = 20  (assigned here; value on entry undefined), &p is the original's address? no
+    inside thread 3: p = 30  (assigned here; value on entry undefined), &p is the original's address? no
+    after : p = 100  (original untouched, private copies discarded) OK
+
+[3] firstprivate(f)
+    before: f = 100
+    inside thread 0: f on entry = 100, after f += 0 -> 100
+    inside thread 1: f on entry = 100, after f += 1 -> 101
+    inside thread 2: f on entry = 100, after f += 2 -> 102
+    inside thread 3: f on entry = 100, after f += 3 -> 103
+    after : f = 100  (copy-in only; changes are NOT copied back) OK
+
+[4] lastprivate(last) on: for i = 0..9 { last = i*i; }  schedule(static,2)
+    before: last = -1
+    inside: iterations ran on threads: 0 0 1 1 2 2 3 3 0 0
+    after : last = 81  (= 9*9 from iteration i=9, run by thread 0,
+            NOT the last thread to finish) OK
+
+[5] default(none) shared(a, n) reduction(+:sum)
+    sum of 1..100 = 5050 OK
+    (every variable used inside must be listed; good habit to catch
+     accidental sharing. In gcc >= 9 even const variables must be listed.)
+
+[6] loop index: `int i` declared OUTSIDE, then  parallel for lastprivate(i)
+    before: i = -7
+    inside: owner of i = 0..11: 0 0 0 1 1 1 2 2 2 3 3 3
+            (default static schedule: contiguous blocks for 4 threads)
+    after : i = 12  (lastprivate(i) gives the value after a sequential loop;
+            WITHOUT lastprivate the value of i after the loop is unspecified) OK
+    NOTE: in C only the index of the loop directly under `omp for` is private.
+    An inner `for (j = ...)` with j declared before the region is SHARED -> race.
+    Write `for (int j = ...)` or add private(j).
+
+[7] threadprivate(tp) global, initialised to 0; master sets tp = 42
+    thread 0: region A (no copyin) tp = 42  | region B copyin(tp) tp = 42, sets 100 | region C tp = 100
+    thread 1: region A (no copyin) tp = 0   | region B copyin(tp) tp = 42, sets 101 | region C tp = 101
+    thread 2: region A (no copyin) tp = 0   | region B copyin(tp) tp = 42, sets 102 | region C tp = 102
+    thread 3: region A (no copyin) tp = 0   | region B copyin(tp) tp = 42, sets 103 | region C tp = 103
+    after : master's tp = 100 (the master's copy IS thread 0's copy) OK
+
+[8] reduction(+:s) reduction(*:p) reduction(max:mx) reduction(min:mn)
+    before: s = 1000, p = 2, mx = -5, mn = 50
+    thread 0 private copies on entry: s = 0, p = 1, mx = -2147483648, mn = 2147483647
+    thread 1 private copies on entry: s = 0, p = 1, mx = -2147483648, mn = 2147483647
+    thread 2 private copies on entry: s = 0, p = 1, mx = -2147483648, mn = 2147483647
+    thread 3 private copies on entry: s = 0, p = 1, mx = -2147483648, mn = 2147483647
+    after : s = 1010 (1000 + 1+2+..+4), p = 48 (2 * 4!), mx = 30, mn = 5 OK
+    identities: + - | ^ || -> 0,  * && -> 1,  & -> ~0 (all bits 1),
+                max -> smallest value of the type (INT_MIN), min -> largest (INT_MAX)

@@ -103,8 +103,8 @@ int main(int argc, char *argv[]) {
     int *tmp = malloc((size_t)nmax * sizeof(int));   /* allocated once, shared by all tasks */
     if (!in || !ref || !a || !tmp) { fprintf(stderr, "alloc failed\n"); return 1; }
 
-    #pragma omp parallel
-    { }                             /* warm up the thread pool so it isn't timed */
+    #pragma omp parallel            /* warm up the thread pool so it isn't timed; the body */
+    { volatile int id = omp_get_thread_num(); (void)id; }   /* can't be empty: gcc drops empty regions */
 
     printf("Task 1: Merge sort with OpenMP tasks (cutoff = %ld, best of %d runs)\n", cutoff, REPS);
     printf("Threads set with omp_set_num_threads(); this machine has %d logical cores.\n\n",

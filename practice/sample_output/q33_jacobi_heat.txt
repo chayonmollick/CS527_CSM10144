@@ -1,0 +1,30 @@
+Q33: Jacobi heat diffusion (top edge 100, others 0, interior starts at 25),
+     tol 0.01, max 5000 iters
+
+N = 128: serial 1518 iterations (converged), last diff 9.991e-03, centre T = 24.9001, 0.0150 s
+[A: parallel for per sweep]
+ threads    serial(s)  parallel(s)   speedup  efficiency   iters   check
+       1     0.015035     0.013353      1.13        1.13    1518      OK
+       2     0.015035     0.018778      0.80        0.40    1518      OK
+       4     0.015035     0.039278      0.38        0.10    1518      OK
+       8     0.015035     0.043983      0.34        0.04    1518      OK
+[B: one parallel region]
+ threads    serial(s)  parallel(s)   speedup  efficiency   iters   check
+       1     0.015035     0.012233      1.23        1.23    1518      OK
+       2     0.015035     0.020660      0.73        0.36    1518      OK
+       4     0.015035     0.036205      0.42        0.10    1518      OK
+       8     0.015035     0.127774      0.12        0.01    1518      OK
+
+N = 600: serial 1815 iterations (converged), last diff 9.999e-03, centre T = 25.0000, 0.3600 s
+[A: parallel for per sweep]
+ threads    serial(s)  parallel(s)   speedup  efficiency   iters   check
+       1     0.359980     0.328181      1.10        1.10    1815      OK
+       2     0.359980     0.182064      1.98        0.99    1815      OK
+       4     0.359980     0.169483      2.12        0.53    1815      OK
+       8     0.359980     0.186383      1.93        0.24    1815      OK
+[B: one parallel region]
+ threads    serial(s)  parallel(s)   speedup  efficiency   iters   check
+       1     0.359980     0.366839      0.98        0.98    1815      OK
+       2     0.359980     0.242352      1.49        0.74    1815      OK
+       4     0.359980     0.213937      1.68        0.42    1815      OK
+       8     0.359980     0.190443      1.89        0.24    1815      OK

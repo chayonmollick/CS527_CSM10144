@@ -1,9 +1,28 @@
 # CS527 Computer Systems — OpenMP Lab
 
-Serial and OpenMP-parallel implementations of five array/matrix kernels, with
-correctness checks and timing.
+Serial and OpenMP-parallel implementations of the OpenMP lab tasks (Labs 7, 8
+and 9), each with correctness checks and timing, plus a practice bank of likely
+lab-test variants.
 
-## Tasks
+| Folder | Contents |
+|--------|----------|
+| `./` (root) | Lab 7: vector add, sum, max/min with index, matrix add, matrix multiply |
+| [`session2/`](session2/) | Lab 8: array search, parallel sort, histogram, transpose, 2D convolution |
+| [`session3/`](session3/) | Lab 9: merge sort with tasks, static/dynamic/guided scheduling, even/odd count |
+| [`practice/`](practice/) | Practice bank: one program per likely test question, plus a template |
+| [`CHEATSHEET.md`](CHEATSHEET.md) | Lab-day commands, OpenMP syntax, answers to every report question |
+
+## Lab day
+```
+git clone https://github.com/chayonmollick/CS527_CSM10144.git
+cd CS527_CSM10144
+make && make -C session2 && make -C session3 && make -C practice
+```
+For a new question: `cp practice/q00_template.c myq.c`, edit the three marked
+parts, then `gcc -O2 -Wall -Wextra -fopenmp myq.c -o myq -lm`.
+
+## Lab 7 tasks
+
 | File | Kernel | OpenMP constructs exercised |
 |------|--------|-----------------------------|
 | `task1_vecadd.c` | Vector addition `c = a + b` | `parallel for` |
@@ -36,8 +55,3 @@ machine with `export OMP_NUM_THREADS=n` before running.
 - `task1` attempts `N` up to 1e8 (≈3.2 GB across four arrays) and skips a size
   gracefully if allocation fails.
 - Timing numbers in `REPORT.md` are to be filled from a run on the lab machine.
-
-## Session 2 (Lab 8)
-
-Array search, parallel sort, histogram, matrix transpose and 2D convolution:
-see [`session2/`](session2/).

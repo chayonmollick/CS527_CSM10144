@@ -1,0 +1,18 @@
+Q14: in-place transpose schedules + out-of-place naive vs blocked (N = 1000)
+serial(s): in-place 0.000426 (OK)  out-of-place naive 0.001116 (OK)
+ threads  static(s)     sp   dyn16(s)     sp  guided(s)     sp   naive(s)     sp   tiled(s)     sp  check
+       1   0.000482   0.88   0.000264   1.61   0.000240   1.77   0.000620   1.80   0.000608   1.84     OK
+       2   0.000309   1.38   0.000152   2.80   0.000241   1.77   0.000324   3.44   0.000240   4.65     OK
+       4   0.000290   1.47   0.000160   2.66   0.000124   3.44   0.000243   4.59   0.000216   5.17     OK
+       8   0.000229   1.86   0.000130   3.28   0.000140   3.04   0.000244   4.57   0.000213   5.24     OK
+(in-place speedups vs serial in-place; out-of-place speedups vs serial naive)
+
+Q14: in-place transpose schedules + out-of-place naive vs blocked (N = 4096)
+serial(s): in-place 0.064702 (OK)  out-of-place naive 0.111518 (OK)
+ threads  static(s)     sp   dyn16(s)     sp  guided(s)     sp   naive(s)     sp   tiled(s)     sp  check
+       1   0.055623   1.16   0.058448   1.11   0.058320   1.11   0.087141   1.28   0.075564   1.48     OK
+       2   0.043700   1.48   0.028921   2.24   0.045370   1.43   0.068565   1.63   0.036622   3.05     OK
+       4   0.027129   2.38   0.016985   3.81   0.036265   1.78   0.040090   2.78   0.025923   4.30     OK
+       8   0.017003   3.81   0.011408   5.67   0.018616   3.48   0.039498   2.82   0.022271   5.01     OK
+(in-place speedups vs serial in-place; out-of-place speedups vs serial naive)
+

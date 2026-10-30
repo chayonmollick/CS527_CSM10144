@@ -1,0 +1,25 @@
+Q31: Custom reduction (maxloc/minloc) and second largest, N = 30000000
+serial: max = 99999.9 @ 29679 (occurs 34 times), min = 0.0 @ 1256810
+        second largest distinct = 99999.8
+
+[declare reduction maxloc + minloc, one pass]
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.011524     0.011677      0.99        0.99      OK
+       2     0.011524     0.005804      1.99        0.99      OK
+       4     0.011524     0.004735      2.43        0.61      OK
+       8     0.011524     0.003696      3.12        0.39      OK
+parallel: max = 99999.9 @ 29679, min = 0.0 @ 1256810
+
+[per-thread local + critical merge]
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.011524     0.012000      0.96        0.96      OK
+       2     0.011524     0.006060      1.90        0.95      OK
+       4     0.011524     0.003366      3.42        0.86      OK
+       8     0.011524     0.003002      3.84        0.48      OK
+
+[second largest distinct: per-thread top-2 + critical merge]
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.022816     0.022943      0.99        0.99      OK
+       2     0.022816     0.011423      2.00        1.00      OK
+       4     0.022816     0.005860      3.89        0.97      OK
+       8     0.022816     0.004477      5.10        0.64      OK

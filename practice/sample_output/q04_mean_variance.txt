@@ -1,0 +1,28 @@
+Q04: Mean, variance, std dev, min, max  (speedup = T_serial / T_parallel)
+
+N = 1000000   serial time = 0.003050 s
+serial  : mean=49.990970 var=834.657752 sd=28.890444 min=-7.2500 max=250.5000
+ threads  parallel(s)  speedup  check
+       1     0.003631     0.84     OK
+       2     0.001960     1.56     OK
+       4     0.001632     1.87     OK
+       8     0.001119     2.73     OK
+parallel: mean=49.990970 var=834.657752 sd=28.890444 min=-7.2500 max=250.5000  (8 threads)
+
+N = 10000000   serial time = 0.022823 s
+serial  : mean=49.980542 var=833.674344 sd=28.873419 min=-7.2500 max=250.5000
+ threads  parallel(s)  speedup  check
+       1     0.019322     1.18     OK
+       2     0.009586     2.38     OK
+       4     0.005744     3.97     OK
+       8     0.003500     6.52     OK
+parallel: mean=49.980542 var=833.674344 sd=28.873419 min=-7.2500 max=250.5000  (8 threads)
+
+N = 30000000   serial time = 0.058580 s
+serial  : mean=49.986098 var=833.297185 sd=28.866887 min=-7.2500 max=250.5000
+ threads  parallel(s)  speedup  check
+       1     0.058871     1.00     OK
+       2     0.032878     1.78     OK
+       4     0.020032     2.92     OK
+       8     0.012949     4.52     OK
+parallel: mean=49.986098 var=833.297185 sd=28.866887 min=-7.2500 max=250.5000  (8 threads)

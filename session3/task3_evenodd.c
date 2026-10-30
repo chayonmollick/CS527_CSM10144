@@ -95,8 +95,8 @@ int main(int argc, char *argv[]) {
         a[i] = (int)(x >> 32);
     }
 
-    #pragma omp parallel
-    { }                             /* warm up the thread pool */
+    #pragma omp parallel            /* warm up the thread pool so it isn't timed; the body */
+    { volatile int id = omp_get_thread_num(); (void)id; }   /* can't be empty: gcc drops empty regions */
 
     printf("Task 3: Even/odd count (best of %d runs, %d logical cores)\n", REPS, omp_get_num_procs());
     printf("Each cell: time(s) / speedup vs serial. ok = all versions match serial and even+odd == N.\n\n");

@@ -1,0 +1,35 @@
+== 1. Sequential part (before any parallel region) ==
+OMP_NUM_THREADS env var : (not set)
+omp_get_num_procs()     = 10  (processors available to the program)
+omp_get_max_threads()   = 10  (team size the NEXT region would get:
+                               OMP_NUM_THREADS if set, else usually #procs)
+omp_get_num_threads()   = 1  (outside a region the team is just this thread)
+omp_get_thread_num()    = 0
+omp_in_parallel()       = 0
+
+== 2. omp_set_num_threads(4), then #pragma omp parallel ==
+omp_get_max_threads() now = 4
+Hello lines below come out in a NONDETERMINISTIC order (threads race to printf):
+  Hello from thread 1 of 4  (omp_in_parallel() = 1)
+  Hello from thread 0 of 4  (omp_in_parallel() = 1)
+  Hello from thread 3 of 4  (omp_in_parallel() = 1)
+  Hello from thread 2 of 4  (omp_in_parallel() = 1)
+every id 0..3 said hello exactly once, team size 4: OK
+
+== 3. num_threads(n) clause: overrides omp_set_num_threads() for ONE region ==
+region with num_threads(2)  : team size = 2
+next region without clause  : team size = 4  (back to omp_set_num_threads(4))
+Precedence (highest first): if(false) -> 1 thread > num_threads(n) clause
+  > omp_set_num_threads(n) call > OMP_NUM_THREADS env var > default (#procs)
+
+== 4. if(cond) clause: parallelise only when it is worth it ==
+if(n > 10000) with n = 100    : team size = 1, omp_in_parallel() = 0 -> region ran SERIALLY
+if(n > 10000) with n = 1000000: team size = 4, omp_in_parallel() = 1 -> region ran in parallel
+if(0) num_threads(8)        : team size = 1  (if beats num_threads)
+
+== 5. Timing with omp_get_wtime() ==
+omp_get_wtick() = 1.000e-06 s  (timer resolution)
+1000 near-empty parallel regions took 0.014704 s -> about 14.70 us of fork/join
+overhead each (4000 thread-entries counted)
+(always time the DIFFERENCE of two omp_get_wtime() calls; do not use clock(),
+ which adds up CPU time of all threads and makes parallel code look slower)

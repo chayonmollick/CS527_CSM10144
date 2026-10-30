@@ -1,0 +1,40 @@
+Q13: matrix multiply variants (N = 512)
+serial ijk: 0.1130 s  (2.38 GFLOP/s)
+method          threads    time(s)  speedup   GFLOP/s  check
+par ijk               1     0.1108     1.02      2.42     OK
+par ijk               2     0.0568     1.99      4.72     OK
+par ijk               4     0.0371     3.05      7.24     OK
+par ijk               8     0.0287     3.94      9.36     OK
+par ikj               1     0.0355     3.18      7.56     OK
+par ikj               2     0.0182     6.21     14.74     OK
+par ikj               4     0.0131     8.61     20.46     OK
+par ikj               8     0.0089    12.75     30.29     OK
+par B^T               1     0.0417     2.71      6.43     OK
+par B^T               2     0.0216     5.22     12.40     OK
+par B^T               4     0.0110    10.32     24.51     OK
+par B^T               8     0.0089    12.75     30.30     OK
+par blocked64         1     0.0376     3.01      7.14     OK
+par blocked64         2     0.0199     5.68     13.49     OK
+par blocked64         4     0.0129     8.76     20.82     OK
+par blocked64         8     0.0089    12.64     30.04     OK
+
+Q13: matrix multiply variants (N = 1024)
+serial ijk: 0.9687 s  (2.22 GFLOP/s)
+method          threads    time(s)  speedup   GFLOP/s  check
+par ijk               1     0.9547     1.01      2.25     OK
+par ijk               2     0.5365     1.81      4.00     OK
+par ijk               4     0.3529     2.75      6.09     OK
+par ijk               8     0.3370     2.87      6.37     OK
+par ikj               1     0.2859     3.39      7.51     OK
+par ikj               2     0.1447     6.69     14.84     OK
+par ikj               4     0.1489     6.51     14.42     OK
+par ikj               8     0.2594     3.73      8.28     OK
+par B^T               1     0.3941     2.46      5.45     OK
+par B^T               2     0.3091     3.13      6.95     OK
+par B^T               4     0.1127     8.59     19.05     OK
+par B^T               8     0.0793    12.22     27.09     OK
+par blocked64         1     0.3123     3.10      6.88     OK
+par blocked64         2     0.1756     5.52     12.23     OK
+par blocked64         4     0.1226     7.90     17.52     OK
+par blocked64         8     0.0815    11.89     26.35     OK
+

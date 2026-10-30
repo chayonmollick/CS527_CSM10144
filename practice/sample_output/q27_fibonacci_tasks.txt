@@ -1,0 +1,25 @@
+Q27: Fibonacci with OpenMP tasks (cutoff = 20)
+
+[tasks WITH cutoff]: fib(35) = 9227465, serial 0.018727 s
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.018727     0.015317      1.22        1.22      OK
+       2     0.018727     0.007900      2.37        1.19      OK
+       4     0.018727     0.005601      3.34        0.84      OK
+       8     0.018727     0.003996      4.69        0.59      OK
+
+[tasks WITH cutoff]: fib(40) = 102334155, serial 0.097072 s
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.097072     0.096418      1.01        1.01      OK
+       2     0.097072     0.061031      1.59        0.80      OK
+       4     0.097072     0.048363      2.01        0.50      OK
+       8     0.097072     0.035612      2.73        0.34      OK
+
+[tasks WITHOUT cutoff] (small n only: one task per call): fib(25) = 75025, serial 0.000077 s
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.000077     0.012163      0.01        0.01      OK
+       2     0.000077     0.024426      0.00        0.00      OK
+       4     0.000077     0.043161      0.00        0.00      OK
+       8     0.000077     0.056357      0.00        0.00      OK
+
+With no cutoff fib(25) creates about 242786 tasks, each doing ~1 addition,
+so it is slower than the serial code even on 8 threads.

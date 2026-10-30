@@ -1,0 +1,22 @@
+Q06: Inclusive prefix sum  (speedup = T_serial / T_parallel)
+
+N = 1000000   serial time = 0.000523 s   out[N-1] = 500000
+ threads   blocked(s)  speedup  omp scan(s)  speedup  check
+       1     0.000620     0.84     0.001185     0.44     OK
+       2     0.000513     1.02     0.000941     0.56     OK
+       4     0.000770     0.68     0.001925     0.27     OK
+       8     0.000569     0.92     0.000991     0.53     OK
+
+N = 10000000   serial time = 0.003924 s   out[N-1] = 5000000
+ threads   blocked(s)  speedup  omp scan(s)  speedup  check
+       1     0.006116     0.64     0.014982     0.26     OK
+       2     0.003855     1.02     0.008929     0.44     OK
+       4     0.003908     1.00     0.005845     0.67     OK
+       8     0.004120     0.95     0.006369     0.62     OK
+
+N = 20000000   serial time = 0.031365 s   out[N-1] = 10000000
+ threads   blocked(s)  speedup  omp scan(s)  speedup  check
+       1     0.011657     2.69     0.040052     0.78     OK
+       2     0.007284     4.31     0.014191     2.21     OK
+       4     0.006908     4.54     0.015622     2.01     OK
+       8     0.007741     4.05     0.016133     1.94     OK

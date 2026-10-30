@@ -92,8 +92,8 @@ int main(int argc, char *argv[]) {
     if (!a || !b || !ref || !w) { fprintf(stderr, "alloc failed\n"); return 1; }
     for (long i = 0; i < nmax; i++) a[i] = i * 0.001;
 
-    #pragma omp parallel
-    { }                             /* warm up the thread pool */
+    #pragma omp parallel            /* warm up the thread pool so it isn't timed; the body */
+    { volatile int id = omp_get_thread_num(); (void)id; }   /* can't be empty: gcc drops empty regions */
 
     printf("Task 2: static vs dynamic,%d vs guided (best of %d runs, %d logical cores)\n",
            chunk, REPS, omp_get_num_procs());

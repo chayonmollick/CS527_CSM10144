@@ -1,0 +1,30 @@
+Q10: matrix statistics (N = 1024)
+serial: trace = 4.0000  frobenius = 3731.8141  max = 6.2500 at (0,95)
+serial(s): rows 0.000937  cols 0.001190  trace 0.000010  frob 0.001908  max 0.000840
+row sums           : OK
+col sums (by cols) : OK
+col sums (reduce)  : OK
+trace              : OK
+frobenius          : OK
+max + (i,j)        : OK  (6.2500 at (0,95))
+ threads    rows(s)     sp   colsJ(s)     sp colsRed(s)     sp    frob(s)     sp     max(s)     sp  check
+       1   0.001436   0.65   0.002059   0.58   0.000697   1.71   0.002156   0.88   0.000556   1.51     OK
+       2   0.000637   1.47   0.001045   1.14   0.000286   4.16   0.000983   1.94   0.000364   2.31     OK
+       4   0.000392   2.39   0.000631   1.89   0.000166   7.17   0.000478   3.99   0.000186   4.52     OK
+       8   0.000283   3.31   0.000514   2.32   0.000127   9.37   0.000253   7.54   0.000170   4.94     OK
+
+Q10: matrix statistics (N = 4096)
+serial: trace = 2.0000  frobenius = 14927.2380  max = 6.2500 at (0,95)
+serial(s): rows 0.011200  cols 0.004472  trace 0.000016  frob 0.015254  max 0.004494
+row sums           : OK
+col sums (by cols) : OK
+col sums (reduce)  : OK
+trace              : OK
+frobenius          : OK
+max + (i,j)        : OK  (6.2500 at (0,95))
+ threads    rows(s)     sp   colsJ(s)     sp colsRed(s)     sp    frob(s)     sp     max(s)     sp  check
+       1   0.011248   1.00   0.054124   0.08   0.004325   1.03   0.015177   1.01   0.004391   1.02     OK
+       2   0.005229   2.14   0.047491   0.09   0.002266   1.97   0.007696   1.98   0.002231   2.01     OK
+       4   0.002662   4.21   0.030074   0.15   0.002327   1.92   0.004591   3.32   0.002337   1.92     OK
+       8   0.002323   4.82   0.024087   0.19   0.001813   2.47   0.003861   3.95   0.001767   2.54     OK
+

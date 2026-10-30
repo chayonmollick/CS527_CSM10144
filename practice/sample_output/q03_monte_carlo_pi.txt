@@ -1,0 +1,15 @@
+Q03: Monte Carlo pi  (speedup = T_serial / T_parallel)
+
+N = 10000000  serial estimate = 3.141742  |err| = 1.49e-04  time = 0.0467 s  (tolerance 0.0100)
+ threads  parallel(s)  speedup     estimate      |err|  check
+       1       0.0442     1.05     3.141742   1.49e-04     OK
+       2       0.0223     2.10     3.141273   3.20e-04     OK
+       4       0.0115     4.05     3.140693   9.00e-04     OK
+       8       0.0072     6.47     3.141745   1.52e-04     OK
+
+N = 100000000  serial estimate = 3.141784  |err| = 1.91e-04  time = 0.4576 s  (tolerance 0.0100)
+ threads  parallel(s)  speedup     estimate      |err|  check
+       1       0.4404     1.04     3.141784   1.91e-04     OK
+       2       0.2231     2.05     3.141574   1.85e-05     OK
+       4       0.1191     3.84     3.141543   4.94e-05     OK
+       8       0.0695     6.58     3.141680   8.69e-05     OK

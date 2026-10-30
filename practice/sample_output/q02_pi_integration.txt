@@ -1,0 +1,14 @@
+Q02: pi by midpoint-rule integration  (num_steps = 100000000)
+serial: pi = 3.141592653590426  |pi-PI| = 6.333e-13  time = 0.0860 s
+
+ threads  reduce(s)   spdup  falseshr(s)   spdup    padded(s)   spdup  check
+       1     0.0855    1.01       0.2450    0.35       0.2458    0.35     OK
+       2     0.0422    2.04       0.1431    0.60       0.1379    0.62     OK
+       4     0.0259    3.32       0.0718    1.20       0.0667    1.29     OK
+       8     0.0143    6.00       0.0479    1.80       0.0411    2.09     OK
+
+results with 8 threads:
+  serial                 pi = 3.141592653590426  |pi-PI| = 6.333e-13  OK
+  reduction              pi = 3.141592653589815  |pi-PI| = 2.176e-14  OK
+  spmd (false sharing)   pi = 3.141592653589614  |pi-PI| = 1.794e-13  OK
+  spmd (padded)          pi = 3.141592653589614  |pi-PI| = 1.794e-13  OK

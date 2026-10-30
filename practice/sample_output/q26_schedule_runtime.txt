@@ -1,0 +1,28 @@
+Q26: triangular loop, N = 30000 (iteration i costs ~i steps)
+serial: 0.2201 s
+
+omp_set_schedule(omp_sched_static, 0) -> omp_get_schedule() = (static, 0)
+omp_set_schedule(omp_sched_dynamic, 1) -> omp_get_schedule() = (dynamic, 1)
+
+[1] Per-thread load with 4 threads (same schedule(runtime) loop):
+    thread |  static it    busy(s) | dynamic it    busy(s)
+         0 |       7500     0.0126 |       7417     0.0520
+         1 |       7500     0.0383 |       7607     0.0520
+         2 |       7500     0.0636 |       7506     0.0520
+         3 |       7500     0.0883 |       7470     0.0520
+    imbalance = max busy / mean busy: static 1.74, dynamic 1.00  (1.00 = perfect)
+    static: equal iteration COUNTS, unequal WORK (thread t's block costs ~2t+1 units);
+    dynamic: unequal counts, but every thread is busy for about the same time.
+
+[2] Time in s (speedup = T_serial / T_parallel), T_serial = 0.2201 s
+schedule                  1 thread            2 threads           4 threads           8 threads      check
+static                  0.2014 (  1.09x)    0.1512 (  1.46x)    0.0903 (  2.44x)    0.0544 (  4.04x)  OK
+static,1                0.2049 (  1.07x)    0.1063 (  2.07x)    0.0538 (  4.09x)    0.0421 (  5.23x)  OK
+dynamic,1               0.2028 (  1.09x)    0.1064 (  2.07x)    0.0519 (  4.24x)    0.0389 (  5.66x)  OK
+dynamic,64              0.1977 (  1.11x)    0.1003 (  2.20x)    0.0509 (  4.33x)    0.0385 (  5.72x)  OK
+guided                  0.2002 (  1.10x)    0.1007 (  2.19x)    0.0522 (  4.22x)    0.0376 (  5.85x)  OK
+runtime(static)         0.1982 (  1.11x)    0.1511 (  1.46x)    0.0896 (  2.46x)    0.0534 (  4.12x)  OK
+runtime(dynamic,16)     0.2124 (  1.04x)    0.1016 (  2.17x)    0.0524 (  4.20x)    0.0422 (  5.21x)  OK
+runtime(guided,4)       0.2408 (  0.91x)    0.1012 (  2.18x)    0.0523 (  4.21x)    0.0380 (  5.79x)  OK
+best possible speedup of plain static here = T^2/(2T-1) (the last block holds
+the most work): 2 threads -> 1.33x, 4 -> 2.29x, 8 -> 4.27x

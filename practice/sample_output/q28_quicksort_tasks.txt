@@ -1,0 +1,22 @@
+Q28: Quicksort with OpenMP tasks (cutoff = 10000)
+
+N = 100000   qsort 0.007322 s, serial quicksort 0.004715 s (OK)
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.004715     0.004382      1.08        1.08      OK
+       2     0.004715     0.002317      2.03        1.02      OK
+       4     0.004715     0.001698      2.78        0.69      OK
+       8     0.004715     0.001127      4.18        0.52      OK
+
+N = 1000000   qsort 0.071815 s, serial quicksort 0.047027 s (OK)
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.047027     0.048549      0.97        0.97      OK
+       2     0.047027     0.030040      1.57        0.78      OK
+       4     0.047027     0.019839      2.37        0.59      OK
+       8     0.047027     0.014177      3.32        0.41      OK
+
+N = 10000000   qsort 0.827452 s, serial quicksort 0.531275 s (OK)
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.531275     0.529345      1.00        1.00      OK
+       2     0.531275     0.401753      1.32        0.66      OK
+       4     0.531275     0.234713      2.26        0.57      OK
+       8     0.531275     0.141416      3.76        0.47      OK

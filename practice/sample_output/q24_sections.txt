@@ -1,0 +1,37 @@
+Q24: sum / max / min / sort of N = 4000000 ints as 4 parallel sections
+
+[serial] the four jobs one after another:
+    sum          0.0027 s
+    max          0.0017 s
+    min          0.0017 s
+    sort a copy  0.2851 s
+    total        0.2913 s   (sum = 1782736, max = 500002, min = -500000)
+
+[parallel sections, 4 threads]  (which thread gets which section varies run to run)
+    section 0 sum          ran on thread 1, 0.0011 s
+    section 1 max          ran on thread 2, 0.0011 s
+    section 2 min          ran on thread 0, 0.0011 s
+    section 3 sort a copy  ran on thread 3, 0.2854 s
+    total 0.2854 s vs serial 0.2913 s -> speedup 1.02x; threads that ran no section: 0
+    results equal serial (sum, max, min, sorted copy): OK
+
+[parallel sections, 2 threads]
+    section 0 sum          ran on thread 1, 0.0011 s
+    section 1 max          ran on thread 0, 0.0010 s
+    section 2 min          ran on thread 0, 0.0010 s
+    section 3 sort a copy  ran on thread 1, 0.2694 s
+    total 0.2705 s vs serial 0.2913 s -> speedup 1.08x; threads that ran no section: 0
+    results equal serial (sum, max, min, sorted copy): OK
+
+[parallel sections, 8 threads]
+    section 0 sum          ran on thread 1, 0.0010 s
+    section 1 max          ran on thread 2, 0.0010 s
+    section 2 min          ran on thread 0, 0.0010 s
+    section 3 sort a copy  ran on thread 5, 0.2741 s
+    total 0.2742 s vs serial 0.2913 s -> speedup 1.06x; threads that ran no section: 4
+    results equal serial (sum, max, min, sorted copy): OK
+
+The sort is far slower than the other three jobs, so parallel time ~ sort time:
+best possible speedup = serial total / slowest section = 1.02x, whatever the team size.
+To do better, split the big job: e.g. sort the two halves in two sections and merge,
+or parallelise the sort itself with tasks.

@@ -1,0 +1,63 @@
+Q32: 3x3 convolution, selectable kernel, valid / same borders
+
+Handout 5x5, averaging, valid -> 3x3 (O[1][1] in input coords = 70.0, expected 70)
+       70.00    80.00    90.00
+      120.00   130.00   140.00
+      170.00   180.00   190.00
+    check: OK
+(the 5x5 image is a linear ramp, so the symmetric kernels whose weights
+ sum to 1 -- average, gaussian, sharpen -- all return the same values)
+gaussian, valid:
+       70.00    80.00    90.00
+      120.00   130.00   140.00
+      170.00   180.00   190.00
+sharpen, valid:
+       70.00    80.00    90.00
+      120.00   130.00   140.00
+      170.00   180.00   190.00
+sobel-x, valid:
+       80.00    80.00    80.00
+       80.00    80.00    80.00
+       80.00    80.00    80.00
+sobel-y, valid:
+      400.00   400.00   400.00
+      400.00   400.00   400.00
+      400.00   400.00   400.00
+gradient, valid:
+      407.92   407.92   407.92
+      407.92   407.92   407.92
+      407.92   407.92   407.92
+average, same (zero padding: borders get smaller values):
+       17.78    30.00    36.67    43.33    31.11
+       43.33    70.00    80.00    90.00    63.33
+       76.67   120.00   130.00   140.00    96.67
+      110.00   170.00   180.00   190.00   130.00
+       84.44   130.00   136.67   143.33    97.78
+
+All kernels on 1024x1024, 8 threads vs serial:
+  average   valid OK
+  average   same  OK
+  gaussian  valid OK
+  gaussian  same  OK
+  sharpen   valid OK
+  sharpen   same  OK
+  sobel-x   valid OK
+  sobel-x   same  OK
+  sobel-y   valid OK
+  sobel-y   same  OK
+  gradient  valid OK
+  gradient  same  OK
+
+Timing: 4096x4096 image, average kernel, valid mode
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.074934     0.074469      1.01        1.01      OK
+       2     0.074934     0.032375      2.31        1.16      OK
+       4     0.074934     0.020202      3.71        0.93      OK
+       8     0.074934     0.016580      4.52        0.56      OK
+
+Timing: 4096x4096 image, average kernel, same mode
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.092921     0.068642      1.35        1.35      OK
+       2     0.092921     0.033056      2.81        1.41      OK
+       4     0.092921     0.019727      4.71        1.18      OK
+       8     0.092921     0.017986      5.17        0.65      OK

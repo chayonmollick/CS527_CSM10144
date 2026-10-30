@@ -1,0 +1,36 @@
+Q11: matrix checks with reduction(&&:ok) (N = 1000)
+correctness (8 threads):
+  A == B   (B = copy of A)          : expect 1  serial 1  parallel 1  OK
+  A symmetric                       : expect 1  serial 1  parallel 1  OK
+  I is identity                     : expect 1  serial 1  parallel 1  OK
+  A == B   (B has 1 bad element)    : expect 0  serial 0  parallel 0  OK
+  B symmetric (1 bad element)       : expect 0  serial 0  parallel 0  OK
+  I is identity (1 bad element)     : expect 0  serial 0  parallel 0  OK
+  C = A - B                         : OK
+  C = k*A                           : OK
+
+serial(s): equal 0.000382  symm 0.000321  ident 0.000362  sub 0.000364  scale 0.000370
+ threads   equal(s)     sp    symm(s)     sp   ident(s)     sp     sub(s)     sp   scale(s)     sp  check
+       1   0.000367   1.04   0.000294   1.09   0.000371   0.98   0.001033   0.35   0.001002   0.37     OK
+       2   0.000229   1.67   0.000156   2.06   0.000183   1.98   0.000508   0.72   0.000498   0.74     OK
+       4   0.000173   2.21   0.000087   3.69   0.000130   2.78   0.000261   1.39   0.000265   1.40     OK
+       8   0.000202   1.89   0.000091   3.53   0.000166   2.18   0.000249   1.46   0.000210   1.76     OK
+
+Q11: matrix checks with reduction(&&:ok) (N = 3000)
+correctness (8 threads):
+  A == B   (B = copy of A)          : expect 1  serial 1  parallel 1  OK
+  A symmetric                       : expect 1  serial 1  parallel 1  OK
+  I is identity                     : expect 1  serial 1  parallel 1  OK
+  A == B   (B has 1 bad element)    : expect 0  serial 0  parallel 0  OK
+  B symmetric (1 bad element)       : expect 0  serial 0  parallel 0  OK
+  I is identity (1 bad element)     : expect 0  serial 0  parallel 0  OK
+  C = A - B                         : OK
+  C = k*A                           : OK
+
+serial(s): equal 0.002376  symm 0.002955  ident 0.002502  sub 0.002613  scale 0.002314
+ threads   equal(s)     sp    symm(s)     sp   ident(s)     sp     sub(s)     sp   scale(s)     sp  check
+       1   0.002402   0.99   0.002905   1.02   0.002436   1.03   0.007136   0.37   0.007252   0.32     OK
+       2   0.002073   1.15   0.001687   1.75   0.001256   1.99   0.003631   0.72   0.003662   0.63     OK
+       4   0.001969   1.21   0.001192   2.48   0.001007   2.48   0.002428   1.08   0.001913   1.21     OK
+       8   0.001831   1.30   0.001099   2.69   0.000902   2.77   0.002975   0.88   0.001747   1.32     OK
+

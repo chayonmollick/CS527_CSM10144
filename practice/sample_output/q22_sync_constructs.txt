@@ -1,0 +1,86 @@
+Q22: synchronisation constructs with 4 threads
+
+[1] barrier: thread t works t*20 ms, prints 'phase 1', waits at the barrier,
+    then prints 'phase 2'. Every phase-1 line comes before every phase-2 line;
+    the order of the phase-2 lines is nondeterministic.
+    thread 0: phase 1 done at   0 ms
+    thread 1: phase 1 done at  20 ms
+    thread 2: phase 1 done at  40 ms
+    thread 3: phase 1 done at  60 ms
+    thread 0: phase 2 at  60 ms (after barrier)
+    thread 1: phase 2 at  60 ms (after barrier)
+    thread 2: phase 2 at  60 ms (after barrier)
+    thread 3: phase 2 at  60 ms (after barrier)
+
+[2] single copyprivate(cfg): ONE thread (whichever arrives first) runs the block;
+    copyprivate copies its private cfg into every other thread's private cfg.
+    single block run by thread 0: sets its cfg = 42
+    thread 0: cfg = 42 after the single
+    thread 1: cfg = 42 after the single
+    thread 2: cfg = 42 after the single
+    thread 3: cfg = 42 after the single
+    every thread received cfg = 42: OK
+
+[3] master: only thread 0 runs it (50 ms of work). No implied barrier, so the
+    other threads pass it immediately. (OpenMP 5.1 renames it `masked`, which also
+    takes filter(tid); `masked` needs gcc >= 12.)
+    thread 0 passed the master block at  50 ms  (it ran the block)
+    thread 1 passed the master block at   0 ms
+    thread 2 passed the master block at   0 ms
+    thread 3 passed the master block at   0 ms
+
+[4a] end of `omp for`: thread t's iteration takes t*20 ms
+    thread   loop done (ms)  next stmt, barrier (ms) next stmt, nowait (ms)
+         0                0                       60                      0
+         1               20                       60                     20
+         2               40                       60                     40
+         3               60                       60                     60
+    with the implicit barrier everyone waits for the slowest thread;
+    with nowait each thread continues as soon as its own iterations are done.
+
+[4b] end of `single` (the single block takes 50 ms)
+    thread   passed, barrier (ms)    passed, nowait (ms)
+         0                     50                      0
+         1                     50                     50
+         2                     50                      0
+         3                     50                      0
+    (with nowait only the thread that ran the single shows ~50 ms;
+     the region's own end barrier still waits for it)
+
+[5a] parallel for WITHOUT ordered, iteration i takes (8-i)*5 ms:
+     lines come out in completion order, NOT in i order (nondeterministic)
+    i = 3  (thread 0)
+    i = 2  (thread 1)
+    i = 1  (thread 2)
+    i = 0  (thread 3)
+    i = 7  (thread 3)
+    i = 5  (thread 1)
+    i = 6  (thread 2)
+    i = 4  (thread 0)
+
+[5b] parallel for ordered: same work done in parallel, then the
+     `#pragma omp ordered` block runs strictly in i = 0,1,2,... order
+    i = 0  i*i =  0  (thread 3)
+    i = 1  i*i =  1  (thread 1)
+    i = 2  i*i =  4  (thread 2)
+    i = 3  i*i =  9  (thread 0)
+    i = 4  i*i = 16  (thread 3)
+    i = 5  i*i = 25  (thread 1)
+    i = 6  i*i = 36  (thread 2)
+    i = 7  i*i = 49  (thread 0)
+    ordered output in sequence: OK; took 60 ms (all-serial work would be 180 ms)
+
+[6] critical: half the threads update counter A, half update counter B,
+    3 updates each, every update holding the lock 5 ms
+    two UNNAMED critical  : A = 6, B = 6, time   60 ms  (one global lock:
+                            A and B updates also exclude each other)
+    critical(list_a) / critical(list_b): A = 6, B = 6, time   30 ms  (two locks:
+                            an A update and a B update can overlap)
+    counts correct: OK
+
+[7] atomic
+    update : total += t+1 by every thread -> total = 10 (expected 10) OK
+    capture: my = next_ticket++ gives each thread a unique ticket: t0->1 t1->3 t2->2 t3->0  OK
+    write  : every thread stores last_writer = t; the final value is 1
+             (which thread wins is nondeterministic)
+    read   : after a barrier all threads read the same last_writer: OK

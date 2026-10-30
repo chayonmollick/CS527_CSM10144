@@ -1,0 +1,15 @@
+Q01: Dot product  (speedup = T_serial / T_parallel)
+
+N = 1000000   serial dot = 989999.495000   serial time = 0.001563 s
+ threads reduction(s)  speedup    atomic(s)  speedup local+crit(s)  speedup  check
+       1     0.001793     0.87     0.007889     0.20     0.001612     0.97     OK
+       2     0.003235     0.48     0.007748     0.20     0.000696     2.25     OK
+       4     0.000440     3.55     0.018220     0.09     0.000556     2.81     OK
+       8     0.000483     3.24     0.010512     0.15     0.001030     1.52     OK
+
+N = 10000000   serial dot = 9899998.510000   serial time = 0.018191 s
+ threads reduction(s)  speedup    atomic(s)  speedup local+crit(s)  speedup  check
+       1     0.020111     0.90     0.051508     0.35     0.009597     1.90     OK
+       2     0.005510     3.30     0.076322     0.24     0.005170     3.52     OK
+       4     0.003581     5.08     0.161714     0.11     0.003061     5.94     OK
+       8     0.003766     4.83     0.290279     0.06     0.007259     2.51     OK

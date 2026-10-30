@@ -1,0 +1,22 @@
+Q30: Parallel sorting (chunk+merge, rank sort, counting sort)
+
+(a) chunk qsort + pairwise merge rounds, N = 5000000 (serial = qsort)
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.421991     0.449802      0.94        0.94      OK
+       2     0.421991     0.212064      1.99        0.99      OK
+       4     0.421991     0.117813      3.58        0.90      OK
+       8     0.421991     0.084228      5.01        0.63      OK
+
+(b) rank sort, N = 20000 (keys 0..999, many ties), serial OK
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.102453     0.101980      1.00        1.00      OK
+       2     0.102453     0.051462      1.99        1.00      OK
+       4     0.102453     0.026092      3.93        0.98      OK
+       8     0.102453     0.019891      5.15        0.64      OK
+
+(c) counting sort, N = 5000000, keys 0..999 (qsort 0.161592 s), serial OK
+ threads    serial(s)  parallel(s)   speedup  efficiency   check
+       1     0.002596     0.002653      0.98        0.98      OK
+       2     0.002596     0.001400      1.85        0.93      OK
+       4     0.002596     0.000797      3.26        0.81      OK
+       8     0.002596     0.000739      3.51        0.44      OK
