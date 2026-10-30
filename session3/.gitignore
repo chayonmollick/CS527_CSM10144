@@ -1,0 +1,7 @@
+task1_mergesort
+task2_schedule
+task3_evenodd
+*.o
+*.out
+results/
+*.pdf
