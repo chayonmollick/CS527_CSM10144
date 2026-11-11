@@ -1,0 +1,21 @@
+% e06 test program: every instruction class at least once, no loop
+% data: 0 at address 0, then 1 2 3 4 5 6 7 8 at 4..32; v3 is stored at 64..92
+x1 = 12           % alu (constant move)
+x2 = 4            % alu
+x3 = x1 * x2      % mul: 48
+x4 = x1 / x2      % div: 3
+x5 = x3 + x4      % alu: 51
+[0] = x5          % store
+x6 = [0]          % load: 51
+v1 = [x2]         % vector load: 1..8 from address 4
+v2 = v1 * 3       % vector arithmetic: 3 6 .. 24
+v3 = v1 + v2      % vector arithmetic: 4 8 .. 32
+[64] = v3         % vector store
+print x6          % print: 00000033
+x7 = x6 - 51      % alu: 0, so Z = 1
+BEQ .skip         % branch taken
+x8 = 99           % skipped: never executed
+.skip
+x9 = x7 - 1       % alu: -1, so Z = 0
+BEQ .end          % branch not taken
+.end

@@ -1,0 +1,224 @@
+--- ../../simulator/main.cpp	2026-11-11 23:25:42
++++ main.cpp	2026-11-11 23:44:26
+@@ -9,6 +9,7 @@
+  * A program may also be given as an already compiled .byte file.
+  * Results: <data>_<pid>.out (final data memory), <program>_<pid>.freq (Lab 6 task 1),
+  *          log.txt (print output).
++ * EXT e07: <program>_<pid>.stats (accuracy of four branch predictors).
+  */
+ #include <cstdio>
+ #include <cstring>
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-11 23:55:26
+@@ -9,6 +9,7 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e07: finalize() also writes <program>_<pid>.stats (branch-predictor accuracy).
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -141,6 +142,48 @@
+     return name;
+ }
+ 
++/* EXT e07: source text of instruction i without its comment (disassembly if there is no source) */
++static std::string branch_text(const Program &pr, size_t i) {
++    if (!pr.has_source || pr.line_of[i] < 0)
++        return disassemble(pr.code[4 * i], pr.code[4 * i + 1], pr.code[4 * i + 2], pr.code[4 * i + 3]);
++    std::string s = pr.source[pr.line_of[i]];
++    s = s.substr(0, s.find('%'));
++    size_t b = s.find_first_not_of(" \t"), e = s.find_last_not_of(" \t");
++    return b == std::string::npos ? "" : s.substr(b, e - b + 1);
++}
++
++/* EXT e07: <program>_<pid>.stats - predictions, mispredictions and accuracy of every
++ * predictor, then one row per branch instruction that was executed. */
++static std::string write_branch_file(int p, const Task &t) {
++    std::string name = t.prog.name + "_" + std::to_string(t.pid) + ".stats";
++    FILE *f = std::fopen(name.c_str(), "w");
++    if (!f) return "(could not write " + name + ")";
++    long n = bp_branches[p];
++    std::fprintf(f, "Branch prediction for %s (pid %d)\n", t.prog.name.c_str(), t.pid);
++    std::fprintf(f, "branches %ld   taken %ld   not taken %ld\n\n", n, bp_taken[p], n - bp_taken[p]);
++    std::fprintf(f, "%-14s %11s %14s %9s\n", "predictor", "predictions", "mispredictions", "accuracy");
++    for (int k = 0; k < NUM_PREDICTORS; k++) {
++        if (n) std::fprintf(f, "%-14s %11ld %14ld %8.2f%%\n", PREDICTOR_NAME[k], n, bp_miss[p][k],
++                            100.0 * (n - bp_miss[p][k]) / n);
++        else   std::fprintf(f, "%-14s %11ld %14ld %9s\n", PREDICTOR_NAME[k], n, bp_miss[p][k], "-");
++    }
++    std::fprintf(f, "\nper branch: executions, times taken, mispredictions of each predictor\n");
++    std::fprintf(f, "%5s  %-18s %8s %6s %7s %5s %6s %6s\n",
++                 "instr", "branch", "executed", "taken", "always", "btfn", "1-bit", "2-bit");
++    const Program &pr = t.prog;
++    for (size_t i = 0; i < pr.code.size() / 4; i++) {
++        int op = pr.code[4 * i];
++        if (op < OP_BRANCH || op >= OP_BRANCH + NUM_CONDITIONS || !exec_count[p][i]) continue;
++        std::fprintf(f, "%5zu  %-18s %8ld %6ld %7ld %5ld %6ld %6ld\n", i, branch_text(pr, i).c_str(),
++                     exec_count[p][i], bp_taken_at[p][i], bp_miss_at[p][i][PRED_ALWAYS_TAKEN],
++                     bp_miss_at[p][i][PRED_BTFN], bp_miss_at[p][i][PRED_1BIT], bp_miss_at[p][i][PRED_2BIT]);
++    }
++    std::fprintf(f, "\n(1-bit entries start at %d, 2-bit counters at %d; %d entries indexed by instruction index)\n",
++                 BP_1BIT_INIT, BP_2BIT_INIT, BP_TABLE_SIZE);
++    std::fclose(f);
++    return name;
++}
++
+ /* finalize(): write the data back, write the frequency report, free the frames. */
+ static void finalize(int p, Task &t) {
+     size_t size = std::max(t.data.size(), (size_t)data_high[p]);
+@@ -153,6 +196,7 @@
+     std::string out_name = file_stem(t.data_path) + "_" + std::to_string(t.pid) + ".out";
+     write_byte_file(out_name, out);
+     std::string freq_name = write_frequency_file(p, t);
++    std::string stats_name = write_branch_file(p, t);      /* EXT e07 */
+ 
+     for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* release frames, clear the table */
+         int frame = memory[PTBR[p] + i];
+@@ -167,6 +211,13 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    std::printf("[bpred] pid %d (%s): %ld branches, mispredicted (accuracy):", t.pid,   /* EXT e07 */
++                t.prog.name.c_str(), bp_branches[p]);
++    for (int k = 0; k < NUM_PREDICTORS; k++)
++        std::printf(" %s %ld (%.2f%%)%s", PREDICTOR_NAME[k], bp_miss[p][k],
++                    bp_branches[p] ? 100.0 * (bp_branches[p] - bp_miss[p][k]) / bp_branches[p] : 0.0,
++                    k + 1 < NUM_PREDICTORS ? "," : "");
++    std::printf(" -> %s\n", stats_name.c_str());
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-11 23:44:00
+@@ -23,6 +23,15 @@
+ long exec_count[NP][MAX_INSTRUCTIONS];
+ int data_high[NP];
+ 
++/* EXT e07: branch predictors, one set per processor */
++long bp_branches[NP], bp_taken[NP];
++long bp_miss[NP][NUM_PREDICTORS];
++long bp_taken_at[NP][MAX_INSTRUCTIONS];
++long bp_miss_at[NP][MAX_INSTRUCTIONS][NUM_PREDICTORS];
++const char *PREDICTOR_NAME[NUM_PREDICTORS] = {"always-taken", "btfn", "1-bit", "2-bit"};
++static unsigned char bp_last[NP][BP_TABLE_SIZE];      /* 1-bit: last outcome of the branch, 1 = taken */
++static unsigned char bp_counter[NP][BP_TABLE_SIZE];   /* 2-bit saturating counter 0..3 */
++
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+ int trace = 0;
+@@ -51,6 +60,13 @@
+     end_of_simulation[p] = failed[p] = 0;
+     steps[p] = 0;
+     data_high[p] = 0;
++    /* EXT e07: a new task starts with empty statistics and fresh predictor tables */
++    bp_branches[p] = bp_taken[p] = 0;
++    std::memset(bp_miss[p], 0, sizeof bp_miss[p]);
++    std::memset(bp_taken_at[p], 0, sizeof bp_taken_at[p]);
++    std::memset(bp_miss_at[p], 0, sizeof bp_miss_at[p]);
++    std::memset(bp_last[p], BP_1BIT_INIT, sizeof bp_last[p]);
++    std::memset(bp_counter[p], BP_2BIT_INIT, sizeof bp_counter[p]);
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+ 
+@@ -115,6 +131,25 @@
+     }
+ }
+ 
++/* EXT e07: every predictor guesses the branch at instruction index (offset = its jump
++ * in instructions), is scored against the real outcome, then learns the outcome. */
++static void predict_branch(int p, int index, int offset, int taken) {
++    int e = index % BP_TABLE_SIZE;                   /* predictor table entry of this branch */
++    int guess[NUM_PREDICTORS];
++    guess[PRED_ALWAYS_TAKEN] = 1;
++    guess[PRED_BTFN] = offset <= 0;                  /* backward = loop branch: taken */
++    guess[PRED_1BIT] = bp_last[p][e];                /* same outcome as last time */
++    guess[PRED_2BIT] = bp_counter[p][e] >= 2;        /* 2, 3 predict taken; 0, 1 not taken */
++    bp_branches[p]++;
++    bp_taken[p] += taken;
++    bp_taken_at[p][index] += taken;
++    for (int k = 0; k < NUM_PREDICTORS; k++)
++        if (guess[k] != taken) { bp_miss[p][k]++; bp_miss_at[p][index][k]++; }
++    bp_last[p][e] = (unsigned char)taken;            /* learn the outcome */
++    if (taken && bp_counter[p][e] < 3) bp_counter[p][e]++;
++    else if (!taken && bp_counter[p][e] > 0) bp_counter[p][e]--;
++}
++
+ /* fetch(): read the 4 instruction bytes at PC into opcode, dest, src1, src2. */
+ void fetch() {
+     int p = proc_id;
+@@ -220,7 +255,9 @@
+         break;
+     default:
+         if (opcode >= OP_BRANCH && opcode < OP_BRANCH + NUM_CONDITIONS) {   /* Lab 2 */
+-            if (condition_holds(p, opcode - OP_BRANCH))
++            int taken = condition_holds(p, opcode - OP_BRANCH);
++            predict_branch(p, instr_pc / 4, (signed char)src2, taken);      /* EXT e07 */
++            if (taken)
+                 PC[p] = instr_pc + 4 * (signed char)src2;    /* offset counts instructions */
+         } else {
+             processor_error("unknown opcode 0x%02X", opcode);
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:43:56
+@@ -70,4 +70,17 @@
+     COND_HI, COND_LS, COND_GE, COND_LT, COND_GT, COND_LE, COND_AL, NUM_CONDITIONS
+ };
+ 
++/* ---- EXT e07: branch prediction ----
++ * Four predictors guess every executed branch (BAL too: its outcome is always taken):
++ *   always-taken | btfn: backward (offset <= 0) taken, forward not taken |
++ *   1-bit: same as last time | 2-bit: saturating counter 0..3, predict taken if >= 2.
++ * The dynamic ones keep one entry per branch, indexed by instruction index % BP_TABLE_SIZE;
++ * the tables are reset to the INIT values whenever a task is loaded on the processor.
++ */
++#define BP_TABLE_SIZE   MAX_INSTRUCTIONS   /* EXT e07: 256 entries, so no two branches share one */
++#define BP_1BIT_INIT    0       /* EXT e07: 1-bit entry at load time: 0 = not taken, 1 = taken */
++#define BP_2BIT_INIT    1       /* EXT e07: 0 strongly NT, 1 weakly NT, 2 weakly T, 3 strongly T */
++
++enum Predictor { PRED_ALWAYS_TAKEN, PRED_BTFN, PRED_1BIT, PRED_2BIT, NUM_PREDICTORS };   /* EXT e07 */
++
+ #endif
+--- ../../simulator/processor.h	2026-11-11 23:23:00
++++ processor.h	2026-11-11 23:43:56
+@@ -20,6 +20,13 @@
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
+ 
++/* EXT e07: branch-prediction statistics of the task on processor p (cleared by reset()) */
++extern long bp_branches[NP], bp_taken[NP];     /* executed branches, how many of them were taken */
++extern long bp_miss[NP][NUM_PREDICTORS];       /* mispredictions of each predictor */
++extern long bp_taken_at[NP][MAX_INSTRUCTIONS]; /* per branch instruction: times taken */
++extern long bp_miss_at[NP][MAX_INSTRUCTIONS][NUM_PREDICTORS];   /* per branch instruction */
++extern const char *PREDICTOR_NAME[NUM_PREDICTORS];
++
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:55:42
+@@ -1,7 +1,8 @@
+ # CS527 mini-computer simulator (Labs 1-6)
++# EXT e07: branch predictors (writes <program>_<pid>.stats)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            EXT e07: base regression tests on this build, then ./test.sh
++#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte   (EXT e07: path from extensions/<dir>)
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,10 +14,11 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e07: run the base tests on this build, then ./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
++	./test.sh
+ 
+ clean:
+-	rm -f sim $(OBJS) program.byte *.out *.freq log.txt
++	rm -f sim $(OBJS) program.byte *.out *.freq log.txt *.stats   # EXT e07: + .stats
+ 
+ .PHONY: test clean

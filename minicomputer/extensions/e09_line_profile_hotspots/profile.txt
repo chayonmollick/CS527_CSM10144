@@ -1,0 +1,16 @@
+% e09 test program: a hot loop, cold lines and dead code
+% data: divisor d (2) at 0; result sum of i/d for i = 0..5 = 0+0+1+1+2+2 = 6 is stored at 4
+x1 = 0            % i
+x2 = 0            % sum
+.loop
+x5 = [0]          % d             load:  6 x 3 = 18 cycles
+x3 = x1 / x5      % i / d         div:   6 x 10 = 60 cycles (hottest)
+x2 = x2 + x3
+x1 = x1 + 1
+x4 = x1 - 6
+BNE .loop         % taken 5 times (3 cycles), not taken once (1 cycle) = 16 cycles
+BAL .done
+x9 = 99           % dead code: after an unconditional branch
+x9 = x9 * 2       % dead code
+.done
+[4] = x2

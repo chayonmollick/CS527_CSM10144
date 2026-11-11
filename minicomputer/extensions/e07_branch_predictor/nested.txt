@@ -1,0 +1,15 @@
+% e07 test program: a loop inside a loop, both tested at the bottom (backward BNE)
+% outer loop 4 times, inner loop 5 times per outer iteration; [0] = 4 * 5 = 20
+x1 = 0            % i (outer counter)
+x3 = 0            % inner iterations done
+.outer
+x2 = 0            % j (inner counter)
+.inner
+x3 = x3 + 1
+x2 = x2 + 1
+x4 = x2 - 5
+BNE .inner        % taken 4 times, then not taken (once per outer iteration)
+x1 = x1 + 1
+x5 = x1 - 4
+BNE .outer        % taken 3 times, then not taken
+[0] = x3

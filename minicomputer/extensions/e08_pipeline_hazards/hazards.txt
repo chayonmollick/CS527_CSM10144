@@ -1,0 +1,12 @@
+% e08 test program: straight-line code with RAW hazards at distance 1 and 2
+% data: a number at 0 (10); x7 is stored at 4, then loaded again and stored at 8
+x1 = [0]          % I0  load
+x2 = x1 + 5       % I1  x1 from I0: distance 1, load-use
+x3 = 7            % I2  reads no register
+x4 = x2 + x3      % I3  x2 from I1: distance 2;  x3 from I2: distance 1
+x5 = x1 * 2       % I4  x1 from I0: distance 4, no hazard
+x6 = 9            % I5
+x7 = x4 - x5      % I6  x4 from I3: distance 3, no hazard;  x5 from I4: distance 2
+[4] = x7          % I7  x7 from I6: distance 1
+x8 = [4]          % I8  load
+[8] = x8          % I9  x8 from I8: distance 1, load-use

@@ -1,0 +1,248 @@
+--- ../../simulator/main.cpp	2026-11-11 23:25:42
++++ main.cpp	2026-11-11 23:54:01
+@@ -4,11 +4,13 @@
+  *         start these tasks; the shell then accepts more ("exit" or end of input stops it)
+  *   ./sim -b prog.txt data.byte ...   batch: no shell, stop when every task has finished
+  *   ./sim -t ...                      trace: print every executed instruction on stderr
++ *   ./sim -T ...                      EXT e10: trace file per task: <program>_<pid>.trace
+  *   ./sim -c prog.txt [out.byte]      compile only: write out.byte (default program.byte)
+  *                                     and print the byte-code listing
+  * A program may also be given as an already compiled .byte file.
+  * Results: <data>_<pid>.out (final data memory), <program>_<pid>.freq (Lab 6 task 1),
+  *          log.txt (print output).
++ * EXT e10: <program>_<pid>.regs (PC, flags, non-zero registers at the end of the task).
+  */
+ #include <cstdio>
+ #include <cstring>
+@@ -18,10 +20,11 @@
+ #include "processor.h"
+ 
+ static void usage() {
+-    std::printf("usage: ./sim [-b] [-t] prog1.txt data1.byte [prog2.txt data2.byte ...]\n"
++    std::printf("usage: ./sim [-b] [-t] [-T] prog1.txt data1.byte [prog2.txt data2.byte ...]\n"   /* EXT e10: -T */
+                 "       ./sim -c prog.txt [out.byte]\n"
+                 "  -b  batch mode: no shell, stop when all tasks finish\n"
+                 "  -t  trace every executed instruction (stderr)\n"
++                "  -T  write <program>_<pid>.trace for every task (one line per instruction)\n"   /* EXT e10 */
+                 "  -c  compile only and print the byte-code listing\n");
+ }
+ 
+@@ -48,6 +51,7 @@
+     for (; i < argc && argv[i][0] == '-'; i++) {
+         if (!std::strcmp(argv[i], "-b")) batch = true;
+         else if (!std::strcmp(argv[i], "-t")) trace = 1;
++        else if (!std::strcmp(argv[i], "-T")) trace_files = 1;          /* EXT e10 */
+         else if (!std::strcmp(argv[i], "-c")) {
+             if (i + 1 >= argc) { usage(); return 1; }
+             return compile_only(argv[i + 1], i + 2 < argc ? argv[i + 2] : "program.byte");
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-11 23:54:01
+@@ -9,6 +9,8 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e10: finalize() also writes <program>_<pid>.regs (registers at the end); with -T the
++ *        loader opens <program>_<pid>.trace and finalize() closes it.
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -141,6 +143,38 @@
+     return name;
+ }
+ 
++/* EXT e10: <program>_<pid>.regs - PC, flags and every register that is not zero at the end
++ * of the task (x registers in decimal and hex, vector registers lane 0..7). */
++static std::string write_register_file(int p, const Task &t, int &nonzero_x, int &nonzero_v) {
++    std::string name = t.prog.name + "_" + std::to_string(t.pid) + ".regs";
++    nonzero_x = nonzero_v = 0;
++    for (int r = 0; r < NUM_XREGS; r++) nonzero_x += Register[p][r] != 0;
++    for (int r = 0; r < NUM_VREGS; r++)
++        for (int i = 0; i < VLEN; i++)
++            if (VRegister[p][r][i]) { nonzero_v++; break; }
++    FILE *f = std::fopen(name.c_str(), "w");
++    if (!f) return "(could not write " + name + ")";
++    std::fprintf(f, "Registers of %s (pid %d) on processor %d after %ld instructions (%s)\n", t.prog.name.c_str(),
++                 t.pid, p, steps[p], failed[p] ? "stopped with an error" : "finished");
++    std::fprintf(f, "PC %d (0x%08X) = instruction %d\n", PC[p], (unsigned)PC[p], PC[p] / 4);
++    std::fprintf(f, "flags N=%d Z=%d C=%d V=%d\n", FlagN[p], FlagZ[p], FlagC[p], FlagV[p]);
++    std::fprintf(f, "x registers that are not zero: %d\n", nonzero_x);
++    for (int r = 0; r < NUM_XREGS; r++)
++        if (Register[p][r])
++            std::fprintf(f, "  x%-3d = %11d  0x%08X\n", r, Register[p][r], (unsigned)Register[p][r]);
++    std::fprintf(f, "vector registers that are not zero: %d\n", nonzero_v);
++    for (int r = 0; r < NUM_VREGS; r++) {
++        bool zero = true;
++        for (int i = 0; i < VLEN; i++) zero = zero && VRegister[p][r][i] == 0;
++        if (zero) continue;
++        std::fprintf(f, "  v%-3d =", r);
++        for (int i = 0; i < VLEN; i++) std::fprintf(f, " %d", VRegister[p][r][i]);
++        std::fprintf(f, "\n");
++    }
++    std::fclose(f);
++    return name;
++}
++
+ /* finalize(): write the data back, write the frequency report, free the frames. */
+ static void finalize(int p, Task &t) {
+     size_t size = std::max(t.data.size(), (size_t)data_high[p]);
+@@ -153,6 +187,14 @@
+     std::string out_name = file_stem(t.data_path) + "_" + std::to_string(t.pid) + ".out";
+     write_byte_file(out_name, out);
+     std::string freq_name = write_frequency_file(p, t);
++    int nonzero_x, nonzero_v;                              /* EXT e10: register dump, close the trace */
++    std::string regs_name = write_register_file(p, t, nonzero_x, nonzero_v);
++    std::string trace_name;
++    if (trace_fd[p]) {
++        std::fclose(trace_fd[p]);
++        trace_fd[p] = nullptr;
++        trace_name = ", " + t.prog.name + "_" + std::to_string(t.pid) + ".trace";
++    }
+ 
+     for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* release frames, clear the table */
+         int frame = memory[PTBR[p] + i];
+@@ -167,6 +209,8 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    std::printf("[regs] pid %d (%s): %d x and %d vector register(s) not zero -> %s%s\n",   /* EXT e10 */
++                t.pid, t.prog.name.c_str(), nonzero_x, nonzero_v, regs_name.c_str(), trace_name.c_str());
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+@@ -185,6 +229,13 @@
+     reset(p);
+     current_pid[p] = pid;
+     initialize(p, t);
++    if (trace_files) {                                     /* EXT e10: -T: one trace file per task */
++        std::string name = t.prog.name + "_" + std::to_string(pid) + ".trace";
++        trace_fd[p] = std::fopen(name.c_str(), "w");
++        if (trace_fd[p])
++            std::fprintf(trace_fd[p], "# trace of %s (pid %d) on processor %d\n#  step instr  bytes        %-18s result\n",
++                         t.prog.name.c_str(), pid, p, "instruction");
++    }
+     t.state = READY;
+     ready_queue.push_back(pid);
+     std::printf("[os] pid %d (%s) loaded on processor %d: %d instruction + %d data page(s), %d frame(s) left\n",
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-11 23:56:01
+@@ -5,6 +5,7 @@
+ #include <cstdarg>
+ #include <cstdint>
+ #include <cstring>
++#include <string>                /* EXT e10 */
+ #include <unistd.h>
+ #include "compiler.h"
+ #include "memory.h"
+@@ -26,6 +27,8 @@
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+ int trace = 0;
++int trace_files = 0;             /* EXT e10: set by -T */
++FILE *trace_fd[NP];              /* EXT e10: opened by the loader, closed by finalize() */
+ 
+ static int instr_pc;     /* address of the instruction being executed (PC already points past it) */
+ 
+@@ -224,8 +227,56 @@
+                 PC[p] = instr_pc + 4 * (signed char)src2;    /* offset counts instructions */
+         } else {
+             processor_error("unknown opcode 0x%02X", opcode);
++        }
++    }
++}
++
++/* EXT e10: one line of the -T trace for the instruction just executed:
++ * step, instruction index, its 4 bytes, disassembly, and what it changed. */
++static void write_trace_line(int p) {
++    std::string result;
++    char buf[64];
++    int *x = Register[p];
++    int addr = 0;
++    if (failed[p]) {                                    /* nothing was written */
++        result = "error: the task stopped here";
++    } else switch (opcode) {
++    case OP_HALT:
++        result = "end of task";
++        break;
++    case OP_ADD: case OP_SUB: case OP_ADDI: case OP_SUBI:         /* xD = ... (+ - also set NZCV) */
++    case OP_MUL: case OP_DIV: case OP_MULI: case OP_DIVI:
++    case OP_MOV: case OP_MOVC: case OP_LOAD: case OP_LOADC:
++        std::snprintf(buf, sizeof buf, "x%d = %d (0x%08X)", dest, x[dest], (unsigned)x[dest]);
++        result = buf;
++        if (opcode == OP_ADD || opcode == OP_SUB || opcode == OP_ADDI || opcode == OP_SUBI) {
++            std::snprintf(buf, sizeof buf, "  NZCV=%d%d%d%d", FlagN[p], FlagZ[p], FlagC[p], FlagV[p]);
++            result += buf;
+         }
++        break;
++    case OP_STORE: case OP_STOREC:                                 /* [address] = xS */
++        addr = opcode == OP_STORE ? x[dest] : dest;
++        result = "[" + std::to_string(addr) + "] = " + std::to_string(x[src2]);
++        break;
++    case OP_VSTORE: case OP_VSTOREC:                               /* 8 words from address */
++        addr = opcode == OP_VSTORE ? x[dest] : dest;
++        result = "[" + std::to_string(addr) + ".." + std::to_string(addr + 4 * VLEN - 1) + "] = v" + std::to_string(src2);
++        break;
++    case OP_PRINT:
++        std::snprintf(buf, sizeof buf, "log: x%d : %08X", src2, (unsigned)x[src2]);
++        result = buf;
++        break;
++    default:
++        if (opcode >= OP_BRANCH && opcode < OP_BRANCH + NUM_CONDITIONS)   /* flags unchanged by a branch */
++            result = condition_holds(p, opcode - OP_BRANCH) ? "taken -> instruction " + std::to_string(PC[p] / 4)
++                                                            : "not taken";
++        else {                                                     /* vector op or load: vD = 8 lanes */
++            result = "v" + std::to_string(dest) + " =";
++            for (int i = 0; i < VLEN; i++) result += " " + std::to_string(VRegister[p][dest][i]);
++        }
+     }
++    std::fprintf(trace_fd[p], "%6ld %5d  %02X %02X %02X %02X  %-18s %s\n", steps[p], instr_pc / 4,
++                 opcode, dest, src1, src2, disassemble(opcode, dest, src1, src2).c_str(), result.c_str());
+ }
+ 
+ /* Lab 4: run up to count instructions of the task on processor p, then pause. */
+@@ -237,6 +288,7 @@
+         if (end_of_simulation[p]) break;                 /* fetch fault */
+         decode();
+         execute();
++        if (trace_fd[p]) write_trace_line(p);            /* EXT e10: -T */
+         done++;
+         if (steps[p] >= MAX_STEPS) {
+             processor_error("more than %ld instructions executed: endless loop?", MAX_STEPS);
+--- ../../simulator/processor.h	2026-11-11 23:23:00
++++ processor.h	2026-11-11 23:52:45
+@@ -23,6 +23,8 @@
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
++extern int trace_files;                        /* EXT e10: 1 = -T: write <program>_<pid>.trace per task */
++extern FILE *trace_fd[NP];                     /* EXT e10: trace file of the task on processor p, or null */
+ 
+ void reset(int p);
+ void fetch();
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:55:42
+@@ -1,7 +1,8 @@
+ # CS527 mini-computer simulator (Labs 1-6)
++# EXT e10: register dump (<program>_<pid>.regs) and per-task trace with -T (<program>_<pid>.trace)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            EXT e10: base regression tests on this build, then ./test.sh
++#   ./sim -b -T ../../examples/sum_array.txt ../../examples/sum_array_data.byte   (EXT e10: path from extensions/<dir>)
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,10 +14,11 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e10: run the base tests on this build, then ./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
++	./test.sh
+ 
+ clean:
+-	rm -f sim $(OBJS) program.byte *.out *.freq log.txt
++	rm -f sim $(OBJS) program.byte *.out *.freq log.txt *.regs *.trace   # EXT e10: + .regs .trace
+ 
+ .PHONY: test clean

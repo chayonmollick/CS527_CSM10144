@@ -1,0 +1,216 @@
+--- ../../simulator/main.cpp	2026-11-11 23:25:42
++++ main.cpp	2026-11-11 23:41:25
+@@ -9,6 +9,7 @@
+  * A program may also be given as an already compiled .byte file.
+  * Results: <data>_<pid>.out (final data memory), <program>_<pid>.freq (Lab 6 task 1),
+  *          log.txt (print output).
++ * EXT e06: <program>_<pid>.stats (instruction mix, estimated cycles and CPI).
+  */
+ #include <cstdio>
+ #include <cstring>
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-11 23:41:30
+@@ -9,6 +9,7 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e06: finalize() also writes <program>_<pid>.stats (instruction mix, cycles, CPI).
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -141,6 +142,31 @@
+     return name;
+ }
+ 
++/* EXT e06: <program>_<pid>.stats - instruction mix, estimated cycles and CPI of the task.
++ * Returns the file name; instructions and cycles are returned for the summary line. */
++static std::string write_stats_file(int p, const Task &t, long &instructions, long &cycles) {
++    instructions = cycles = 0;
++    for (int c = 0; c < NUM_CLASSES; c++) {
++        instructions += class_count[p][c];
++        cycles += class_count[p][c] * CLASS_LATENCY[c];
++    }
++    std::string name = t.prog.name + "_" + std::to_string(t.pid) + ".stats";
++    FILE *f = std::fopen(name.c_str(), "w");
++    if (!f) return "(could not write " + name + ")";
++    std::fprintf(f, "Instruction mix of %s (pid %d)\n", t.prog.name.c_str(), t.pid);
++    std::fprintf(f, "%-18s %8s %8s %8s %8s\n", "class", "count", "%instr", "latency", "cycles");
++    for (int c = 0; c < NUM_CLASSES; c++)
++        std::fprintf(f, "%-18s %8ld %7.2f%% %8d %8ld\n", CLASS_NAME[c], class_count[p][c],
++                     instructions ? 100.0 * class_count[p][c] / instructions : 0.0,
++                     CLASS_LATENCY[c], class_count[p][c] * CLASS_LATENCY[c]);
++    std::fprintf(f, "%-18s %8ld %8s %8s %8ld\n", "total", instructions, "100.00%", "", cycles);
++    std::fprintf(f, "CPI = %ld cycles / %ld instructions = %.2f\n", cycles, instructions,
++                 instructions ? (double)cycles / instructions : 0.0);
++    std::fprintf(f, "(branch_taken latency = %d + %d taken penalty)\n", LAT_BRANCH, LAT_TAKEN_PENALTY);
++    std::fclose(f);
++    return name;
++}
++
+ /* finalize(): write the data back, write the frequency report, free the frames. */
+ static void finalize(int p, Task &t) {
+     size_t size = std::max(t.data.size(), (size_t)data_high[p]);
+@@ -153,6 +179,8 @@
+     std::string out_name = file_stem(t.data_path) + "_" + std::to_string(t.pid) + ".out";
+     write_byte_file(out_name, out);
+     std::string freq_name = write_frequency_file(p, t);
++    long instructions, cycles;                             /* EXT e06 */
++    std::string stats_name = write_stats_file(p, t, instructions, cycles);
+ 
+     for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* release frames, clear the table */
+         int frame = memory[PTBR[p] + i];
+@@ -167,6 +195,9 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    std::printf("[stats] pid %d (%s): %ld instructions, %ld cycles, CPI %.2f -> %s\n",   /* EXT e06 */
++                t.pid, t.prog.name.c_str(), instructions, cycles,
++                instructions ? (double)cycles / instructions : 0.0, stats_name.c_str());
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-11 23:40:49
+@@ -23,6 +23,15 @@
+ long exec_count[NP][MAX_INSTRUCTIONS];
+ int data_high[NP];
+ 
++/* EXT e06: instruction mix of the task on each processor (cleared by reset()) */
++long class_count[NP][NUM_CLASSES];
++const char *CLASS_NAME[NUM_CLASSES] = {
++    "alu", "mul", "div", "load", "store", "branch_taken", "branch_not_taken",
++    "vector", "vector_mem", "print", "halt"};
++const int CLASS_LATENCY[NUM_CLASSES] = {
++    LAT_ALU, LAT_MUL, LAT_DIV, LAT_LOAD, LAT_STORE, LAT_BRANCH + LAT_TAKEN_PENALTY, LAT_BRANCH,
++    LAT_VECTOR, LAT_VMEM, LAT_PRINT, LAT_HALT};
++
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+ int trace = 0;
+@@ -46,6 +55,7 @@
+     std::memset(Register[p], 0, sizeof Register[p]);
+     std::memset(VRegister[p], 0, sizeof VRegister[p]);
+     std::memset(exec_count[p], 0, sizeof exec_count[p]);
++    std::memset(class_count[p], 0, sizeof class_count[p]);    /* EXT e06 */
+     PC[p] = 0;
+     FlagN[p] = FlagZ[p] = FlagC[p] = FlagV[p] = 0;
+     end_of_simulation[p] = failed[p] = 0;
+@@ -115,6 +125,29 @@
+     }
+ }
+ 
++/* EXT e06: class of an instruction; taken = 1 if it is a branch whose condition holds. */
++int instr_class(int op, int taken) {
++    switch (op) {
++    case OP_HALT:                                   return CLS_HALT;
++    case OP_ADD: case OP_SUB: case OP_ADDI: case OP_SUBI:
++    case OP_MOV: case OP_MOVC:                      return CLS_ALU;
++    case OP_MUL: case OP_MULI:                      return CLS_MUL;
++    case OP_DIV: case OP_DIVI:                      return CLS_DIV;
++    case OP_LOAD: case OP_LOADC:                    return CLS_LOAD;
++    case OP_STORE: case OP_STOREC:                  return CLS_STORE;
++    case OP_PRINT:                                  return CLS_PRINT;
++    case OP_VADD: case OP_VSUB: case OP_VMUL:
++    case OP_VADDI: case OP_VSUBI: case OP_VMULI:
++    case OP_VADDX: case OP_VSUBX: case OP_VMULX:    return CLS_VECTOR;
++    case OP_VLOAD: case OP_VLOADC:
++    case OP_VSTORE: case OP_VSTOREC:                return CLS_VMEM;
++    default:
++        if (op >= OP_BRANCH && op < OP_BRANCH + NUM_CONDITIONS)
++            return taken ? CLS_BRANCH_TAKEN : CLS_BRANCH_NOT_TAKEN;
++        return -1;                                  /* unknown opcode: the task stops anyway */
++    }
++}
++
+ /* fetch(): read the 4 instruction bytes at PC into opcode, dest, src1, src2. */
+ void fetch() {
+     int p = proc_id;
+@@ -160,6 +193,12 @@
+         std::fprintf(stderr, "[pid %d p%d] %3d: %02X %02X %02X %02X   %s\n", current_pid[p], p,
+                      instr_pc / 4, opcode, dest, src1, src2, disassemble(opcode, dest, src1, src2).c_str());
+ 
++    /* EXT e06: count the instruction in its class. A branch does not change the flags,
++     * so evaluating its condition here gives the same answer as the switch below. */
++    int is_branch = opcode >= OP_BRANCH && opcode < OP_BRANCH + NUM_CONDITIONS;
++    int cls = instr_class(opcode, is_branch && condition_holds(p, opcode - OP_BRANCH));
++    if (cls >= 0) class_count[p][cls]++;
++
+     uint32_t a = (uint32_t)x[src1], b;
+     int value, addr;
+     switch (opcode) {
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:40:29
+@@ -70,4 +70,26 @@
+     COND_HI, COND_LS, COND_GE, COND_LT, COND_GT, COND_LE, COND_AL, NUM_CONDITIONS
+ };
+ 
++/* ---- EXT e06: instruction mix and cycle estimate ----
++ * Every executed instruction is put in one class. Estimated cycles of a task =
++ * sum over the classes of (count * latency); a taken branch costs LAT_BRANCH +
++ * LAT_TAKEN_PENALTY. CPI = cycles / instructions. Change a latency and rebuild.
++ */
++#define LAT_ALU             1   /* EXT e06: + - and moves (register or constant) */
++#define LAT_MUL             3   /* EXT e06 */
++#define LAT_DIV             10  /* EXT e06 */
++#define LAT_LOAD            3   /* EXT e06: xD = [xA] / [c] */
++#define LAT_STORE           3   /* EXT e06: [xA] / [c] = xS */
++#define LAT_BRANCH          1   /* EXT e06: every B<cond>, taken or not */
++#define LAT_TAKEN_PENALTY   2   /* EXT e06: extra cycles when the branch is taken */
++#define LAT_VECTOR          4   /* EXT e06: vector + - * */
++#define LAT_VMEM            8   /* EXT e06: vector load / store (8 words) */
++#define LAT_PRINT           1   /* EXT e06 */
++#define LAT_HALT            1   /* EXT e06 */
++
++enum InstrClass {               /* EXT e06: one row each in the .stats file, in this order */
++    CLS_ALU, CLS_MUL, CLS_DIV, CLS_LOAD, CLS_STORE, CLS_BRANCH_TAKEN, CLS_BRANCH_NOT_TAKEN,
++    CLS_VECTOR, CLS_VMEM, CLS_PRINT, CLS_HALT, NUM_CLASSES
++};
++
+ #endif
+--- ../../simulator/processor.h	2026-11-11 23:23:00
++++ processor.h	2026-11-11 23:40:31
+@@ -19,6 +19,9 @@
+ extern long steps[NP];                         /* instructions executed by the current task */
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
++extern long class_count[NP][NUM_CLASSES];      /* EXT e06: executed instructions of each class */
++extern const char *CLASS_NAME[NUM_CLASSES];    /* EXT e06: row names of the .stats file */
++extern const int CLASS_LATENCY[NUM_CLASSES];   /* EXT e06: cycles per instruction of each class */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+@@ -30,5 +33,6 @@
+ void execute();
+ int  process_instructions(int p, int count);   /* run up to count instructions; returns how many ran */
+ void processor_error(const char *fmt, ...);    /* report an error and stop the current task */
++int  instr_class(int opcode, int taken);       /* EXT e06: InstrClass of an instruction, -1 if unknown */
+ 
+ #endif
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:55:42
+@@ -1,7 +1,8 @@
+ # CS527 mini-computer simulator (Labs 1-6)
++# EXT e06: instruction mix + cycle estimate (writes <program>_<pid>.stats)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            EXT e06: base regression tests on this build, then ./test.sh
++#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte   (EXT e06: path from extensions/<dir>)
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,10 +14,11 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e06: run the base tests on this build, then ./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
++	./test.sh
+ 
+ clean:
+-	rm -f sim $(OBJS) program.byte *.out *.freq log.txt
++	rm -f sim $(OBJS) program.byte *.out *.freq log.txt *.stats   # EXT e06: + .stats
+ 
+ .PHONY: test clean

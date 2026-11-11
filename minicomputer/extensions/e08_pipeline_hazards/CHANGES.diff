@@ -1,0 +1,298 @@
+--- ../../simulator/main.cpp	2026-11-11 23:25:42
++++ main.cpp	2026-11-11 23:48:00
+@@ -9,6 +9,7 @@
+  * A program may also be given as an already compiled .byte file.
+  * Results: <data>_<pid>.out (final data memory), <program>_<pid>.freq (Lab 6 task 1),
+  *          log.txt (print output).
++ * EXT e08: <program>_<pid>.pipe (RAW hazards, stalls and cycles on a 5-stage pipeline).
+  */
+ #include <cstdio>
+ #include <cstring>
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-11 23:48:00
+@@ -9,6 +9,7 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e08: finalize() also writes <program>_<pid>.pipe (5-stage pipeline hazards and cycles).
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -141,6 +142,35 @@
+     return name;
+ }
+ 
++/* EXT e08: <program>_<pid>.pipe - hazards, stalls and cycles on the 5-stage pipeline,
++ * then the first PIPE_LOG_ROWS executed instructions one by one. */
++static std::string write_pipeline_file(int p, const Task &t, long &cycles_nofwd, long &cycles_fwd) {
++    const PipeStats &s = pipe_stats[p];
++    long penalty = PIPE_BRANCH_PENALTY * s.taken_branches;
++    cycles_nofwd = PIPE_FILL + s.instructions + s.stalls_nofwd + penalty;
++    cycles_fwd = PIPE_FILL + s.instructions + s.stalls_fwd + penalty;
++    std::string name = t.prog.name + "_" + std::to_string(t.pid) + ".pipe";
++    FILE *f = std::fopen(name.c_str(), "w");
++    if (!f) return "(could not write " + name + ")";
++    double n = s.instructions ? (double)s.instructions : 1.0;
++    std::fprintf(f, "5-stage pipeline (IF ID EX MEM WB) for %s (pid %d)\n", t.prog.name.c_str(), t.pid);
++    std::fprintf(f, "instructions     %6ld\n", s.instructions);
++    std::fprintf(f, "taken_branches   %6ld   (%d flushed cycles each)\n", s.taken_branches, PIPE_BRANCH_PENALTY);
++    std::fprintf(f, "raw_hazards_d1   %6ld   (reader right after the writer)\n", s.raw_d1);
++    std::fprintf(f, "raw_hazards_d2   %6ld   (one instruction in between)\n", s.raw_d2);
++    std::fprintf(f, "load_use         %6ld   (d1 hazards on a loaded register)\n\n", s.load_use);
++    std::fprintf(f, "%-19s %7s %8s %7s %6s\n", "", "stalls", "penalty", "cycles", "CPI");
++    std::fprintf(f, "%-19s %7ld %8ld %7ld %6.2f\n", "without_forwarding", s.stalls_nofwd, penalty, cycles_nofwd, cycles_nofwd / n);
++    std::fprintf(f, "%-19s %7ld %8ld %7ld %6.2f\n", "with_forwarding", s.stalls_fwd, penalty, cycles_fwd, cycles_fwd / n);
++    std::fprintf(f, "cycles = %d + instructions + stalls + %d x taken branches\n\n", PIPE_FILL, PIPE_BRANCH_PENALTY);
++    std::fprintf(f, "first %d executed instructions (ID = cycle in which the instruction reads its registers)\n", PIPE_LOG_ROWS);
++    std::fprintf(f, "%5s %5s  %-18s %-22s %6s %5s %8s %5s\n", "step", "instr", "instruction", "RAW hazards",
++                 "ID", "stall", "ID(fwd)", "stall");
++    for (const std::string &row : pipe_log[p]) std::fprintf(f, "%s\n", row.c_str());
++    std::fclose(f);
++    return name;
++}
++
+ /* finalize(): write the data back, write the frequency report, free the frames. */
+ static void finalize(int p, Task &t) {
+     size_t size = std::max(t.data.size(), (size_t)data_high[p]);
+@@ -153,6 +183,8 @@
+     std::string out_name = file_stem(t.data_path) + "_" + std::to_string(t.pid) + ".out";
+     write_byte_file(out_name, out);
+     std::string freq_name = write_frequency_file(p, t);
++    long cycles_nofwd, cycles_fwd;                         /* EXT e08 */
++    std::string pipe_name = write_pipeline_file(p, t, cycles_nofwd, cycles_fwd);
+ 
+     for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* release frames, clear the table */
+         int frame = memory[PTBR[p] + i];
+@@ -167,6 +199,11 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    const PipeStats &s = pipe_stats[p];                    /* EXT e08: one-line summary */
++    std::printf("[pipe] pid %d (%s): %ld instructions, RAW hazards %ld (load-use %ld), %ld taken branches, "
++                "cycles %ld without forwarding, %ld with forwarding -> %s\n", t.pid, t.prog.name.c_str(),
++                s.instructions, s.raw_d1 + s.raw_d2, s.load_use, s.taken_branches, cycles_nofwd, cycles_fwd,
++                pipe_name.c_str());
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-11 23:48:41
+@@ -23,6 +23,19 @@
+ long exec_count[NP][MAX_INSTRUCTIONS];
+ int data_high[NP];
+ 
++/* EXT e08: pipeline model of each processor. Register numbers: x0..x255 = 0..255,
++ * v0..v31 = 256..287. A "slot" is a pipeline position in the stall-free schedule:
++ * +1 per instruction, +PIPE_BRANCH_PENALTY bubbles after a taken branch. */
++#define PIPE_REGS (NUM_XREGS + NUM_VREGS)
++PipeStats pipe_stats[NP];
++std::vector<std::string> pipe_log[NP];
++static long next_slot[NP];                       /* slot of the next instruction */
++static long next_id_nofwd[NP], next_id_fwd[NP];  /* earliest ID cycle of the next instruction */
++static long written_slot[NP][PIPE_REGS];         /* slot of the last writer of each register */
++static bool written_by_load[NP][PIPE_REGS];
++static long ready_nofwd[NP][PIPE_REGS];          /* first ID cycle that can read the new value */
++static long ready_fwd[NP][PIPE_REGS];
++
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+ int trace = 0;
+@@ -51,6 +64,15 @@
+     end_of_simulation[p] = failed[p] = 0;
+     steps[p] = 0;
+     data_high[p] = 0;
++    /* EXT e08: empty pipeline; the first instruction is in IF in cycle 1 and in ID in cycle 2 */
++    pipe_stats[p] = PipeStats();
++    pipe_log[p].clear();
++    next_slot[p] = next_id_nofwd[p] = next_id_fwd[p] = 2;
++    for (int r = 0; r < PIPE_REGS; r++) {
++        written_slot[p][r] = -100;                     /* never written: no hazard */
++        written_by_load[p][r] = false;
++        ready_nofwd[p][r] = ready_fwd[p][r] = 0;
++    }
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+ 
+@@ -112,7 +134,92 @@
+     case COND_GE: return N == V;       case COND_LT: return N != V;
+     case COND_GT: return !Z && N == V; case COND_LE: return Z || N != V;
+     default:      return true;         /* AL */
++    }
++}
++
++/* EXT e08: registers read and written by an instruction (numbers as in PIPE_REGS).
++ * Address registers of loads and stores are reads too. Returns how many it reads. */
++static int pipe_operands(int op, int d, int a, int b, int reads[2], int &write, bool &is_load) {
++    int n = 0;
++    write = -1;
++    is_load = false;
++    auto read_x = [&](int r) { reads[n++] = r; };
++    auto read_v = [&](int r) { if (r < NUM_VREGS) reads[n++] = NUM_XREGS + r; };   /* bad v: task stops */
++    auto write_v = [&](int r) { if (r < NUM_VREGS) write = NUM_XREGS + r; };
++    switch (op) {
++    case OP_ADD: case OP_SUB: case OP_MUL: case OP_DIV:     read_x(a); read_x(b); write = d; break;
++    case OP_ADDI: case OP_SUBI: case OP_MULI: case OP_DIVI: read_x(a); write = d; break;
++    case OP_MOV:     read_x(b); write = d; break;
++    case OP_MOVC:    write = d; break;
++    case OP_LOAD:    read_x(b); write = d; is_load = true; break;   /* xD = [xA]: xA is the address */
++    case OP_LOADC:   write = d; is_load = true; break;
++    case OP_STORE:   read_x(d); read_x(b); break;                   /* [xA] = xS: reads both */
++    case OP_STOREC:  read_x(b); break;
++    case OP_PRINT:   read_x(b); break;
++    case OP_VADD: case OP_VSUB: case OP_VMUL:    read_v(a); read_v(b); write_v(d); break;
++    case OP_VADDI: case OP_VSUBI: case OP_VMULI: read_v(a); write_v(d); break;
++    case OP_VADDX: case OP_VSUBX: case OP_VMULX: read_v(a); read_x(b); write_v(d); break;
++    case OP_VLOAD:   read_x(b); write_v(d); is_load = true; break;
++    case OP_VLOADC:  write_v(d); is_load = true; break;
++    case OP_VSTORE:  read_x(d); read_v(b); break;
++    case OP_VSTOREC: read_v(b); break;
++    default:         break;                                        /* halt, branches: no registers */
++    }
++    if (n == 2 && reads[0] == reads[1]) n = 1;                     /* x2 = x1 + x1 reads x1 once */
++    return n;
++}
++
++static std::string reg_name(int r) {                            /* EXT e08 */
++    return r < NUM_XREGS ? "x" + std::to_string(r) : "v" + std::to_string(r - NUM_XREGS);
++}
++
++/* EXT e08: put the instruction being executed through the two pipelines.
++ *   hazard: it reads a register whose last writer is 1 or 2 slots earlier.
++ *   no forwarding: it waits in ID until the writer's WB (writer's ID + 3).
++ *   forwarding: only a value from a load arrives late (load's ID + 2): load-use stall.
++ * taken = it is a branch that is taken: PIPE_BRANCH_PENALTY bubbles follow it. */
++static void pipeline_step(int p, int taken) {
++    PipeStats &s = pipe_stats[p];
++    int reads[2], write;
++    bool is_load;
++    int n = pipe_operands(opcode, dest, src1, src2, reads, write, is_load);
++    long slot = next_slot[p];
++    long id_nofwd = next_id_nofwd[p], id_fwd = next_id_fwd[p];  /* ID cycle if nothing stalls it */
++    std::string hazards;
++    for (int k = 0; k < n; k++) {
++        int r = reads[k];
++        long distance = slot - written_slot[p][r];
++        if (distance <= 2) {                                    /* RAW hazard */
++            bool load_use = distance == 1 && written_by_load[p][r];
++            if (distance == 1) s.raw_d1++; else s.raw_d2++;
++            if (load_use) s.load_use++;
++            hazards += reg_name(r) + ":d" + std::to_string(distance) + (load_use ? "(load) " : " ");
++        }
++        if (ready_nofwd[p][r] > id_nofwd) id_nofwd = ready_nofwd[p][r];
++        if (ready_fwd[p][r] > id_fwd) id_fwd = ready_fwd[p][r];
+     }
++    long stall_nofwd = id_nofwd - next_id_nofwd[p], stall_fwd = id_fwd - next_id_fwd[p];
++    s.instructions++;
++    s.stalls_nofwd += stall_nofwd;
++    s.stalls_fwd += stall_fwd;
++    if (write >= 0) {
++        written_slot[p][write] = slot;
++        written_by_load[p][write] = is_load;
++        ready_nofwd[p][write] = id_nofwd + PIPE_NOFWD_GAP;
++        ready_fwd[p][write] = id_fwd + (is_load ? PIPE_LOAD_GAP : 1);
++    }
++    int bubbles = taken ? PIPE_BRANCH_PENALTY : 0;
++    if (pipe_log[p].size() < PIPE_LOG_ROWS) {
++        char row[160];
++        std::snprintf(row, sizeof row, "%5ld %5d  %-18s %-22s %6ld %5ld %8ld %5ld", s.instructions, instr_pc / 4,
++                      disassemble(opcode, dest, src1, src2).c_str(), hazards.c_str(), id_nofwd, stall_nofwd,
++                      id_fwd, stall_fwd);
++        pipe_log[p].push_back(row + (taken ? "   taken: " + std::to_string(bubbles) + " bubbles" : ""));
++    }
++    s.taken_branches += taken;
++    next_slot[p] = slot + 1 + bubbles;
++    next_id_nofwd[p] = id_nofwd + 1 + bubbles;
++    next_id_fwd[p] = id_fwd + 1 + bubbles;
+ }
+ 
+ /* fetch(): read the 4 instruction bytes at PC into opcode, dest, src1, src2. */
+@@ -160,6 +267,11 @@
+         std::fprintf(stderr, "[pid %d p%d] %3d: %02X %02X %02X %02X   %s\n", current_pid[p], p,
+                      instr_pc / 4, opcode, dest, src1, src2, disassemble(opcode, dest, src1, src2).c_str());
+ 
++    /* EXT e08: pipeline model. A branch does not change the flags, so its outcome can be
++     * evaluated here (the switch below then takes the same decision). */
++    int is_branch = opcode >= OP_BRANCH && opcode < OP_BRANCH + NUM_CONDITIONS;
++    pipeline_step(p, is_branch && condition_holds(p, opcode - OP_BRANCH));
++
+     uint32_t a = (uint32_t)x[src1], b;
+     int value, addr;
+     switch (opcode) {
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:46:41
+@@ -70,4 +70,17 @@
+     COND_HI, COND_LS, COND_GE, COND_LT, COND_GT, COND_LE, COND_AL, NUM_CONDITIONS
+ };
+ 
++/* ---- EXT e08: classic 5-stage in-order pipeline model (IF ID EX MEM WB) ----
++ * The executed instruction stream of each task is replayed on two pipelines, one
++ * without and one with forwarding. Registers are read in ID and written in WB (first
++ * half of the cycle, so an ID in the same cycle reads the new value). Branches are
++ * resolved in EX; the flags (NZCV) are forwarded to EX and never cause a stall.
++ *   cycles = PIPE_FILL + instructions + stalls + PIPE_BRANCH_PENALTY * taken branches
++ */
++#define PIPE_FILL            4   /* EXT e08: the first instruction leaves WB in cycle 5 */
++#define PIPE_BRANCH_PENALTY  2   /* EXT e08: a taken branch flushes the 2 instructions fetched after it */
++#define PIPE_NOFWD_GAP       3   /* EXT e08: no forwarding: reader's ID >= writer's ID + 3 (the writer's WB) */
++#define PIPE_LOAD_GAP        2   /* EXT e08: forwarding: reader's ID >= load's ID + 2 (value ready after MEM) */
++#define PIPE_LOG_ROWS        40  /* EXT e08: executed instructions listed one by one in the .pipe file */
++
+ #endif
+--- ../../simulator/processor.h	2026-11-11 23:23:00
++++ processor.h	2026-11-11 23:46:43
+@@ -6,6 +6,8 @@
+ #define PROCESSOR_H
+ 
+ #include <cstdio>
++#include <string>                                /* EXT e08 */
++#include <vector>                                /* EXT e08 */
+ #include "config.h"
+ 
+ extern int Register[NP][NUM_XREGS];            /* x0..x255 */
+@@ -20,6 +22,18 @@
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
+ 
++/* EXT e08: 5-stage pipeline statistics of the task on processor p (cleared by reset()) */
++struct PipeStats {
++    long instructions = 0;       /* executed instructions (halt included) */
++    long taken_branches = 0;     /* each one costs PIPE_BRANCH_PENALTY cycles */
++    long raw_d1 = 0, raw_d2 = 0; /* RAW hazards: reader 1 or 2 pipeline slots after the writer */
++    long load_use = 0;           /* distance-1 hazards on a register written by a load */
++    long stalls_nofwd = 0;       /* stall cycles without forwarding (wait for the writer's WB) */
++    long stalls_fwd = 0;         /* stall cycles with forwarding (only load-use stalls) */
++};
++extern PipeStats pipe_stats[NP];
++extern std::vector<std::string> pipe_log[NP];  /* EXT e08: the first PIPE_LOG_ROWS instructions, one line each */
++
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:55:42
+@@ -1,7 +1,8 @@
+ # CS527 mini-computer simulator (Labs 1-6)
++# EXT e08: 5-stage pipeline hazard model (writes <program>_<pid>.pipe)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            EXT e08: base regression tests on this build, then ./test.sh
++#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte   (EXT e08: path from extensions/<dir>)
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,10 +14,11 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e08: run the base tests on this build, then ./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
++	./test.sh
+ 
+ clean:
+-	rm -f sim $(OBJS) program.byte *.out *.freq log.txt
++	rm -f sim $(OBJS) program.byte *.out *.freq log.txt *.pipe   # EXT e08: + .pipe
+ 
+ .PHONY: test clean
