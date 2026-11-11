@@ -1,0 +1,12 @@
+# simulator build output and run results
+sim
+*.o
+program.byte
+*.freq
+log.txt
+*.stats
+*.regs
+*.trace
+*.prof
+timeline.txt
+memory_map.txt

@@ -1,17 +1,18 @@
-# CS527 Computer Systems — OpenMP Lab
+# CS527 Computer Systems — Labs
 
-Serial and OpenMP-parallel implementations of the OpenMP lab tasks (Labs 7, 8
-and 9), each with correctness checks and timing, plus a practice bank of likely
-lab-test variants.
+All CS527 labs: the mini-computer simulator (Labs 1–6, in `minicomputer/`) and
+the OpenMP labs (Labs 7–9), each with tests, guides and practice questions.
 
 | Folder | Contents |
 |--------|----------|
+| [`FINAL_LAB_TEST.md`](FINAL_LAB_TEST.md) | **Final lab test: start here.** Every lab, how past tests ran, example questions with worked answers |
+| [`minicomputer/`](minicomputer/) | Labs 1–6: the mini-computer simulator (compiler, processor, vectors, OS, paging, Lab 6 tasks), its guide, 22 worked extensions and a program bank |
 | `./` (root) | Lab 7: vector add, sum, max/min with index, matrix add, matrix multiply |
 | [`session2/`](session2/) | Lab 8: array search, parallel sort, histogram, transpose, 2D convolution |
 | [`session3/`](session3/) | Lab 9: merge sort with tasks, static/dynamic/guided scheduling, even/odd count |
 | [`practice/`](practice/) | Practice bank: one program per likely test question, plus a template |
 | [`problems/`](problems/) | Problem bank: 104 solved problems (statement + tested solution), indexed in [`PROBLEMS.md`](PROBLEMS.md) |
-| [`GUIDE.md`](GUIDE.md) | **Start here for a new question:** exam-day steps, the solving method, where to find the closest solution, report template |
+| [`GUIDE.md`](GUIDE.md) | How to solve a new OpenMP question: exam-day steps, the solving method, where to find the closest solution, report template |
 | [`MATRIX_RULES.md`](MATRIX_RULES.md) | Matrix indexing, algebra rules, index maps, and which matrix loops are safe to parallelise |
 | [`CHEATSHEET.md`](CHEATSHEET.md) | Lab-day commands, OpenMP syntax, answers to every report question |
 

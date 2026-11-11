@@ -1,0 +1,12 @@
+% EXT e22 example: a long loop (8000 instructions = 800 time slices) so that running
+% the processors in parallel makes a visible difference. Stores 3 * 2000 = 6000 at 0.
+x1 = 0
+x2 = 250
+x2 = x2 * 8       % 2000 iterations
+x3 = 0
+.loop
+x3 = x3 + 3
+x1 = x1 + 1
+x4 = x1 - x2
+BNE .loop
+[0] = x3
