@@ -1,0 +1,24 @@
+% EXT e12 example: dot product of a and b (N words each); a starts at 16, b at 16 + D.
+% data: N at 0, D (distance from a to b in bytes) at 4; the result is written at 8.
+% D = 256 = cache size (16 lines x 16 bytes): a[i] and b[i] map to the SAME line of the
+%           direct-mapped cache, so each load throws out the other array -> 0 loop hits
+% D = 272:  one line of padding moves b to the next line -> 3 of every 4 loads hit
+x1 = [0]          % N
+x2 = [4]          % D
+x3 = 16           % address of a[i]
+x4 = x3 + x2      % address of b[i]
+x5 = 0            % i
+x6 = 0            % sum
+.loop
+x7 = x5 - x1
+BGE .done         % i >= N
+x8 = [x3]         % a[i]
+x9 = [x4]         % b[i]
+x8 = x8 * x9
+x6 = x6 + x8
+x3 = x3 + 4
+x4 = x4 + 4
+x5 = x5 + 1
+BAL .loop
+.done
+[8] = x6

@@ -1,0 +1,226 @@
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-11 23:47:25
+@@ -9,6 +9,8 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e11: getPhysicalAddress() first looks in the processor's TLB (TLB_ENTRIES entries,
++ *        fully associative, LRU) and reads the page table in frame 0 only on a TLB miss.
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -37,6 +39,7 @@
+     std::vector<unsigned char> data;        /* initial data image */
+     long steps = 0;
+     int page_faults = 0;
++    long tlb_hits = 0, tlb_misses = 0;      /* EXT e11: TLB statistics of this task */
+     bool failed = false;
+ };
+ 
+@@ -57,6 +60,48 @@
+ }
+ 
+ /* ---------------- memory management unit ---------------- */
++
++/* EXT e11: translation look-aside buffer (TLB). Every processor has its own TLB (it is
++ * hardware, like PTBR). An entry caches one page-table entry: logical page index (the
++ * page-table index 0..NUM_LOGICAL_PAGES-1, instruction and data pages) -> frame.
++ * Fully associative: a page may sit in any entry, so a lookup compares all entries.
++ * Replacement: least recently used (the entry with the oldest time stamp). */
++struct TlbEntry {
++    bool valid = false;
++    int page = 0;                           /* logical page index */
++    int frame = 0;                          /* physical frame */
++    long last_used = 0;                     /* time of the last hit or fill (LRU) */
++};
++static TlbEntry tlb[NP][TLB_ENTRIES];
++static long tlb_clock[NP];                  /* EXT e11: counts TLB lookups; gives the LRU time stamps */
++static long tlb_hits[NP][2], tlb_misses[NP][2];   /* EXT e11: [p][0] = data accesses, [p][1] = fetches */
++
++static void tlb_flush(int p) {              /* EXT e11: forget every translation of processor p */
++    for (int e = 0; e < TLB_ENTRIES; e++) tlb[p][e].valid = false;
++}
++
++/* EXT e11: frame of logical page index, or -1 if the TLB does not hold it (a miss). */
++static int tlb_lookup(int p, int index) {
++    for (int e = 0; e < TLB_ENTRIES; e++)
++        if (tlb[p][e].valid && tlb[p][e].page == index) {
++            tlb[p][e].last_used = ++tlb_clock[p];  /* hit: now the most recently used */
++            return tlb[p][e].frame;
++        }
++    return -1;
++}
++
++/* EXT e11: after a miss, put page -> frame in a free entry, or else replace the LRU entry. */
++static void tlb_insert(int p, int index, int frame) {
++    int victim = 0;
++    for (int e = 0; e < TLB_ENTRIES; e++) {
++        if (!tlb[p][e].valid) { victim = e; break; }               /* free entry: take it */
++        if (tlb[p][e].last_used < tlb[p][victim].last_used) victim = e;
++    }
++    tlb[p][victim].valid = true;
++    tlb[p][victim].page = index;
++    tlb[p][victim].frame = frame;
++    tlb[p][victim].last_used = ++tlb_clock[p];
++}
+ 
+ int getFreePage() {
+     for (int f = 1; f < NUM_PHYSICAL_PAGES; f++)
+@@ -72,8 +117,15 @@
+         return -1;
+     }
+     int index = isFetch ? address / PAGESIZE : address / PAGESIZE + INSTR_SPACE / PAGESIZE;
++    int kind = isFetch ? 1 : 0;             /* EXT e11: statistics kept apart for fetches and data */
++    int frame = tlb_lookup(p, index);       /* EXT e11: ask the TLB first */
++    if (frame >= 0) {
++        tlb_hits[p][kind]++;                /* EXT e11: TLB hit: no page-table access at all */
++        return frame * PAGESIZE + address % PAGESIZE;
++    }
++    tlb_misses[p][kind]++;                  /* EXT e11: TLB miss: walk the page table in frame 0 */
+     int pte = PTBR[p] + index;              /* page-table entry, in physical frame 0 */
+-    int frame = memory[pte];
++    frame = memory[pte];
+     if (frame == 0) {                       /* page not mapped */
+         if (isFetch) {
+             processor_error("fetch from unmapped instruction page %d (jumped past the end of the program?)", index);
+@@ -88,6 +140,7 @@
+         memory[pte] = (unsigned char)frame;
+         page_faults_on[p]++;
+     }
++    tlb_insert(p, index, frame);            /* EXT e11: cache the translation (also a page mapped just now) */
+     return frame * PAGESIZE + address % PAGESIZE;
+ }
+ 
+@@ -110,6 +163,8 @@
+     copy_in(p, 0, t.prog.code);                            /* instruction pages 0, 1 */
+     copy_in(p, NUM_INSTR_PAGES, t.data);                   /* data pages 2..9 */
+     page_faults_on[p] = 0;
++    tlb_flush(p);       /* EXT e11: the TLB still holds the previous task's translations */
++    tlb_hits[p][0] = tlb_hits[p][1] = tlb_misses[p][0] = tlb_misses[p][1] = 0;   /* EXT e11: per-task counts */
+ }
+ 
+ /* Lab 6 task 1: <program>_<pid>.freq, one line per executable source line. */
+@@ -167,6 +222,17 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++
++    /* EXT e11: TLB report. One lookup per instruction fetch and per data word accessed. */
++    t.tlb_hits = tlb_hits[p][0] + tlb_hits[p][1];
++    t.tlb_misses = tlb_misses[p][0] + tlb_misses[p][1];
++    long lookups = t.tlb_hits + t.tlb_misses;
++    long data_lookups = tlb_hits[p][0] + tlb_misses[p][0];
++    std::printf("[os] pid %d TLB: %ld lookups, %ld hits, %ld misses, hit rate %.1f%% "
++                "(fetch: %ld of %ld hit; data: %ld of %ld hit = %.1f%%)\n",
++                t.pid, lookups, t.tlb_hits, t.tlb_misses, lookups ? 100.0 * t.tlb_hits / lookups : 0.0,
++                tlb_hits[p][1], tlb_hits[p][1] + tlb_misses[p][1], tlb_hits[p][0], data_lookups,
++                data_lookups ? 100.0 * tlb_hits[p][0] / data_lookups : 0.0);
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-11 23:44:30
+@@ -54,33 +54,39 @@
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+ 
+-/* ---- logical memory access (one byte at a time, so a word may cross a page boundary) ---- */
+-
+-static bool read_byte(int is_fetch, int addr, unsigned char &value) {
+-    int pa = getPhysicalAddress(proc_id, is_fetch, addr);
+-    if (pa < 0) return false;                    /* fault already reported */
+-    value = memory[pa];
++/* ---- logical memory access ----
++ * EXT e11: one address translation (= one TLB lookup) per 4-byte access, as real hardware
++ * does, instead of one per byte. PAGESIZE is a multiple of 4, so an aligned word (every
++ * fetch, every normal load/store) is always inside one page. Only an unaligned word that
++ * crosses a page boundary is still translated byte by byte. */
++static bool translate_word(int is_fetch, int addr, int pa[4]) {
++    if (addr % PAGESIZE <= PAGESIZE - 4) {             /* EXT e11: the 4 bytes share a page */
++        int base = getPhysicalAddress(proc_id, is_fetch, addr);
++        if (base < 0) return false;                    /* fault already reported */
++        for (int k = 0; k < 4; k++) pa[k] = base + k;
++        return true;
++    }
++    for (int k = 0; k < 4; k++) {                      /* EXT e11: crosses a page boundary */
++        pa[k] = getPhysicalAddress(proc_id, is_fetch, addr + k);
++        if (pa[k] < 0) return false;
++    }
+     return true;
+ }
+ 
+ static bool load_word(int addr, int &value) {   /* 32-bit little-endian */
++    int pa[4];
++    if (!translate_word(0, addr, pa)) return false;    /* EXT e11 */
+     unsigned int v = 0;
+-    for (int k = 3; k >= 0; k--) {
+-        unsigned char b;
+-        if (!read_byte(0, addr + k, b)) return false;
+-        v = (v << 8) | b;
+-    }
++    for (int k = 3; k >= 0; k--) v = (v << 8) | memory[pa[k]];
+     value = (int)v;
+     return true;
+ }
+ 
+ static bool store_word(int addr, int value) {
++    int pa[4];
++    if (!translate_word(0, addr, pa)) return false;    /* EXT e11 */
+     unsigned int v = (unsigned int)value;
+-    for (int k = 0; k < 4; k++) {
+-        int pa = getPhysicalAddress(proc_id, 0, addr + k);
+-        if (pa < 0) return false;
+-        memory[pa] = (unsigned char)(v >> (8 * k));
+-    }
++    for (int k = 0; k < 4; k++) memory[pa[k]] = (unsigned char)(v >> (8 * k));
+     if (addr + 4 > data_high[proc_id]) data_high[proc_id] = addr + 4;
+     return true;
+ }
+@@ -119,10 +125,9 @@
+ void fetch() {
+     int p = proc_id;
+     instr_pc = PC[p];
+-    unsigned char b[4];
+-    for (int k = 0; k < 4; k++)
+-        if (!read_byte(1, instr_pc + k, b[k])) return;
+-    opcode = b[0]; dest = b[1]; src1 = b[2]; src2 = b[3];
++    int pa[4];
++    if (!translate_word(1, instr_pc, pa)) return;      /* EXT e11: one TLB lookup per fetch */
++    opcode = memory[pa[0]]; dest = memory[pa[1]]; src1 = memory[pa[2]]; src2 = memory[pa[3]];
+     PC[p] = instr_pc + 4;
+ }
+ 
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:44:14
+@@ -20,6 +20,7 @@
+ #define NUM_LOGICAL_PAGES  (NUM_INSTR_PAGES + NUM_DATA_PAGES)     /* 10 entries per page table */
+ #define NUM_PHYSICAL_PAGES (MEMSIZE / PAGESIZE)                   /* 16 frames, frame 0 reserved */
+ #define MAX_INSTRUCTIONS   (INSTR_SPACE / 4)                      /* 256 */
++#define TLB_ENTRIES     4       /* EXT e11: entries in each processor's TLB (fully associative, LRU) */
+ 
+ /* ---- operating system (Lab 4) ---- */
+ #define MAX_TASKS       64      /* process-table size */
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:44:15
+@@ -1,7 +1,7 @@
+ # CS527 mini-computer simulator (Labs 1-6)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            e11 tests (./test.sh), then the 33 base checks   (EXT e11)
++#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,8 +13,9 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e11: run from an extension folder
++	./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
+ 
+ clean:
+ 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt

@@ -1,0 +1,47 @@
+% EXT e13 example: touch data pages 1..K, then read them back in R passes.
+% data: K (1..7) at 0, R at 4, S at 8; the data file also has page 1, whose first
+%       word (address 512) is 1000. Pages 2..K are not in the file (zero pages).
+% fill:  the first word of page p becomes its old value + S + p
+% read:  R passes, each reads the first word of pages 1..K (a cycle of K pages)
+% result: sum = R * (1000 + K*S + K*(K+1)/2), stored at K*512 + 4, i.e. in page K,
+%         which was read last and is still in memory (no fault after the passes)
+x1 = [0]          % K
+x2 = [4]          % R
+x3 = [8]          % S
+x10 = 128
+x10 = x10 * 4     % 512 = PAGESIZE (constants stop at 255)
+x4 = 1            % p
+x5 = x10          % address of page p = p * 512
+.fill
+x6 = x1 - x4
+BLT .filled       % K < p
+x7 = [x5]         % first touch of page p: page fault
+x7 = x7 + x3
+x7 = x7 + x4
+[x5] = x7         % page p: old value + S + p
+x5 = x5 + x10
+x4 = x4 + 1
+BAL .fill
+.filled
+x8 = 0            % sum
+x9 = 0            % pass
+.pass
+x6 = x9 - x2
+BGE .done         % pass >= R
+x4 = 1
+x5 = x10
+.read
+x6 = x1 - x4
+BLT .next         % K < p
+x7 = [x5]
+x8 = x8 + x7
+x5 = x5 + x10
+x4 = x4 + 1
+BAL .read
+.next
+x9 = x9 + 1
+BAL .pass
+.done
+x5 = x5 - x10     % back to page K
+x5 = x5 + 4
+[x5] = x8         % sum at K * 512 + 4

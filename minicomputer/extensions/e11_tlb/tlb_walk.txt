@@ -1,0 +1,42 @@
+% EXT e11 example: TLB reach. Writes p + 1 into word 3 of data pages p = 0 .. K-1,
+% then reads one word from every page in R passes and stores the sum at 8.
+% data: K (number of data pages, 1..8) at 0, R (passes) at 4; sum = R * K * (K + 1) / 2
+% The code page takes one of the 4 TLB entries, so only 3 data pages fit:
+%   K <= 3: after the first touch of each page every lookup hits
+%   K >= 4: the pages are read in a cycle longer than the TLB, so LRU always evicts
+%           the page that is needed next and every data read misses
+x1 = [0]          % K
+x2 = [4]          % R
+x10 = 128
+x10 = x10 * 4     % 512 = PAGESIZE (constants stop at 255)
+x3 = 0            % p
+x4 = 12           % address of word 3 of page p = p * 512 + 12
+.fill
+x5 = x3 - x1
+BGE .filled       % p >= K
+x6 = x3 + 1
+[x4] = x6         % page p gets p + 1
+x4 = x4 + x10
+x3 = x3 + 1
+BAL .fill
+.filled
+x7 = 0            % sum
+x8 = 0            % pass
+.pass
+x5 = x8 - x2
+BGE .done         % pass >= R
+x3 = 0
+x4 = 12
+.read
+x5 = x3 - x1
+BGE .next         % p >= K
+x6 = [x4]         % one word from page p
+x7 = x7 + x6
+x4 = x4 + x10
+x3 = x3 + 1
+BAL .read
+.next
+x8 = x8 + 1
+BAL .pass
+.done
+[8] = x7

@@ -1,0 +1,23 @@
+% EXT e14 example: dot product of A (data page 1) and B (data page 2); only page 0 is written.
+% data: N at 0, result written at 4; A at 512 (page 1) and B at 1024 (page 2), N words each.
+% Pages 1 and 2 are only read: REFERENCED but not DIRTY, so finalize() copies back page 0
+% only and takes pages 1 and 2 from the original data image (they are unchanged anyway).
+x1 = [0]          % N
+x10 = 128
+x10 = x10 * 4     % 512 = address of A[0] (constants stop at 255)
+x11 = x10 + x10   % 1024 = address of B[0]
+x2 = 0            % i
+x3 = 0            % sum
+.loop
+x4 = x2 - x1
+BGE .done         % i >= N
+x5 = [x10]        % A[i]  (page 1, read only)
+x6 = [x11]        % B[i]  (page 2, read only)
+x5 = x5 * x6
+x3 = x3 + x5
+x10 = x10 + 4
+x11 = x11 + 4
+x2 = x2 + 1
+BAL .loop
+.done
+[4] = x3          % the only write: page 0 becomes DIRTY

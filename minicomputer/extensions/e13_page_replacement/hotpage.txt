@@ -1,0 +1,42 @@
+% EXT e13 example: like pagewalk.txt, but the running sum is kept in MEMORY at 12
+% (data page 0), so page 0 is used between every two reads: a "hot" page.
+% FIFO evicts page 0 whenever it is the oldest page, although it is in constant use;
+% LRU never evicts it. Same data as pagewalk.txt; sum = R * (1000 + K*S + K*(K+1)/2) at 12.
+x1 = [0]          % K
+x2 = [4]          % R
+x3 = [8]          % S
+x10 = 128
+x10 = x10 * 4     % 512 = PAGESIZE
+x4 = 1            % p
+x5 = x10          % address of page p
+.fill
+x6 = x1 - x4
+BLT .filled       % K < p
+x7 = [x5]
+x7 = x7 + x3
+x7 = x7 + x4
+[x5] = x7         % page p: old value + S + p
+x5 = x5 + x10
+x4 = x4 + 1
+BAL .fill
+.filled
+x9 = 0            % pass
+.pass
+x6 = x9 - x2
+BGE .done         % pass >= R
+x4 = 1
+x5 = x10
+.read
+x6 = x1 - x4
+BLT .next         % K < p
+x7 = [x5]         % page p
+x8 = [12]         % running sum, in page 0
+x8 = x8 + x7
+[12] = x8
+x5 = x5 + x10
+x4 = x4 + 1
+BAL .read
+.next
+x9 = x9 + 1
+BAL .pass
+.done

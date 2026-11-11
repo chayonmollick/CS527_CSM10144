@@ -1,0 +1,229 @@
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-11 23:50:33
+@@ -9,6 +9,8 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e12: loads and stores go through a per-processor data cache (processor.cpp);
++ *        finalize() flushes it before it reads the task's data out of memory[].
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -143,6 +145,7 @@
+ 
+ /* finalize(): write the data back, write the frequency report, free the frames. */
+ static void finalize(int p, Task &t) {
++    int flushed = cache_flush(p);   /* EXT e12: dirty cache lines -> memory BEFORE memory is read below */
+     size_t size = std::max(t.data.size(), (size_t)data_high[p]);
+     size = (size + 3) / 4 * 4;
+     std::vector<unsigned char> out(size, 0);
+@@ -167,6 +170,13 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++
++    long accesses = cache_hits[p] + cache_misses[p];       /* EXT e12: data-cache report */
++    std::printf("[os] pid %d D-cache (%s): %ld accesses, %ld hits, %ld misses, hit rate %.1f%%, "
++                "%ld write-back(s) (%d at the end), %ld bytes written to memory\n",
++                t.pid, WRITE_BACK ? "write-back" : "write-through", accesses, cache_hits[p], cache_misses[p],
++                accesses ? 100.0 * cache_hits[p] / accesses : 0.0, cache_writebacks[p], flushed,
++                memory_bytes_written[p]);
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-11 23:52:14
+@@ -1,5 +1,6 @@
+ /* Processor: executes byte code for the task mapped to processor proc_id.
+  * Every memory access goes through getPhysicalAddress() (Lab 5 MMU, in os.cpp).
++ * EXT e12: data loads and stores then go through this processor's data cache.
+  */
+ #include <climits>
+ #include <cstdarg>
+@@ -28,7 +29,82 @@
+ int trace = 0;
+ 
+ static int instr_pc;     /* address of the instruction being executed (PC already points past it) */
++
++/* ---- EXT e12: data cache, one per processor, indexed by PHYSICAL address ----
++ * Direct-mapped: physical address pa lives in line (pa / LINE_SIZE) % CACHE_LINES with
++ * tag pa / (LINE_SIZE * CACHE_LINES); the tag tells which of the many memory lines that
++ * share this cache line is there now. A line keeps its own copy of LINE_SIZE bytes, so
++ * with write-back the newest data can be in the cache and not yet in memory[].
++ * Instruction fetches and page-table reads (the MMU) go straight to memory[]. */
++struct CacheLine {
++    bool valid = false;
++    bool dirty = false;                    /* write-back only: the line is newer than memory */
++    int tag = 0;
++    unsigned char data[LINE_SIZE] = {};
++};
++static CacheLine dcache[NP][CACHE_LINES];
++long cache_hits[NP], cache_misses[NP], cache_writebacks[NP], memory_bytes_written[NP];
++
++static int line_index(int pa) { return (pa / LINE_SIZE) % CACHE_LINES; }
++static int line_tag(int pa)   { return pa / (LINE_SIZE * CACHE_LINES); }
++
++static bool in_cache(int p, int pa) {
++    const CacheLine &line = dcache[p][line_index(pa)];
++    return line.valid && line.tag == line_tag(pa);
++}
++
++static void write_back(int p, int i) {     /* copy dirty line i of processor p to memory */
++    CacheLine &line = dcache[p][i];
++    int base = (line.tag * CACHE_LINES + i) * LINE_SIZE;   /* rebuild its physical address */
++    std::memcpy(&memory[base], line.data, LINE_SIZE);
++    line.dirty = false;
++    cache_writebacks[p]++;
++    memory_bytes_written[p] += LINE_SIZE;
++}
++
++static void fill_line(int p, int pa) {     /* miss: load the line holding pa (evict the old one) */
++    int i = line_index(pa);
++    CacheLine &line = dcache[p][i];
++    if (line.valid && line.dirty) write_back(p, i);       /* only write-back lines are dirty */
++    std::memcpy(line.data, &memory[pa - pa % LINE_SIZE], LINE_SIZE);
++    line.valid = true;
++    line.dirty = false;
++    line.tag = line_tag(pa);
++}
++
++/* Read one byte through the cache. hit is cleared if the byte was not in the cache. */
++static unsigned char cache_read(int p, int pa, bool &hit) {
++    if (!in_cache(p, pa)) { hit = false; fill_line(p, pa); }
++    return dcache[p][line_index(pa)].data[pa % LINE_SIZE];
++}
+ 
++/* Write one byte through the cache, with the policy chosen by WRITE_BACK. */
++static void cache_write(int p, int pa, unsigned char value, bool &hit) {
++    bool present = in_cache(p, pa);
++    if (!present) hit = false;
++#if WRITE_BACK
++    if (!present) fill_line(p, pa);                         /* write-allocate */
++    CacheLine &line = dcache[p][line_index(pa)];
++    line.data[pa % LINE_SIZE] = value;
++    line.dirty = true;                                      /* memory is updated on eviction or flush */
++#else
++    if (present) dcache[p][line_index(pa)].data[pa % LINE_SIZE] = value;   /* keep the copy current */
++    memory[pa] = value;                                     /* write-through; a miss does not allocate */
++    memory_bytes_written[p]++;
++#endif
++}
++
++/* End of task: write every dirty line back so memory[] (read by finalize) is up to date,
++ * then invalidate, because the task's frames are freed and will be reused by other tasks. */
++int cache_flush(int p) {
++    int written = 0;
++    for (int i = 0; i < CACHE_LINES; i++) {
++        if (dcache[p][i].valid && dcache[p][i].dirty) { write_back(p, i); written++; }
++        dcache[p][i].valid = false;
++    }
++    return written;
++}
++
+ void processor_error(const char *fmt, ...) {
+     char msg[256];
+     va_list ap;
+@@ -51,6 +127,8 @@
+     end_of_simulation[p] = failed[p] = 0;
+     steps[p] = 0;
+     data_high[p] = 0;
++    for (int i = 0; i < CACHE_LINES; i++) dcache[p][i].valid = false;              /* EXT e12: empty cache */
++    cache_hits[p] = cache_misses[p] = cache_writebacks[p] = memory_bytes_written[p] = 0;
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+ 
+@@ -63,24 +141,30 @@
+     return true;
+ }
+ 
++/* EXT e12: loads and stores go through the data cache (fetches still use read_byte).
++ * Statistics count one access per word: it is a hit only if all 4 bytes were cached. */
+ static bool load_word(int addr, int &value) {   /* 32-bit little-endian */
+     unsigned int v = 0;
++    bool hit = true;                                       /* EXT e12 */
+     for (int k = 3; k >= 0; k--) {
+-        unsigned char b;
+-        if (!read_byte(0, addr + k, b)) return false;
+-        v = (v << 8) | b;
++        int pa = getPhysicalAddress(proc_id, 0, addr + k);
++        if (pa < 0) return false;                          /* fault already reported */
++        v = (v << 8) | cache_read(proc_id, pa, hit);       /* EXT e12: through the cache */
+     }
++    if (hit) cache_hits[proc_id]++; else cache_misses[proc_id]++;   /* EXT e12 */
+     value = (int)v;
+     return true;
+ }
+ 
+ static bool store_word(int addr, int value) {
+     unsigned int v = (unsigned int)value;
++    bool hit = true;                                       /* EXT e12 */
+     for (int k = 0; k < 4; k++) {
+         int pa = getPhysicalAddress(proc_id, 0, addr + k);
+         if (pa < 0) return false;
+-        memory[pa] = (unsigned char)(v >> (8 * k));
++        cache_write(proc_id, pa, (unsigned char)(v >> (8 * k)), hit);   /* EXT e12: through the cache */
+     }
++    if (hit) cache_hits[proc_id]++; else cache_misses[proc_id]++;   /* EXT e12 */
+     if (addr + 4 > data_high[proc_id]) data_high[proc_id] = addr + 4;
+     return true;
+ }
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:49:35
+@@ -21,6 +21,13 @@
+ #define NUM_PHYSICAL_PAGES (MEMSIZE / PAGESIZE)                   /* 16 frames, frame 0 reserved */
+ #define MAX_INSTRUCTIONS   (INSTR_SPACE / 4)                      /* 256 */
+ 
++/* ---- EXT e12: data cache, one per processor, on physical addresses ---- */
++#define CACHE_LINES     16      /* direct-mapped: line index = (address / LINE_SIZE) % CACHE_LINES */
++#define LINE_SIZE       16      /* bytes per line = 4 words; cache size 16 x 16 = 256 bytes */
++#ifndef WRITE_BACK              /* (make CXXFLAGS="... -DWRITE_BACK=0" builds the other policy) */
++#define WRITE_BACK      1       /* 1 = write-back + write-allocate, 0 = write-through + no-write-allocate */
++#endif
++
+ /* ---- operating system (Lab 4) ---- */
+ #define MAX_TASKS       64      /* process-table size */
+ #define TIME_SLICE      10      /* instructions per scheduler turn */
+--- ../../simulator/processor.h	2026-11-11 23:23:00
++++ processor.h	2026-11-11 23:49:45
+@@ -19,6 +19,10 @@
+ extern long steps[NP];                         /* instructions executed by the current task */
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
++/* EXT e12: data-cache statistics of the task on processor p (cleared by reset) */
++extern long cache_hits[NP], cache_misses[NP];  /* one access = one data word loaded or stored */
++extern long cache_writebacks[NP];              /* dirty lines copied to memory */
++extern long memory_bytes_written[NP];          /* write traffic to memory: lines written back or bytes written through */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+@@ -30,5 +34,6 @@
+ void execute();
+ int  process_instructions(int p, int count);   /* run up to count instructions; returns how many ran */
+ void processor_error(const char *fmt, ...);    /* report an error and stop the current task */
++int  cache_flush(int p);                       /* EXT e12: write back dirty lines, invalidate; returns lines written */
+ 
+ #endif
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:49:37
+@@ -1,7 +1,7 @@
+ # CS527 mini-computer simulator (Labs 1-6)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            e12 tests (./test.sh), then the 33 base checks   (EXT e12)
++#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,8 +13,9 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e12: run from an extension folder
++	./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
+ 
+ clean:
+ 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt

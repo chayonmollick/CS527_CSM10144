@@ -1,0 +1,21 @@
+% EXT e12 example: sum of N words (array at 16), with the running sum kept in MEMORY at 8
+% (as unoptimised C code does), so every element costs a load and a store of [8].
+% data: N at 0 (memsum_data.byte: N = 64, a[i] = i + 1); the sum ends up at 8.
+%   write-through: each of the N stores of [8] goes to memory (4 bytes each)
+%   write-back:    [8] stays in a dirty line and is written back as a whole line only when
+%                  that line is evicted: here when a[60..63] (addresses 256..271) map to
+%                  the same cache line as [8] (index 0), and once more at the end
+x1 = [0]          % N
+x3 = 16           % address of a[i]
+x4 = 0            % i
+.loop
+x6 = x4 - x1
+BGE .done         % i >= N
+x7 = [x3]         % a[i]
+x5 = [8]          % sum, from memory
+x5 = x5 + x7
+[8] = x5          % sum, back to memory
+x3 = x3 + 4
+x4 = x4 + 1
+BAL .loop
+.done

@@ -1,0 +1,199 @@
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-12 00:07:09
+@@ -9,6 +9,9 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e15: memory-map dump: shell command "mem", and a snapshot appended to
++ *        memory_map.txt after every scheduler round that allocated or freed a frame,
++ *        and once more at exit (dump_memory_map).
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -47,6 +50,7 @@
+ static int page_faults_on[NP];
+ static bool shell_open = true;
+ static std::string shell_buffer;
++static bool map_changed = false;            /* EXT e15: a frame was allocated or freed since the last snapshot */
+ 
+ static int pages_for(size_t bytes) { return (int)((bytes + PAGESIZE - 1) / PAGESIZE); }
+ 
+@@ -60,7 +64,7 @@
+ 
+ int getFreePage() {
+     for (int f = 1; f < NUM_PHYSICAL_PAGES; f++)
+-        if (!freePages[f]) { freePages[f] = 1; return f; }
++        if (!freePages[f]) { freePages[f] = 1; map_changed = true; return f; }   /* EXT e15 */
+     return -1;
+ }
+ 
+@@ -160,6 +164,7 @@
+         memory[PTBR[p] + i] = 0;
+     }
+     PTBR[p] = -1;
++    map_changed = true;                                    /* EXT e15 */
+ 
+     t.steps = steps[p];
+     t.page_faults = page_faults_on[p];
+@@ -230,8 +235,69 @@
+     admit_waiting();
+     if (tasks.back().state == WAITING) std::printf("[os] pid %d is waiting for a free processor/frames\n", t.pid);
+     return t.pid;
++}
++
++/* ---------------- memory map (EXT e15) ---------------- */
++
++/* EXT e15: print the memory map: every frame with its owner, then every processor's page
++ * table read from frame 0 through PTBR, then the free-frame count.
++ * Whether a frame is used comes from the OS free list (freePages); who uses it is found by
++ * searching all page tables. A used frame must appear in exactly one page table and a free
++ * frame in none; anything else is printed as INCONSISTENT. Returns the number of problems. */
++static int dump_memory_map(FILE *f, const std::string &title) {
++    int problems = 0;
++    std::fprintf(f, "=== memory map: %s ===\n", title.c_str());
++    std::fprintf(f, "frame  0  reserved: page tables (processor p at bytes %d*p .. %d*p+%d)\n",
++                 NUM_LOGICAL_PAGES, NUM_LOGICAL_PAGES, NUM_LOGICAL_PAGES - 1);
++    for (int fr = 1; fr < NUM_PHYSICAL_PAGES; fr++) {
++        int count = 0, proc = -1, index = -1;               /* page-table entries that map fr */
++        for (int p = 0; p < NP; p++) {
++            if (PTBR[p] < 0) continue;
++            for (int i = 0; i < NUM_LOGICAL_PAGES; i++)
++                if (memory[PTBR[p] + i] == fr) { count++; proc = p; index = i; }
++        }
++        if (freePages[fr] && count == 1) {
++            bool code = index < NUM_INSTR_PAGES;
++            std::fprintf(f, "frame %2d  pid %d  proc %d  %s page %d\n", fr, proc_owner[proc], proc,
++                         code ? "instr" : "data", code ? index : index - NUM_INSTR_PAGES);
++        } else if (!freePages[fr] && count == 0) {
++            std::fprintf(f, "frame %2d  free\n", fr);
++        } else {
++            std::fprintf(f, "frame %2d  INCONSISTENT: %s, but in %d page table entr%s\n", fr,
++                         freePages[fr] ? "allocated" : "free", count, count == 1 ? "y" : "ies");
++            problems++;
++        }
++    }
++    std::fprintf(f, "page tables in frame 0 (entry = frame, - = not mapped):\n");
++    for (int p = 0; p < NP; p++) {
++        if (PTBR[p] < 0) { std::fprintf(f, "proc %d  idle (PTBR -1)\n", p); continue; }
++        std::fprintf(f, "proc %d  PTBR %-3d pid %d (%s):", p, PTBR[p], proc_owner[p],
++                     tasks[proc_owner[p] - 1].prog.name.c_str());
++        for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {
++            int fr = memory[PTBR[p] + i];
++            bool code = i < NUM_INSTR_PAGES;
++            std::fprintf(f, " %c%d=", code ? 'I' : 'D', code ? i : i - NUM_INSTR_PAGES);
++            if (fr) std::fprintf(f, "%d", fr);
++            else std::fprintf(f, "-");
++        }
++        std::fprintf(f, "\n");
++    }
++    std::fprintf(f, "free frames: %d of %d\n", free_page_count(), NUM_PHYSICAL_PAGES - 1);
++    if (problems) std::fprintf(f, "check: %d PROBLEM(S)\n", problems);
++    else std::fprintf(f, "check: OK (every used frame is in exactly one page table, no free frame is mapped)\n");
++    return problems;
+ }
+ 
++/* EXT e15: append a snapshot to memory_map.txt (emptied by os_init). */
++static void write_memory_map(const std::string &title) {
++    FILE *f = std::fopen(MEMORY_MAP_FILE, "a");
++    if (!f) return;
++    dump_memory_map(f, title);
++    std::fprintf(f, "\n");
++    std::fclose(f);
++    map_changed = false;
++}
++
+ /* ---------------- shell ---------------- */
+ 
+ static void prompt() {
+@@ -249,8 +315,13 @@
+         std::printf("[shell] exit: no new tasks; waiting for the running ones to finish\n");
+         return;
+     }
++    if (words[0] == "mem" && words.size() == 1) {      /* EXT e15: show the memory map now */
++        dump_memory_map(stdout, "shell command mem");
++        prompt();
++        return;
++    }
+     if (words.size() == 2) create_task(words[0], words[1]);
+-    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   exit\n");
++    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   mem   or   exit\n");   /* EXT e15 */
+     prompt();
+ }
+ 
+@@ -290,6 +361,8 @@
+     freePages[0] = 1;                                  /* frame 0: page tables, never allocated */
+     for (int p = 0; p < NP; p++) { PTBR[p] = -1; proc_owner[p] = 0; }
+     shell_open = !batch;
++    FILE *f = std::fopen(MEMORY_MAP_FILE, "w");        /* EXT e15: start an empty memory_map.txt */
++    if (f) std::fclose(f);
+ }
+ 
+ static void finish_task(int pid) {
+@@ -303,10 +376,13 @@
+ 
+ void scheduler() {
+     if (shell_open) {
+-        std::printf("[shell] type '<program> <data.byte>' to start a task, 'exit' to stop accepting tasks\n");
++        std::printf("[shell] type '<program> <data.byte>' to start a task, 'mem' for the memory map, "
++                    "'exit' to stop accepting tasks\n");               /* EXT e15 */
+         prompt();
+     }
++    long round = 0;                                    /* EXT e15: numbers the snapshots */
+     for (;;) {
++        round++;
+         admit_waiting();
+         size_t n = ready_queue.size();
+         for (size_t i = 0; i < n; i++) {               /* one round: every ready task gets a slice */
+@@ -318,6 +394,7 @@
+             else ready_queue.push_back(pid);
+         }
+         shell();
++        if (map_changed) write_memory_map("after round " + std::to_string(round));   /* EXT e15 */
+         if (!shell_open && ready_queue.empty()) {
+             admit_waiting();
+             if (ready_queue.empty()) break;            /* nothing running, nothing can start */
+@@ -326,6 +403,7 @@
+     }
+     for (int pid : waiting_queue)
+         std::printf("[os] pid %d never started (not enough free frames)\n", pid);
++    write_memory_map("at exit");                       /* EXT e15: final snapshot: every frame free again */
+     std::printf("[os] all tasks finished; print output is in %s\n", LOG_FILE);
+     if (fd_log) { std::fclose(fd_log); fd_log = nullptr; }
+ }
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-12 00:06:20
+@@ -27,6 +27,7 @@
+ #define SLEEP_US        10      /* pause after every time slice, to watch execution */
+ #define MAX_STEPS       10000000L  /* a task that runs longer is killed (endless loop guard) */
+ #define LOG_FILE        "log.txt"  /* print output (Lab 4), opened in append mode */
++#define MEMORY_MAP_FILE "memory_map.txt"  /* EXT e15: a memory-map snapshot after every round that changed it */
+ 
+ /* ---- opcodes (first byte of every 4-byte instruction) ----
+  * Format: <opcode> <dest> <operand1> <operand2>. "c" = constant 0..255.
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-12 00:06:21
+@@ -1,7 +1,7 @@
+ # CS527 mini-computer simulator (Labs 1-6)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            e15 tests (./test.sh), then the 33 base checks   (EXT e15)
++#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,10 +13,11 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e15: run from an extension folder
++	./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
+ 
+ clean:
+-	rm -f sim $(OBJS) program.byte *.out *.freq log.txt
++	rm -f sim $(OBJS) program.byte *.out *.freq log.txt memory_map.txt   # EXT e15
+ 
+ .PHONY: test clean

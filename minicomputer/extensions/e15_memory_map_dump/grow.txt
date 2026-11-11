@@ -1,0 +1,20 @@
+% EXT e15 example: grows one data page at a time, so the memory map changes in many rounds.
+% Writes p into the first word of data pages p = 1..7 (each first touch maps a new frame)
+% and keeps a running sum in page 0: [0] = 1 + 2 + ... + 7 = 28 at the end.
+% One iteration = 9 instructions, so with 10-instruction time slices it touches about
+% one new page per scheduler round (page p in round p).
+x1 = 128
+x1 = x1 * 4       % 512 = PAGESIZE (constants stop at 255)
+x2 = x1           % address of page p = p * 512
+x3 = 1            % p
+.grow
+x4 = x3 - 8
+BEQ .done         % p == 8
+[x2] = x3         % first touch of data page p: a new frame
+x5 = [0]
+x5 = x5 + x3
+[0] = x5          % running sum in page 0
+x2 = x2 + x1
+x3 = x3 + 1
+BAL .grow
+.done

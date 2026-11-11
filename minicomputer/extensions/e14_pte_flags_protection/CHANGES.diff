@@ -1,0 +1,186 @@
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-12 00:12:20
+@@ -9,6 +9,9 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e14: the page-table byte now also holds flags: frame in bits 0-4, REFERENCED (bit 5)
++ *        and DIRTY (bit 6) set by the MMU, VALID (bit 7) = mapped. STRICT_MEMORY turns the
++ *        demand mapping of pages outside the data file into a segmentation fault.
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -25,6 +28,7 @@
+ 
+ static_assert(NP * NUM_LOGICAL_PAGES <= PAGESIZE, "all page tables must fit in frame 0");
+ static_assert(NUM_PHYSICAL_PAGES <= 256, "a page-table entry is one byte");
++static_assert(NUM_PHYSICAL_PAGES <= PTE_FRAME_MASK + 1, "EXT e14: a frame number must fit in bits 0-4");
+ 
+ enum TaskState { WAITING, READY, DONE };
+ 
+@@ -64,7 +68,7 @@
+     return -1;
+ }
+ 
+-int getPhysicalAddress(int p, int isFetch, int address) {
++int getPhysicalAddress(int p, int isFetch, int address, int isWrite) {   /* EXT e14: + isWrite */
+     int limit = isFetch ? INSTR_SPACE : DATA_SPACE;
+     if (address < 0 || address >= limit) {
+         processor_error("%s address %d is outside the logical %s space 0..%d",
+@@ -73,29 +77,37 @@
+     }
+     int index = isFetch ? address / PAGESIZE : address / PAGESIZE + INSTR_SPACE / PAGESIZE;
+     int pte = PTBR[p] + index;              /* page-table entry, in physical frame 0 */
+-    int frame = memory[pte];
+-    if (frame == 0) {                       /* page not mapped */
++    unsigned char entry = memory[pte];      /* EXT e14: V D R f f f f f */
++    if (!(entry & PTE_VALID)) {             /* page not mapped (EXT e14: the VALID bit decides) */
+         if (isFetch) {
+             processor_error("fetch from unmapped instruction page %d (jumped past the end of the program?)", index);
+             return -1;
+         }
+-        frame = getFreePage();              /* first touch of a data page: give it a zeroed frame */
++        if (STRICT_MEMORY) {                /* EXT e14: protection: no demand mapping */
++            processor_error("segmentation fault: data address %d is in data page %d, which is not part of the task's data",
++                            address, index - NUM_INSTR_PAGES);
++            return -1;
++        }
++        int frame = getFreePage();          /* first touch of a data page: give it a zeroed frame */
+         if (frame < 0) {
+             processor_error("ERROR: no free physical frame for data page %d", index - NUM_INSTR_PAGES);
+             return -1;
+         }
+         std::memset(&memory[frame * PAGESIZE], 0, PAGESIZE);
+-        memory[pte] = (unsigned char)frame;
++        entry = (unsigned char)(PTE_VALID | frame);    /* EXT e14 */
+         page_faults_on[p]++;
+     }
+-    return frame * PAGESIZE + address % PAGESIZE;
++    entry |= PTE_REFERENCED;                /* EXT e14: the MMU records every access ... */
++    if (isWrite) entry |= PTE_DIRTY;        /* EXT e14: ... and every write */
++    memory[pte] = entry;
++    return (entry & PTE_FRAME_MASK) * PAGESIZE + address % PAGESIZE;
+ }
+ 
+ /* Put bytes into freshly allocated frames, as logical pages first_index, first_index+1, ... */
+ static void copy_in(int p, int first_index, const std::vector<unsigned char> &bytes) {
+     for (int pg = 0; pg < pages_for(bytes.size()); pg++) {
+         int frame = getFreePage();          /* the loader checked that enough are free */
+-        memory[PTBR[p] + first_index + pg] = (unsigned char)frame;
++        memory[PTBR[p] + first_index + pg] = (unsigned char)(PTE_VALID | frame);   /* EXT e14: valid, clean */
+         size_t start = (size_t)pg * PAGESIZE;
+         size_t n = std::min((size_t)PAGESIZE, bytes.size() - start);
+         std::memset(&memory[frame * PAGESIZE], 0, PAGESIZE);
+@@ -145,18 +157,30 @@
+ static void finalize(int p, Task &t) {
+     size_t size = std::max(t.data.size(), (size_t)data_high[p]);
+     size = (size + 3) / 4 * 4;
+-    std::vector<unsigned char> out(size, 0);
+-    for (size_t a = 0; a < size; a++) {
+-        int frame = memory[PTBR[p] + NUM_INSTR_PAGES + a / PAGESIZE];
+-        if (frame) out[a] = memory[frame * PAGESIZE + a % PAGESIZE];
++    /* EXT e14: start from the original data image. A clean page (DIRTY = 0) was never
++     * written, so its frame still equals that image (or zeros beyond the file): only the
++     * DIRTY pages have to be copied back from memory. */
++    std::vector<unsigned char> out(t.data);
++    out.resize(size, 0);
++    int mapped = 0, referenced = 0, dirty = 0;
++    for (int d = 0; d < NUM_DATA_PAGES; d++) {
++        unsigned char entry = memory[PTBR[p] + NUM_INSTR_PAGES + d];
++        if (!(entry & PTE_VALID)) continue;
++        mapped++;
++        if (entry & PTE_REFERENCED) referenced++;
++        if (!(entry & PTE_DIRTY)) continue;                /* clean: nothing to copy */
++        dirty++;
++        int frame = entry & PTE_FRAME_MASK;
++        for (size_t a = (size_t)d * PAGESIZE; a < size && a < (size_t)(d + 1) * PAGESIZE; a++)
++            out[a] = memory[frame * PAGESIZE + a % PAGESIZE];
+     }
+     std::string out_name = file_stem(t.data_path) + "_" + std::to_string(t.pid) + ".out";
+     write_byte_file(out_name, out);
+     std::string freq_name = write_frequency_file(p, t);
+ 
+     for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* release frames, clear the table */
+-        int frame = memory[PTBR[p] + i];
+-        if (frame) freePages[frame] = 0;
++        unsigned char entry = memory[PTBR[p] + i];
++        if (entry & PTE_VALID) freePages[entry & PTE_FRAME_MASK] = 0;   /* EXT e14: frame = bits 0-4 */
+         memory[PTBR[p] + i] = 0;
+     }
+     PTBR[p] = -1;
+@@ -167,6 +191,8 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    std::printf("[os] pid %d data pages: %d mapped, %d referenced, %d dirty -> copied back %d dirty "
++                "page(s), skipped %d clean\n", t.pid, mapped, referenced, dirty, dirty, mapped - dirty);   /* EXT e14 */
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-12 00:02:14
+@@ -77,7 +77,7 @@
+ static bool store_word(int addr, int value) {
+     unsigned int v = (unsigned int)value;
+     for (int k = 0; k < 4; k++) {
+-        int pa = getPhysicalAddress(proc_id, 0, addr + k);
++        int pa = getPhysicalAddress(proc_id, 0, addr + k, 1);     /* EXT e14: 1 = write (sets DIRTY) */
+         if (pa < 0) return false;
+         memory[pa] = (unsigned char)(v >> (8 * k));
+     }
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-12 00:02:12
+@@ -21,6 +21,15 @@
+ #define NUM_PHYSICAL_PAGES (MEMSIZE / PAGESIZE)                   /* 16 frames, frame 0 reserved */
+ #define MAX_INSTRUCTIONS   (INSTR_SPACE / 4)                      /* 256 */
+ 
++/* ---- EXT e14: a page-table entry is 1 byte = V D R f f f f f ---- */
++#define PTE_FRAME_MASK  0x1F    /* bits 0-4: frame number (0..31, we have 16 frames) */
++#define PTE_REFERENCED  0x20    /* bit 5: set by the MMU on every access to the page */
++#define PTE_DIRTY       0x40    /* bit 6: set by the MMU on every write to the page */
++#define PTE_VALID       0x80    /* bit 7: the page is mapped (0 = unmapped, the frame bits mean nothing) */
++#ifndef STRICT_MEMORY           /* (make CXXFLAGS="... -DSTRICT_MEMORY=1" builds the strict version) */
++#define STRICT_MEMORY   0       /* 1 = touching a data page that is not in the data file is a segmentation fault */
++#endif
++
+ /* ---- operating system (Lab 4) ---- */
+ #define MAX_TASKS       64      /* process-table size */
+ #define TIME_SLICE      10      /* instructions per scheduler turn */
+--- ../../simulator/os.h	2026-11-11 23:23:48
++++ os.h	2026-11-12 00:02:13
+@@ -8,8 +8,10 @@
+ 
+ /* Lab 5/6 MMU: logical -> physical address for the task on processor proc_id.
+  * isFetch = 1 for instruction fetches (instruction pages), 0 for data accesses.
++ * EXT e14: isWrite = 1 for stores, so the MMU can set the DIRTY bit (default 0 = read,
++ * so fetches and loads call it exactly as before).
+  * Returns -1 (after stopping the task) on an invalid address. */
+-int getPhysicalAddress(int proc_id, int isFetch, int address);
++int getPhysicalAddress(int proc_id, int isFetch, int address, int isWrite = 0);
+ 
+ int  getFreePage();                     /* first free frame (marked allocated), -1 if none */
+ void os_init(bool batch);               /* batch = no shell: stop when the tasks finish */
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-12 00:02:57
+@@ -1,7 +1,7 @@
+ # CS527 mini-computer simulator (Labs 1-6)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            e14 tests (./test.sh), then the 33 base checks   (EXT e14)
++#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,8 +13,9 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e14: run from an extension folder
++	./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
+ 
+ clean:
+ 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt
