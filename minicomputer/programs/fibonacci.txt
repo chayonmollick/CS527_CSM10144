@@ -1,0 +1,25 @@
+% fibonacci.txt - the first N Fibonacci numbers
+% Task:   Write a program that stores the first N Fibonacci numbers
+%         F0 = 0, F1 = 1, F(k) = F(k-1) + F(k-2) in memory.
+% Data:   N at 0 (0 <= N <= 47; F47 no longer fits in 32 bits)
+% Result: F0 .. F(N-1) at 4, 8, ..., 4N
+%         fibonacci_data.byte: N = 20 -> 0 1 1 2 3 5 .. 4181 at 4 .. 80 ([44] = F10 = 55)
+% Method: counted loop that keeps only the last two values in registers:
+%         store a, then (a, b) = (b, a + b). No memory reads needed.
+% Regs:   x1 N, x2 k, x3 &F[k], x10 a = F(k), x11 b = F(k+1), x12 a + b
+x1 = [0]          % N
+x10 = 0           % a = F0
+x11 = 1           % b = F1
+x2 = 0            % k
+x3 = 4            % &F[0]
+.loop
+x9 = x2 - x1
+BGE .done         % k >= N
+[x3] = x10        % F[k] = a
+x12 = x10 + x11   % a + b
+x10 = x11         % a = b
+x11 = x12         % b = a + b
+x3 = x3 + 4
+x2 = x2 + 1
+BAL .loop
+.done

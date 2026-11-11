@@ -1,0 +1,28 @@
+% gcd.txt - greatest common divisor (Euclid) and least common multiple
+% Task:   Write a program that computes the GCD of two positive integers with
+%         Euclid's algorithm, and their LCM.
+% Data:   a at 0, b at 4 (both > 0)
+% Result: gcd at 8, lcm at 12
+%         gcd_data.byte : a = 1071, b = 462 -> [8] = 21, [12] = 23562
+%         gcd_data2.byte: a = 35,   b = 64  -> [8] = 1,  [12] = 2240
+% Method: while b != 0: r = a mod b; a = b; b = r. There is no mod instruction:
+%         r = a - (a / b) * b. lcm = (a / gcd) * b (divide first to keep it small).
+% Regs:   x1 a, x2 b, x3 remainder, x4 x5 original a and b for the lcm
+x1 = [0]          % a
+x2 = [4]          % b
+.loop
+x9 = x2 - 0
+BEQ .done         % b == 0: the gcd is in a
+x3 = x1 / x2
+x3 = x3 * x2
+x3 = x1 - x3      % r = a mod b
+x1 = x2           % a = b
+x2 = x3           % b = r
+BAL .loop
+.done
+[8] = x1          % gcd
+x4 = [0]          % original a
+x5 = [4]          % original b
+x4 = x4 / x1      % a / gcd
+x4 = x4 * x5      % (a / gcd) * b
+[12] = x4         % lcm

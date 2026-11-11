@@ -1,0 +1,43 @@
+% binary_search.txt - binary search in a sorted array
+% Task:   Write a program that finds a key in an array sorted in ascending order
+%         using binary search. Store its index, or -1 if it is not there, and the
+%         number of elements that were compared (probes).
+% Data:   N at 0; key at 4; A[0..N-1] (sorted) at 8 .. 4N + 4
+% Result: index (or -1) at 4N + 8, number of probes at 4N + 12
+%         binary_search_data.byte : N = 12, key 31 -> [56] = 8, [60] = 2
+%         binary_search_data2.byte: N = 12, key 10 (not there) -> [56] = -1, [60] = 3
+% Method: while lo <= hi: mid = (lo + hi) / 2, the address of A[mid] is
+%         8 + 4 * mid; one subtraction A[mid] - key gives three branches
+%         (BEQ found, BLT go right, otherwise go left).
+% Regs:   x1 N, x2 lo, x3 hi, x4 mid, x5 key, x6 &A[mid], x7 A[mid], x10 probes
+x1 = [0]          % N
+x5 = [4]          % key
+x2 = 0            % lo
+x3 = x1 - 1       % hi = N - 1
+x10 = 0           % probes
+.loop
+x9 = x2 - x3
+BGT .notfound     % lo > hi: the range is empty
+x4 = x2 + x3
+x4 = x4 / 2       % mid = (lo + hi) / 2
+x6 = x4 * 4
+x6 = x6 + 8       % &A[mid]
+x7 = [x6]         % A[mid]
+x10 = x10 + 1     % one more probe (before the compare: add also sets flags)
+x9 = x7 - x5      % A[mid] - key
+BEQ .found
+BLT .right        % A[mid] < key: the key can only be to the right
+x3 = x4 - 1       % hi = mid - 1
+BAL .loop
+.right
+x2 = x4 + 1       % lo = mid + 1
+BAL .loop
+.notfound
+x4 = 0
+x4 = x4 - 1       % -1
+.found
+x6 = x1 * 4
+x6 = x6 + 8       % 4N + 8
+[x6] = x4         % index (mid) or -1
+x6 = x6 + 4
+[x6] = x10        % probes at 4N + 12

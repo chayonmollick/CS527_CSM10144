@@ -1,0 +1,58 @@
+% merge_sorted.txt - merge two sorted arrays into one sorted array
+% Task:   Write a program that merges two arrays sorted in ascending order, A with
+%         N1 elements and B with N2 elements, into one sorted array C.
+% Data:   N1 at 0; N2 at 4; A at 8 ..; B right after A, at 8 + 4*N1; C is
+%         written right after B, at 8 + 4*(N1 + N2)
+% Result: C[0 .. N1+N2-1]
+%         merge_sorted_data.byte: A = 1 4 9 12 20, B = -3 2 4 10 15 22 30
+%                                 -> C = -3 1 2 4 4 9 10 12 15 20 22 30 at 56 .. 100
+% Method: while both arrays have elements left, copy the smaller head into C and
+%         advance that pointer (ties take A first, so the merge is stable); then
+%         copy what is left of A, then what is left of B. Every loop test compares
+%         a pointer with an end address.
+% Regs:   x1 N1, x2 N2, x3 &A[i], x4 &B[j], x5 &C[k], x13 end of A, x14 end of B,
+%         x6 A[i], x7 B[j]
+x1 = [0]          % N1
+x2 = [4]          % N2
+x3 = 8            % &A[0]
+x13 = x1 * 4
+x13 = x13 + 8     % end of A = start of B
+x4 = x13          % &B[0]
+x14 = x2 * 4
+x14 = x14 + x13   % end of B = start of C
+x5 = x14          % &C[0]
+.both
+x9 = x3 - x13
+BGE .restb        % A is used up
+x9 = x4 - x14
+BGE .resta        % B is used up
+x6 = [x3]         % A[i]
+x7 = [x4]         % B[j]
+x9 = x6 - x7
+BGT .takeb        % A[i] > B[j]: B[j] goes first
+[x5] = x6         % take A[i]
+x3 = x3 + 4
+x5 = x5 + 4
+BAL .both
+.takeb
+[x5] = x7         % take B[j]
+x4 = x4 + 4
+x5 = x5 + 4
+BAL .both
+.resta
+x9 = x3 - x13
+BGE .done         % nothing left in A
+x6 = [x3]
+[x5] = x6
+x3 = x3 + 4
+x5 = x5 + 4
+BAL .resta
+.restb
+x9 = x4 - x14
+BGE .done         % nothing left in B
+x7 = [x4]
+[x5] = x7
+x4 = x4 + 4
+x5 = x5 + 4
+BAL .restb
+.done

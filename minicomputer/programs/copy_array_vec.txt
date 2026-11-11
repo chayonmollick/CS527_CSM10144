@@ -1,0 +1,36 @@
+% copy_array_vec.txt - copy an array with vector instructions (any N)
+% Task:   Write a program that copies an array A of N words to B using vector
+%         instructions. N need not be a multiple of 8.
+% Data:   N at 0; A[0..N-1] at 4 .. 4N; B is written right after A, at 4 + 4N
+% Result: B[0..N-1] at 4 + 4N ..
+%         copy_array_vec_data.byte : N = 20 (2 vector blocks + 4 scalar) -> B at 84 .. 160
+%         copy_array_vec_data2.byte: N = 5 (scalar part only)          -> B at 24 .. 40
+% Method: VECTOR. One vector load + one vector store move 8 words while at least
+%         8 are left (i <= N - 8); a scalar loop copies the last N mod 8 words.
+%         This vector-part + scalar-tail shape works for any element-wise task.
+% Regs:   x1 N, x2 &A[i], x3 &B[i], x4 i, x5 one word, x7 N - 8, v1 8 words
+x1 = [0]          % N
+x2 = 4            % &A[i]
+x3 = x1 * 4
+x3 = x3 + 4       % &B[i] = 4 + 4N
+x4 = 0            % i
+x7 = x1 - 8       % last i at which a full block of 8 still fits
+.vloop
+x9 = x4 - x7
+BGT .tail         % i > N - 8: fewer than 8 left
+v1 = [x2]         % A[i .. i+7]
+[x3] = v1         % B[i .. i+7]
+x2 = x2 + 32      % 8 words = 32 bytes
+x3 = x3 + 32
+x4 = x4 + 8
+BAL .vloop
+.tail
+x9 = x4 - x1
+BGE .done         % i >= N
+x5 = [x2]         % one word at a time
+[x3] = x5
+x2 = x2 + 4
+x3 = x3 + 4
+x4 = x4 + 1
+BAL .tail
+.done

@@ -1,0 +1,42 @@
+% bubble_sort.txt - sort an array in ascending order (bubble sort)
+% Task:   Write a program that sorts an array of N signed integers in ascending
+%         order, in place, using bubble sort.
+% Data:   N at 0; A[0..N-1] at 4 .. 4N
+% Result: the sorted array in the same place, 4 .. 4N
+%         bubble_sort_data.byte: N = 10 -> -12 -4 0 3 7 8 15 15 29 42
+% Method: nested loops. Each pass compares the neighbours A[j], A[j+1] for
+%         j = 0 .. (number of compares - 1) and swaps them when A[j] > A[j+1]; the
+%         largest value sinks to the end, so the next pass makes one compare less.
+%         A pass without any swap means the array is sorted: stop early.
+% Variants: descending order -> BGE instead of BLE.
+% Regs:   x1 N, x2 compares in this pass, x3 &A[j], x4 j, x5 A[j], x6 A[j+1],
+%         x8 &A[j+1], x10 "swapped" flag
+x1 = [0]          % N
+x2 = x1 - 1       % compares in the first pass: N - 1
+.pass
+x9 = x2 - 0
+BLE .done         % no compares left (also handles N = 0 and N = 1)
+x10 = 0           % nothing swapped yet in this pass
+x3 = 4            % &A[0]
+x4 = 0            % j
+.inner
+x9 = x4 - x2
+BGE .endpass      % j >= compares in this pass
+x5 = [x3]         % A[j]
+x8 = x3 + 4
+x6 = [x8]         % A[j+1]
+x9 = x5 - x6
+BLE .noswap       % A[j] <= A[j+1]: already in order
+[x3] = x6         % swap
+[x8] = x5
+x10 = 1           % remember that this pass swapped
+.noswap
+x3 = x3 + 4
+x4 = x4 + 1
+BAL .inner
+.endpass
+x9 = x10 - 0
+BEQ .done         % no swap in the whole pass: sorted
+x2 = x2 - 1       % one compare less next time
+BAL .pass
+.done

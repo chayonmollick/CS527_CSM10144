@@ -1,0 +1,48 @@
+% poly_vec.txt - apply a polynomial to every element of an array, with vectors
+% Task:   Write a program that computes Y[i] = p(X[i]) for every element of an array
+%         X, where p(x) = c_n x^n + ... + c_1 x + c_0, using vector instructions.
+% Data:   N at 0 (a multiple of 8); the degree n at 4; the coefficients c_n .. c_0
+%         (highest power first) at 8 .. 8 + 4n; X right after them, at 12 + 4n;
+%         Y is written right after X
+% Result: Y[0..N-1] at 12 + 4n + 4N
+%         poly_vec_data.byte: p = 2x^2 - 3x + 1, N = 16, X = -7 .. 8
+%                             -> Y at 84 .. 144 = 120 91 66 45 28 15 6 1 0 3 10 21 36 55 78 105
+% Method: VECTOR Horner on 8 values of x at once. There is no broadcast
+%         instruction, so "r = c_n in all 8 lanes" is made as zero vector + scalar
+%         register (v2 = v0 + x22). Each Horner step is r = r * X (vector * vector)
+%         and r = r + c (vector + scalar register). Nested loop: the blocks of 8
+%         outside, the coefficients inside.
+% Regs:   x1 N, x2 n, x20 &X[i], x21 &Y[i], x22 c_n, x3 &c, x5 coefficients left,
+%         x6 c, x4 i, v0 zeros, v1 x values, v2 r
+x1 = [0]          % N
+x2 = [4]          % n
+x20 = x2 * 4
+x20 = x20 + 12    % &X[0] = 12 + 4n
+x21 = x1 * 4
+x21 = x21 + x20   % &Y[0] = &X[0] + 4N
+x22 = [8]         % c_n
+v0 = v0 - v0      % zero vector, used to broadcast scalars
+x4 = 0            % i
+.block
+x9 = x4 - x1
+BGE .done         % i >= N
+v1 = [x20]        % X[i .. i+7]
+v2 = v0 + x22     % r = c_n in every lane
+x3 = 8            % &c_n
+x5 = x2           % coefficients left = n
+.horner
+x9 = x5 - 0
+BLE .store        % no coefficients left
+x3 = x3 + 4
+x6 = [x3]         % next coefficient
+v2 = v2 * v1      % r = r * x  (8 lanes)
+v2 = v2 + x6      %       + c  (added to every lane)
+x5 = x5 - 1
+BAL .horner
+.store
+[x21] = v2        % Y[i .. i+7]
+x20 = x20 + 32
+x21 = x21 + 32
+x4 = x4 + 8
+BAL .block
+.done

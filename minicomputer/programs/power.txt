@@ -1,0 +1,22 @@
+% power.txt - a to the power b
+% Task:   Write a program that computes a^b for an integer a and an integer b >= 0.
+% Data:   a at 0, b at 4
+% Result: a^b at 8
+%         power_data.byte : a = 3, b = 13  -> [8] = 1594323
+%         power_data2.byte: a = -2, b = 7  -> [8] = -128
+% Method: count-down loop: p = 1, then b times p = p * a ("x2 = x2 - 1" sets Z,
+%         so BNE needs no compare). b = 0 skips the loop and gives 1.
+%         Faster for large b: square-and-multiply on the bits of b (b mod 2 and
+%         b / 2, as in binary.txt) needs only about log2(b) steps.
+% Regs:   x1 a, x2 b (counts down), x10 result
+x1 = [0]          % a
+x2 = [4]          % b
+x10 = 1           % p = 1
+x9 = x2 - 0
+BLE .done         % b <= 0: a^0 = 1
+.loop
+x10 = x10 * x1    % p = p * a
+x2 = x2 - 1
+BNE .loop         % b times
+.done
+[8] = x10

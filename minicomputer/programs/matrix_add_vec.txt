@@ -1,0 +1,32 @@
+% matrix_add_vec.txt - C = A + B for 8x8 matrices, with vector instructions
+% Task:   Write a program that adds two 8x8 matrices using vector instructions.
+% Data:   A (row-major, 64 words) at 0 .. 252; B at 256 .. 508
+%         (the data file holds A[i][j] = 8i + j + 1 and B[i][j] = 10j - i)
+% Result: C at 512 .. 764, row i at 512 + 32i; here C[i][j] = 7i + 11j + 1
+%         matrix_add_vec_data.byte -> row 0 = 1 12 23 .. 78, row 7 = 50 61 .. 127
+% Method: VECTOR. One row of 8 words is exactly one vector register, so each row
+%         costs one load of A, one load of B, one add and one store: 32 vector
+%         instructions for the whole matrix. Addresses above 255 cannot be
+%         constants: 256 is built as 128 * 2 and 512 as 256 * 2.
+% Variants: any matrix stored row after row is just an array of 64 words, so this
+%         is array_add with N = 64; for A - B or the element-wise product change
+%         the "+" to "-" or "*".
+% Regs:   x1 &A[i], x2 &B[i], x3 &C[i], x4 row i, v1 v2 v3 one row of A, B, C
+x1 = 0            % &A[0][0]
+x2 = 128
+x2 = x2 * 2       % &B[0][0] = 256
+x3 = x2 * 2       % &C[0][0] = 512
+x4 = 0            % row i
+.loop
+x9 = x4 - 8
+BGE .done         % 8 rows done
+v1 = [x1]         % row i of A
+v2 = [x2]         % row i of B
+v3 = v1 + v2
+[x3] = v3         % row i of C
+x1 = x1 + 32      % next row: 8 words = 32 bytes
+x2 = x2 + 32
+x3 = x3 + 32
+x4 = x4 + 1
+BAL .loop
+.done

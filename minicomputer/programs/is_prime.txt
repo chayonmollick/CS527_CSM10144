@@ -1,0 +1,36 @@
+% is_prime.txt - is n a prime number?
+% Task:   Write a program that checks whether n is prime. Store 1 if it is and 0 if
+%         it is not, and also the smallest divisor of n that is greater than 1.
+% Data:   n at 0
+% Result: 1 / 0 at 4; smallest divisor > 1 at 8 (n itself for a prime, 0 if n < 2)
+%         is_prime_data.byte : n = 97          -> [4] = 1, [8] = 97
+%         is_prime_data2.byte: n = 91 = 7 * 13 -> [4] = 0, [8] = 7
+% Method: trial division by d = 2, 3, 4, ... while d * d <= n. n mod d is
+%         n - (n / d) * d; the subtraction sets Z, so BEQ catches "d divides n".
+%         The loop has two exits: a divisor found, or d * d > n (prime).
+% Regs:   x1 n, x2 d, x3 d * d, x4 n mod d, x10 prime flag, x11 smallest divisor
+x1 = [0]          % n
+x10 = 0           % not prime until shown otherwise
+x11 = 0           % smallest divisor
+x9 = x1 - 2
+BLT .store        % n < 2: not prime
+x2 = 2            % d
+.loop
+x3 = x2 * x2
+x9 = x3 - x1
+BGT .prime        % d * d > n: no divisor up to sqrt(n)
+x4 = x1 / x2
+x4 = x4 * x2
+x4 = x1 - x4      % n mod d (sets Z when it is 0)
+BEQ .composite    % d divides n
+x2 = x2 + 1
+BAL .loop
+.composite
+x11 = x2          % the first divisor found is the smallest
+BAL .store
+.prime
+x10 = 1
+x11 = x1          % a prime's smallest divisor > 1 is itself
+.store
+[4] = x10
+[8] = x11

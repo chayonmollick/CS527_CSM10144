@@ -1,0 +1,27 @@
+% polynomial.txt - evaluate a polynomial with Horner's rule
+% Task:   Write a program that evaluates p(x) = c_n x^n + ... + c_1 x + c_0 for a
+%         given x.
+% Data:   x at 0; the degree n at 4; the coefficients c_n, c_(n-1), ..., c_0 (highest
+%         power first) at 8 .. 8 + 4n
+% Result: p(x) right after the coefficients, at 12 + 4n
+%         polynomial_data.byte : p = 3x^4 - 2x^3 + 0x^2 + 5x - 7 at x = 2  -> [28] = 35
+%         polynomial_data2.byte: the same p at x = -3                    -> [28] = 275
+% Method: Horner: r = c_n, then for each next coefficient r = r * x + c.
+%         n multiplications and n additions; no powers of x are needed.
+% Regs:   x1 x, x2 coefficients left, x3 &c, x4 c, x10 r
+x1 = [0]          % x
+x2 = [4]          % n
+x3 = 8            % &c_n
+x10 = [x3]        % r = c_n
+.loop
+x9 = x2 - 0
+BLE .done         % no coefficients left
+x3 = x3 + 4
+x4 = [x3]         % next coefficient
+x10 = x10 * x1    % r = r * x
+x10 = x10 + x4    %         + c
+x2 = x2 - 1
+BAL .loop
+.done
+x3 = x3 + 4       % 12 + 4n, just past c_0
+[x3] = x10

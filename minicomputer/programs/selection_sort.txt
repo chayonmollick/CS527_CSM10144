@@ -1,0 +1,40 @@
+% selection_sort.txt - sort an array in ascending order (selection sort)
+% Task:   Write a program that sorts an array of N signed integers in ascending
+%         order, in place, using selection sort.
+% Data:   N at 0; A[0..N-1] at 4 .. 4N
+% Result: the sorted array in the same place, 4 .. 4N
+%         selection_sort_data.byte: N = 10 -> -33 -5 0 11 12 12 22 25 64 90
+% Method: nested loops over addresses. For each position i (outer loop) the inner
+%         loop finds the smallest of A[i..N-1], keeping its value and its address;
+%         then A[i] and that smallest element are swapped (one swap per position).
+% Variants: descending order -> BLE instead of BGE (find the largest).
+% Regs:   x1 N, x3 &A[i], x8 &A[j], x20 end address 4N + 4, x10 smallest value,
+%         x11 its address, x5 A[j], x6 old A[i]
+x1 = [0]          % N
+x20 = x1 * 4
+x20 = x20 + 4     % end = 4N + 4, the first address after the array
+x3 = 4            % &A[i], i = 0
+.outer
+x8 = x3 + 4       % &A[j], j = i + 1
+x9 = x8 - x20
+BGE .done         % i + 1 >= N: one element left, nothing to do
+x10 = [x3]        % smallest so far = A[i]
+x11 = x3          % and its address
+.inner
+x9 = x8 - x20
+BGE .swap         % j reached the end
+x5 = [x8]         % A[j]
+x9 = x5 - x10
+BGE .next         % A[j] >= smallest: keep it
+x10 = x5          % new smallest
+x11 = x8          % and its address
+.next
+x8 = x8 + 4
+BAL .inner
+.swap
+x6 = [x3]         % swap A[i] with the smallest
+[x11] = x6
+[x3] = x10
+x3 = x3 + 4       % next position
+BAL .outer
+.done

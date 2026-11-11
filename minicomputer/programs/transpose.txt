@@ -1,0 +1,38 @@
+% transpose.txt - transpose of an N x N matrix (written for 4x4, works for any N)
+% Task:   Write a program that stores the transpose T of a 4x4 matrix A
+%         (T[j][i] = A[i][j]).
+% Data:   N at 0 (4 for a 4x4 matrix); A (row-major, N*N words) at 4 ..
+% Result: T (row-major) right after A, at 4 + 4N^2
+%         transpose_data.byte : N = 4, A = 1..16 -> T at 68 .. 128 = 1 5 9 13 / 2 6 10 14 / ...
+%         transpose_data2.byte: N = 3, A = 1..9  -> T at 40 .. 72  = 1 4 7 / 2 5 8 / 3 6 9
+% Method: nested loops. A is read in order (pointer + 4). Row i of A becomes
+%         column i of T: start at T + 4i and step down the column by one row
+%         (4N bytes) for each j.
+% Variants: in place -> for i, for j > i: swap A[i][j] and A[j][i].
+% Regs:   x1 N, x15 row length 4N, x16 address of T, x2 i, x5 j, x3 &A[i][j],
+%         x4 &T[j][i], x6 the element
+x1 = [0]          % N
+x15 = x1 * 4      % one row = 4N bytes
+x16 = x1 * x15
+x16 = x16 + 4     % T = 4 + 4N^2, right after A
+x3 = 4            % &A[0][0]; walks through A in order
+x2 = 0            % i
+.rows
+x9 = x2 - x1
+BGE .done         % i >= N
+x4 = x2 * 4
+x4 = x4 + x16     % &T[0][i] = T + 4i
+x5 = 0            % j
+.cols
+x9 = x5 - x1
+BGE .nextrow      % j >= N
+x6 = [x3]         % A[i][j]
+[x4] = x6         % T[j][i]
+x3 = x3 + 4       % next element of A
+x4 = x4 + x15     % one row down in T
+x5 = x5 + 1
+BAL .cols
+.nextrow
+x2 = x2 + 1
+BAL .rows
+.done

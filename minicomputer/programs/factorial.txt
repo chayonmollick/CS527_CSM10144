@@ -1,0 +1,21 @@
+% factorial.txt - n!
+% Task:   Write a program that computes n! for a given n >= 0 and also prints it.
+% Data:   n at 0 (n <= 12: 13! does not fit in 32 bits)
+% Result: n! at 4; "print" also writes it to log.txt (in hex)
+%         factorial_data.byte : n = 12 -> [4] = 479001600 (log.txt: x10 : 1C8CFC00)
+%         factorial_data2.byte: n = 0  -> [4] = 1
+% Method: count-down loop. "x1 = x1 - 1" sets the Z flag itself, so BNE can loop
+%         while n != 0 without a separate compare instruction. The check before
+%         the loop handles n = 0 (0! = 1).
+% Regs:   x1 n (counts down), x10 product
+x1 = [0]          % n
+x10 = 1           % f = 1
+x9 = x1 - 0
+BLE .done         % n <= 0: 0! = 1
+.loop
+x10 = x10 * x1    % f = f * n
+x1 = x1 - 1       % n = n - 1 (sets Z when n reaches 0)
+BNE .loop         % repeat while n != 0
+.done
+[4] = x10
+print x10         % log.txt: "Process id: 1   x10 : <hex>"

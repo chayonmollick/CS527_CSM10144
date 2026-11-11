@@ -1,0 +1,57 @@
+% dot_product_vec.txt - dot product of two arrays with vector instructions
+% Task:   Write a program that computes the dot product of A and B (N elements each)
+%         using vector instructions.
+% Data:   N at 0 (a multiple of 8); A at 4 .. 4N; B right after A, at 4 + 4N .. 8N
+% Result: the dot product at 4 + 8N; the 8 partial sums (lanes) are left in the
+%         8 words after it, 8 + 8N .. 36 + 8N
+%         dot_product_vec_data.byte: N = 16 -> [132] = -60 (lanes 2 3 -18 -20 2 -5 -24 0 at 136 .. 164)
+% Method: VECTOR. Each iteration multiplies 8 pairs with one instruction and adds
+%         them into 8 running partial sums (v0): lane k collects the products
+%         k, k+8, k+16, ... At the end v0 is stored and its 8 lanes are added with
+%         scalar loads (there is no instruction that adds across lanes).
+%         N not a multiple of 8: add a scalar tail loop as in sum_squares_vec.txt.
+% Regs:   x1 N, x2 &A[i], x3 &B[i], x4 i, x5 lane address, x6 one lane, x10 sum,
+%         v0 partial sums, v1 v2 blocks of A and B
+x1 = [0]          % N
+x2 = 4            % &A[0]
+x3 = x1 * 4
+x3 = x3 + 4       % &B[0] = 4 + 4N
+x4 = 0            % i
+v0 = v0 - v0      % 8 partial sums = 0
+.loop
+x9 = x4 - x1
+BGE .sum          % i >= N
+v1 = [x2]         % A[i .. i+7]
+v2 = [x3]         % B[i .. i+7]
+v1 = v1 * v2      % 8 products
+v0 = v0 + v1      % add them to the partial sums
+x2 = x2 + 32
+x3 = x3 + 32
+x4 = x4 + 8
+BAL .loop
+.sum
+x5 = x3 + 4       % x3 = 4 + 8N (result); the lanes go in the 8 words after it
+[x5] = v0         % store the 8 partial sums
+x10 = [x5]        % lane 0
+x5 = x5 + 4
+x6 = [x5]         % lane 1
+x10 = x10 + x6
+x5 = x5 + 4
+x6 = [x5]         % lane 2
+x10 = x10 + x6
+x5 = x5 + 4
+x6 = [x5]         % lane 3
+x10 = x10 + x6
+x5 = x5 + 4
+x6 = [x5]         % lane 4
+x10 = x10 + x6
+x5 = x5 + 4
+x6 = [x5]         % lane 5
+x10 = x10 + x6
+x5 = x5 + 4
+x6 = [x5]         % lane 6
+x10 = x10 + x6
+x5 = x5 + 4
+x6 = [x5]         % lane 7
+x10 = x10 + x6
+[x3] = x10        % dot product at 4 + 8N

@@ -1,0 +1,36 @@
+% digits.txt - digit sum, reversed number and palindrome test
+% Task:   For a number n > 0, write a program that computes the sum of its decimal
+%         digits and the number with its digits reversed, and checks whether n is
+%         a palindrome (reads the same both ways).
+% Data:   n at 0
+% Result: digit sum at 4, reversed number at 8, 1 (palindrome) or 0 at 12
+%         digits_data.byte : n = 12321 -> [4] = 9,  [8] = 12321, [12] = 1
+%         digits_data2.byte: n = 9075  -> [4] = 21, [8] = 5709,  [12] = 0
+% Method: peel off the last digit: d = n - (n / 10) * 10, then n = n / 10, until
+%         n == 0; the reversed number grows as rev = rev * 10 + d.
+% Variants: count the digits -> add 1 per iteration; Armstrong numbers -> sum d^3.
+% Regs:   x1 n (shrinks), x2 n / 10, x3 last digit, x10 digit sum, x11 reversed, x12 palindrome flag
+x1 = [0]          % n
+x10 = 0           % digit sum
+x11 = 0           % reversed number
+.loop
+x9 = x1 - 0
+BEQ .done         % no digits left
+x2 = x1 / 10
+x3 = x2 * 10
+x3 = x1 - x3      % last digit = n mod 10
+x10 = x10 + x3    % digit sum
+x11 = x11 * 10
+x11 = x11 + x3    % rev = rev * 10 + d
+x1 = x2           % drop the last digit
+BAL .loop
+.done
+[4] = x10
+[8] = x11
+x12 = 0
+x4 = [0]          % the original n
+x9 = x4 - x11
+BNE .store        % n != reversed: not a palindrome
+x12 = 1
+.store
+[12] = x12
