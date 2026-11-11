@@ -1,0 +1,24 @@
+% e02: Fibonacci by double recursion  fib(n) = fib(n - 1) + fib(n - 2),  fib(0) = 0, fib(1) = 1
+% data: n at 0; fib(n) is written at 4.   Argument in x1, result in x2.
+% Two calls per level: the stack grows and shrinks many times (fib(10) makes 177 calls).
+x1 = [0]
+call .fib
+[4] = x2
+BAL .end
+.fib
+x9 = x1 - 2
+BGE .recurse      % n >= 2
+x2 = x1           % fib(0) = 0, fib(1) = 1
+ret
+.recurse
+push x1           % save n
+x1 = x1 - 1
+call .fib         % x2 = fib(n - 1)
+pop x1            % n again
+push x2           % save fib(n - 1) across the second call
+x1 = x1 - 2
+call .fib         % x2 = fib(n - 2)
+pop x3            % x3 = fib(n - 1)
+x2 = x2 + x3
+ret
+.end

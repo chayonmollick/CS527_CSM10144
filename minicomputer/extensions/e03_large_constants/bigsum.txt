@@ -1,0 +1,13 @@
+% e03: constants of any 32-bit size - one source line becomes up to 4 instructions:
+%   x1 = 100000 (0x000186A0)  ->  x1 = 0x01;  x1 = (x1 << 8) | 0x86;  x1 = (x1 << 8) | 0xA0
+% writes 100000 + 200000 at 0, -5 at 4, 0x12345678 at 8 and 255 at 12
+x1 = 100000       % 3 instructions
+x2 = 200000       % 0x00030D40: 3
+x3 = x1 + x2
+[0] = x3          % 300000 = E0 93 04 00
+x4 = -5           % 0xFFFFFFFB: 4
+[4] = x4          % FB FF FF FF
+x5 = 0x12345678   % 4
+[8] = x5          % 78 56 34 12
+x6 = 255          % fits in a byte: 1 (MOVC)
+[12] = x6

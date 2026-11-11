@@ -1,0 +1,183 @@
+--- ../../simulator/compiler.cpp	2026-11-11 23:23:41
++++ compiler.cpp	2026-11-12 00:03:53
+@@ -9,6 +9,7 @@
+  *   vD = vA + vB      vD = vA * 3      vD = vA * xB  (+ - *)          vectors (Lab 3)
+  *   vD = [xA]         vD = [32]        [xA] = vS       [32] = vS      vector memory
+  *   print xR                                                          Lab 4
++ *   xD = [xA + c]     [xA + c] = xS    vD = [xA + c]   [xA + c] = vS  EXT e04: base + offset, c 0..255
+  *   % comment         trailing ';' and ',' separators are ignored
+  */
+ #include <cctype>
+@@ -97,8 +98,9 @@
+ /* ---------------- operands ---------------- */
+ 
+ struct Operand {
+-    enum Kind { XREG, VREG, CONST, MEM_X, MEM_C } kind = CONST;   /* MEM_X = [xA], MEM_C = [c] */
+-    int value = 0;
++    enum Kind { XREG, VREG, CONST, MEM_X, MEM_C, MEM_XC } kind = CONST;   /* MEM_X = [xA], MEM_C = [c] */
++    int value = 0;                       /* EXT e04: MEM_XC = [xA + c]: value = A, offset = c */
++    int offset = 0;                      /* EXT e04 */
+ };
+ 
+ static bool parse_simple(const std::string &tok, Operand &op, std::string &msg) {
+@@ -126,11 +128,25 @@
+     return false;
+ }
+ 
+-/* Parses "x3", "v1", "12" or "[ x3 ]" / "[ 12 ]" starting at t[i]; advances i. */
++/* Parses "x3", "v1", "12" or "[ x3 ]" / "[ 12 ]" starting at t[i]; advances i.
++ * EXT e04: also "[ x3 + 8 ]" (tokens "[" "x3" "+" "8" "]"). */
+ static bool parse_operand(const std::vector<std::string> &t, size_t &i, Operand &op, std::string &msg) {
+     if (i >= t.size()) { msg = "missing operand"; return false; }
++    if (t[i] == "[" && i + 4 < t.size() && t[i + 2] == "+" && t[i + 4] == "]") {   /* EXT e04: [xA + c] */
++        Operand base, off;
++        if (!parse_simple(t[i + 1], base, msg) || !parse_simple(t[i + 3], off, msg)) return false;
++        if (base.kind != Operand::XREG || off.kind != Operand::CONST) {
++            msg = "base + offset must be [x<n> + <constant 0..255>]";
++            return false;
++        }
++        op.kind = Operand::MEM_XC;
++        op.value = base.value;
++        op.offset = off.value;
++        i += 5;
++        return true;
++    }
+     if (t[i] == "[") {
+-        if (i + 2 >= t.size() || t[i + 2] != "]") { msg = "expected [x<n>] or [<constant>]"; return false; }
++        if (i + 2 >= t.size() || t[i + 2] != "]") { msg = "expected [x<n>], [<constant>] or [x<n> + <constant>]"; return false; }   /* EXT e04: message */
+         Operand inner;
+         if (!parse_simple(t[i + 1], inner, msg)) return false;
+         if (inner.kind == Operand::XREG) op.kind = Operand::MEM_X;
+@@ -158,11 +174,13 @@
+         if (a.kind == Operand::XREG)  { set(ins, OP_MOV, dst.value, 0, a.value); return true; }
+         if (a.kind == Operand::MEM_X) { set(ins, OP_LOAD, dst.value, 0, a.value); return true; }
+         if (a.kind == Operand::MEM_C) { set(ins, OP_LOADC, dst.value, 0, a.value); return true; }
++        if (a.kind == Operand::MEM_XC) { set(ins, OP_LOADO, dst.value, a.offset, a.value); return true; }   /* EXT e04 */
+         msg = "an x register cannot be assigned a vector";
+         return false;
+     case Operand::VREG:
+         if (a.kind == Operand::MEM_X) { set(ins, OP_VLOAD, dst.value, 0, a.value); return true; }
+         if (a.kind == Operand::MEM_C) { set(ins, OP_VLOADC, dst.value, 0, a.value); return true; }
++        if (a.kind == Operand::MEM_XC) { set(ins, OP_VLOADO, dst.value, a.offset, a.value); return true; }  /* EXT e04 */
+         if (a.kind == Operand::VREG)  { set(ins, OP_VADDI, dst.value, a.value, 0); return true; }  /* copy */
+         msg = "a vector register can only be loaded from memory or copied from another vector";
+         return false;
+@@ -174,6 +192,11 @@
+         msg = "only a register can be stored to memory: [address] = x<n> or v<n>";
+         return false;
+     }
++    case Operand::MEM_XC:                                      /* EXT e04: [xA + c] = xS or vS */
++        if (a.kind == Operand::XREG) { set(ins, OP_STOREO, dst.value, dst.offset, a.value); return true; }
++        if (a.kind == Operand::VREG) { set(ins, OP_VSTOREO, dst.value, dst.offset, a.value); return true; }
++        msg = "only a register can be stored to memory: [x<n> + c] = x<n> or v<n>";
++        return false;
+     default:
+         msg = "cannot assign to a constant";
+         return false;
+@@ -363,6 +386,10 @@
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+     case OP_VSTORE:  std::snprintf(buf, sizeof buf, "[x%d] = v%d", d, b); break;
+     case OP_VSTOREC: std::snprintf(buf, sizeof buf, "[%d] = v%d", d, b); break;
++    case OP_LOADO:   std::snprintf(buf, sizeof buf, "x%d = [x%d + %d]", d, b, a); break;   /* EXT e04: 70 D c A */
++    case OP_STOREO:  std::snprintf(buf, sizeof buf, "[x%d + %d] = x%d", d, a, b); break;   /* EXT e04: 71 A c S */
++    case OP_VLOADO:  std::snprintf(buf, sizeof buf, "v%d = [x%d + %d]", d, b, a); break;   /* EXT e04 */
++    case OP_VSTOREO: std::snprintf(buf, sizeof buf, "[x%d + %d] = v%d", d, a, b); break;   /* EXT e04 */
+     default:         std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
+     }
+     return buf;
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-12 00:04:11
+@@ -85,6 +85,12 @@
+     return true;
+ }
+ 
++/* EXT e04: effective address of [xA + c]. Added as unsigned so a huge xA wraps to a negative
++ * address (which the MMU rejects) instead of overflowing a signed int. */
++static int offset_address(int base, int c) {
++    return (int)((uint32_t)base + (uint32_t)c);
++}
++
+ /* ---- flags (Lab 2): only add and subtract change them ---- */
+ 
+ static void set_add_flags(int p, uint32_t a, uint32_t b, uint32_t r) {
+@@ -192,6 +198,12 @@
+     case OP_LOADC:  if (load_word(src2, value)) x[dest] = value; break;        /* xD = [c]  */
+     case OP_STORE:  store_word(x[dest], x[src2]); break;                       /* [xA] = xS */
+     case OP_STOREC: store_word(dest, x[src2]); break;                          /* [c] = xS  */
++    case OP_LOADO:                                       /* EXT e04: xD = [xA + c]    70 D c A */
++        if (load_word(offset_address(x[src2], src1), value)) x[dest] = value;
++        break;
++    case OP_STOREO:                                      /* EXT e04: [xA + c] = xS    71 A c S */
++        store_word(offset_address(x[dest], src1), x[src2]);
++        break;
+     case OP_PRINT:
+         if (fd_log) {
+             std::fprintf(fd_log, "Process id: %d   x%d : %08X\n", current_pid[p], src2, (unsigned)x[src2]);
+@@ -203,18 +215,22 @@
+     case OP_VADDX: case OP_VSUBX: case OP_VMULX:
+         vector_op();
+         break;
+-    case OP_VLOAD: case OP_VLOADC: {                     /* vD = [xA] or [c]: 8 consecutive words */
++    case OP_VLOAD: case OP_VLOADC: case OP_VLOADO: {     /* vD = [xA], [c] or [xA + c] (EXT e04): 8 words */
+         if (bad_vreg(dest)) break;
+-        addr = opcode == OP_VLOAD ? x[src2] : src2;
++        addr = opcode == OP_VLOAD  ? x[src2]
++             : opcode == OP_VLOADO ? offset_address(x[src2], src1)   /* EXT e04: vD = [xA + c] */
++             : src2;
+         int lanes[VLEN];
+         for (int i = 0; i < VLEN; i++)
+             if (!load_word(addr + 4 * i, lanes[i])) return;
+         std::memcpy(VRegister[p][dest], lanes, sizeof lanes);
+         break;
+     }
+-    case OP_VSTORE: case OP_VSTOREC:                     /* [xA] or [c] = vS */
++    case OP_VSTORE: case OP_VSTOREC: case OP_VSTOREO:    /* [xA], [c] or [xA + c] (EXT e04) = vS */
+         if (bad_vreg(src2)) break;
+-        addr = opcode == OP_VSTORE ? x[dest] : dest;
++        addr = opcode == OP_VSTORE  ? x[dest]
++             : opcode == OP_VSTOREO ? offset_address(x[dest], src1)  /* EXT e04: [xA + c] = vS */
++             : dest;
+         for (int i = 0; i < VLEN; i++)
+             if (!store_word(addr + 4 * i, VRegister[p][src2][i])) return;
+         break;
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:48:46
+@@ -61,7 +61,13 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    /* EXT e04: base + offset addressing [xA + c], c = 0..255. The operand-1 byte, always 0 in the
++     * plain memory instructions (05 D 0 A, 06 A 0 S), carries the offset c; the rest is unchanged. */
++    OP_LOADO  = 0x70,   /* xD = [xA + c]                         70 D c A */
++    OP_STOREO = 0x71,   /* [xA + c] = xS                         71 A c S */
++    OP_VLOADO = 0x72,   /* vD = [xA + c]  (8 words)              72 D c A */
++    OP_VSTOREO= 0x73    /* [xA + c] = vS                         73 A c S */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:40:17
+@@ -1,7 +1,7 @@
+ # CS527 mini-computer simulator (Labs 1-6)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            e04 tests (./test.sh), then the 33 base checks   (EXT e04)
++#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,8 +13,9 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e04: run from an extension folder
++	./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
+ 
+ clean:
+ 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt

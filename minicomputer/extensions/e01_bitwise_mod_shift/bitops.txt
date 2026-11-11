@@ -1,0 +1,42 @@
+% e01: every new operator, with a register and with a constant second operand
+% data: a = -100 at 0, b = 7 at 4; each result is stored at the address in its comment
+x1 = [0]          % a = -100 = 0xFFFFFF9C
+x2 = [4]          % b = 7
+x3 = x1 & x2      % [8]   4
+[8] = x3
+x3 = x1 | x2      % [12]  -97   (0xFFFFFF9F)
+[12] = x3
+x3 = x1 ^ x2      % [16]  -101  (0xFFFFFF9B)
+[16] = x3
+x3 = x2 << x2     % [20]  896   (7 * 128)
+[20] = x3
+x3 = x1 >> x2     % [24]  -1    (arithmetic: -100 / 128 rounded down)
+[24] = x3
+x3 = x1 mod x2    % [28]  -2    (-100 = -14 * 7 - 2: the sign of a, like C)
+[28] = x3
+x3 = x1 & 255     % [32]  156   (0x9C, the low byte)
+[32] = x3
+x3 = x2 | 8       % [36]  15
+[36] = x3
+x3 = x1 ^ 255     % [40]  -157  (0xFFFFFF63: low byte flipped)
+[40] = x3
+x3 = x2 << 28     % [44]  1879048192 (0x70000000)
+[44] = x3
+x3 = x1 >> 2      % [48]  -25
+[48] = x3
+x3 = 100
+x3 = x3 mod 7     % [52]  2
+[52] = x3
+x3 = x1 << 40     % [56]  0     (a shift of 32 or more moves every bit out)
+[56] = x3
+x3 = x1 >> 40     % [60]  -1    (only copies of the sign bit are left)
+[60] = x3
+x4 = x2 - 6       % 1: subtract sets the flags, Z = 0
+x5 = x2 & 8       % 0, but & leaves the flags alone ...
+BEQ .changed      % ... so Z is still 0 and this branch is not taken
+x6 = 1
+BAL .store
+.changed
+x6 = 2
+.store
+[64] = x6         % [64]  1 = the flags were not changed by &

@@ -1,0 +1,25 @@
+% e05: dot product A . B of two N-element arrays (N a multiple of 8) with vectors and "sum"
+% data: N at 0, A at 4, B at 4 + 4N; A . B is written at 4 + 8N (right after B)
+x1 = [0]          % N
+x2 = 4            % address of A[i]
+x3 = x1 * 4
+x4 = x2 + x3      % address of B[i]
+x5 = 0
+v3 = x5           % broadcast: the 8 partial sums start at 0
+x6 = 0            % i
+.loop
+x7 = x6 - x1
+BGE .done         % i >= N
+v1 = [x2]         % A[i .. i+7]
+v2 = [x4]         % B[i .. i+7]
+v1 = v1 * v2
+v3 = v3 + v1      % lane j adds A[i+j] * B[i+j]
+x2 = x2 + 32
+x4 = x4 + 32
+x6 = x6 + 8
+BAL .loop
+.done
+x8 = sum v3       % add the 8 lanes once, at the end
+[x4] = x8         % x4 now points right after B
+print v3
+print x8

@@ -1,0 +1,17 @@
+% e02: a subroutine that squares x1 (result in x2), called three times
+% data: three numbers at 0, 4, 8; their squares are written at 12, 16, 20
+x1 = [0]
+call .square      % pushes the return address, jumps to .square
+[12] = x2         % ret comes back here
+x1 = [4]
+call .square
+[16] = x2
+x1 = [8]
+call .square
+[20] = x2
+BAL .end          % do not fall into the subroutine
+% subroutine .square - in: x1, out: x2 = x1 * x1
+.square
+x2 = x1 * x1
+ret               % pops the return address
+.end

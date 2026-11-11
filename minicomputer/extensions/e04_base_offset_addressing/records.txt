@@ -1,0 +1,25 @@
+% e04: base + offset addressing on an array of (key, value) records
+% data: N at 0, a key K at 4, then N records of 8 bytes from 8: key at +0, value at +4
+% writes the sum of all values at 8 + 8N and the value stored with key K at 12 + 8N (0 if none)
+% One pointer x2 walks the records; the offsets 0 and 4 pick the field.
+x1 = [0]          % records left
+x7 = [4]          % key to look up
+x2 = 8            % pointer to the current record
+x3 = 0            % sum of the values
+x4 = 0            % value found for key K
+.loop
+x9 = x1 - 0
+BEQ .done
+x5 = [x2 + 0]     % key
+x6 = [x2 + 4]     % value
+x3 = x3 + x6
+x9 = x5 - x7
+BNE .next
+x4 = x6           % this record has key K
+.next
+x2 = x2 + 8       % next record: one pointer update for both fields
+x1 = x1 - 1
+BAL .loop
+.done
+[x2 + 0] = x3     % sum, right after the last record
+[x2 + 4] = x4     % value of key K

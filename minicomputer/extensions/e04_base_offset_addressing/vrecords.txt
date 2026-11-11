@@ -1,0 +1,16 @@
+% e04: base + offset with vectors - records of three 8-element arrays a, b, c (96 bytes each)
+% data: N at 0, then N records from 4: a[0..7] at +0, b[0..7] at +32, c[0..7] at +64
+% computes c = a + b in every record, with one pointer and the offsets 0, 32 and 64
+x1 = [0]          % records left
+x2 = 4            % pointer to the current record
+.loop
+x9 = x1 - 0
+BEQ .done
+v1 = [x2 + 0]     % a[0..7]
+v2 = [x2 + 32]    % b[0..7]
+v3 = v1 + v2
+[x2 + 64] = v3    % c[0..7]
+x2 = x2 + 96      % next record
+x1 = x1 - 1
+BAL .loop
+.done

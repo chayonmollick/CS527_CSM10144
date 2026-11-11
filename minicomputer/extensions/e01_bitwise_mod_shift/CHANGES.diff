@@ -1,0 +1,176 @@
+--- ../../simulator/compiler.cpp	2026-11-11 23:23:41
++++ compiler.cpp	2026-11-11 23:39:52
+@@ -9,6 +9,7 @@
+  *   vD = vA + vB      vD = vA * 3      vD = vA * xB  (+ - *)          vectors (Lab 3)
+  *   vD = [xA]         vD = [32]        [xA] = vS       [32] = vS      vector memory
+  *   print xR                                                          Lab 4
++ *   xD = xA & xB      xD = xA << 3     xD = xA mod 10                 EXT e01: mod & | ^ << >>
+  *   % comment         trailing ';' and ',' separators are ignored
+  */
+ #include <cctype>
+@@ -48,11 +49,17 @@
+     return s;
+ }
+ 
+-/* "x1=[x2]+3" -> {"x1", "=", "[", "x2", "]", "+", "3"} */
++/* "x1=[x2]+3" -> {"x1", "=", "[", "x2", "]", "+", "3"}
++ * EXT e01: "x1=x2<<3" -> {"x1", "=", "x2", "<<", "3"}; & | ^ are split like + */
+ static std::vector<std::string> tokenize(const std::string &s) {
+     std::string spaced;
+-    for (char c : s) {
+-        if (std::strchr("=+-*/[]", c)) { spaced += ' '; spaced += c; spaced += ' '; }
++    for (size_t k = 0; k < s.size(); k++) {
++        char c = s[k];
++        if ((c == '<' || c == '>') && k + 1 < s.size() && s[k + 1] == c) {   /* EXT e01: << and >> */
++            spaced += ' '; spaced += c; spaced += c; spaced += ' ';
++            k++;                                                             /* skip the second < or > */
++        }
++        else if (std::strchr("=+-*/[]&|^", c)) { spaced += ' '; spaced += c; spaced += ' '; }   /* EXT e01: & | ^ */
+         else if (c == ',') spaced += ' ';
+         else spaced += c;
+     }
+@@ -180,9 +187,31 @@
+     }
+ }
+ 
++/* EXT e01: the new integer operators, in opcode order: operator k is OP_MOD + 2k with a
++ * register operand and OP_MODI + 2k with a constant operand ("mod" is a word because % is a comment). */
++static const char *BIT_OPS[] = {"mod", "&", "|", "^", "<<", ">>"};
++static const int NUM_BIT_OPS = 6;
++
++static int bitwise_operator(const std::string &op) {     /* EXT e01: index in BIT_OPS, -1 = not one */
++    for (int k = 0; k < NUM_BIT_OPS; k++)
++        if (lower(op) == BIT_OPS[k]) return k;
++    return -1;
++}
++
+ /* dest = a <op> b */
+ static bool encode_arith(const Operand &dst, const Operand &a, const std::string &op, const Operand &b,
+                          unsigned char ins[4], std::string &msg) {
++    int bit = bitwise_operator(op);                             /* EXT e01: mod & | ^ << >> */
++    if (bit >= 0) {
++        if (dst.kind != Operand::XREG || a.kind != Operand::XREG) {
++            msg = "'" + op + "' works on x registers only: xD = xA " + op + " xB  or  xD = xA " + op + " <constant>";
++            return false;
++        }
++        if (b.kind == Operand::XREG)  { set(ins, OP_MOD + 2 * bit, dst.value, a.value, b.value); return true; }
++        if (b.kind == Operand::CONST) { set(ins, OP_MODI + 2 * bit, dst.value, a.value, b.value); return true; }
++        msg = "the second operand of '" + op + "' must be an x register or a constant";
++        return false;
++    }
+     size_t k = std::string("+-*/").find(op);
+     if (op.size() != 1 || k == std::string::npos) { msg = "unknown operator '" + op + "'"; return false; }
+     if (dst.kind == Operand::XREG) {
+@@ -347,6 +376,12 @@
+     if (op >= OP_VADD && op <= OP_VMUL) { std::snprintf(buf, sizeof buf, "v%d = v%d %c v%d", d, a, OPS[op - OP_VADD], b); return buf; }
+     if (op >= OP_VADDI && op <= OP_VMULI) { std::snprintf(buf, sizeof buf, "v%d = v%d %c %d", d, a, OPS[op - OP_VADDI], b); return buf; }
+     if (op >= OP_VADDX && op <= OP_VMULX) { std::snprintf(buf, sizeof buf, "v%d = v%d %c x%d", d, a, OPS[op - OP_VADDX], b); return buf; }
++    if (op >= OP_MOD && op <= OP_SHRI) {                        /* EXT e01: even = register, odd = constant */
++        const char *name = BIT_OPS[(op - OP_MOD) / 2];
++        if ((op - OP_MOD) % 2 == 0) std::snprintf(buf, sizeof buf, "x%d = x%d %s x%d", d, a, name, b);
++        else                        std::snprintf(buf, sizeof buf, "x%d = x%d %s %d", d, a, name, b);
++        return buf;
++    }
+     if (op >= OP_BRANCH && op < OP_BRANCH + NUM_CONDITIONS) {
+         std::snprintf(buf, sizeof buf, "B%s %+d", COND_NAMES[op - OP_BRANCH], (int)(signed char)b);
+         return buf;
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-11 23:40:05
+@@ -115,6 +115,14 @@
+     }
+ }
+ 
++/* EXT e01: arithmetic shift right (bit 31 is copied in from the left), written so that it does not
++ * depend on how the C++ compiler shifts a negative int (implementation-defined before C++20):
++ * for v < 0, ~v is >= 0, so shift ~v and flip the bits back. -100 >> 2 = -25. */
++static int shift_right_arith(int v, uint32_t n) {
++    if (n >= 32) return v < 0 ? -1 : 0;                  /* every bit shifted out: only sign bits left */
++    return v < 0 ? ~(~v >> n) : v >> n;
++}
++
+ /* fetch(): read the 4 instruction bytes at PC into opcode, dest, src1, src2. */
+ void fetch() {
+     int p = proc_id;
+@@ -186,6 +194,33 @@
+         x[dest] = (x[src1] == INT_MIN && divisor == -1) ? INT_MIN : x[src1] / divisor;
+         break;
+     }
++    /* EXT e01: mod & | ^ << >>, register or constant operand. Like * and / they leave the flags alone. */
++    case OP_MOD: case OP_MODI: {                         /* remainder of the signed division, like C %: */
++        int divisor = opcode == OP_MOD ? x[src2] : src2; /* -7 mod 3 = -1 (sign of xA), 7 mod -3 = 1 */
++        if (divisor == 0) { processor_error("modulus by zero"); break; }
++        x[dest] = divisor == -1 ? 0 : x[src1] % divisor; /* INT_MIN % -1 would overflow; the answer is 0 */
++        break;
++    }
++    case OP_AND: case OP_ANDI:
++        b = opcode == OP_AND ? (uint32_t)x[src2] : (uint32_t)src2;
++        x[dest] = (int)(a & b);
++        break;
++    case OP_OR: case OP_ORI:
++        b = opcode == OP_OR ? (uint32_t)x[src2] : (uint32_t)src2;
++        x[dest] = (int)(a | b);
++        break;
++    case OP_XOR: case OP_XORI:
++        b = opcode == OP_XOR ? (uint32_t)x[src2] : (uint32_t)src2;
++        x[dest] = (int)(a ^ b);
++        break;
++    case OP_SHL: case OP_SHLI:                           /* zeros come in from the right */
++        b = opcode == OP_SHL ? (uint32_t)x[src2] : (uint32_t)src2;   /* a negative xB counts as >= 32 */
++        x[dest] = b >= 32 ? 0 : (int)(a << b);           /* C++ leaves a shift by >= 32 undefined */
++        break;
++    case OP_SHR: case OP_SHRI:                           /* arithmetic: -8 >> 1 = -4 */
++        b = opcode == OP_SHR ? (uint32_t)x[src2] : (uint32_t)src2;
++        x[dest] = shift_right_arith(x[src1], b);
++        break;
+     case OP_MOV:  x[dest] = x[src2]; break;
+     case OP_MOVC: x[dest] = src2; break;
+     case OP_LOAD:   if (load_word(x[src2], value)) x[dest] = value; break;     /* xD = [xA] */
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:39:49
+@@ -61,7 +61,21 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    /* EXT e01: integer modulus, bitwise and shift operators. Register form = even opcode,
++     * constant form = that opcode + 1. Like * and /, they do NOT change the flags. */
++    OP_MOD    = 0x40,   /* xD = xA mod xB  (remainder, sign of xA)    40 D A B */
++    OP_MODI   = 0x41,   /* xD = xA mod c                              41 D A c */
++    OP_AND    = 0x42,   /* xD = xA & xB                               42 D A B */
++    OP_ANDI   = 0x43,   /* xD = xA & c                                43 D A c */
++    OP_OR     = 0x44,   /* xD = xA | xB                               44 D A B */
++    OP_ORI    = 0x45,   /* xD = xA | c                                45 D A c */
++    OP_XOR    = 0x46,   /* xD = xA ^ xB                               46 D A B */
++    OP_XORI   = 0x47,   /* xD = xA ^ c                                47 D A c */
++    OP_SHL    = 0x48,   /* xD = xA << xB  (amount >= 32 gives 0)      48 D A B */
++    OP_SHLI   = 0x49,   /* xD = xA << c                               49 D A c */
++    OP_SHR    = 0x4A,   /* xD = xA >> xB  (arithmetic: copies bit 31) 4A D A B */
++    OP_SHRI   = 0x4B    /* xD = xA >> c                               4B D A c */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:40:17
+@@ -1,7 +1,7 @@
+ # CS527 mini-computer simulator (Labs 1-6)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            e01 tests (./test.sh), then the 33 base checks   (EXT e01)
++#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,8 +13,9 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e01: run from an extension folder
++	./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
+ 
+ clean:
+ 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt

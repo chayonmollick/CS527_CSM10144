@@ -1,0 +1,25 @@
+% e04: records.txt written with plain [xA] addressing, for comparison:
+% the value field needs its own address register, so every record costs one more add.
+x1 = [0]          % records left
+x7 = [4]          % key to look up
+x2 = 8            % pointer to the current record
+x3 = 0            % sum of the values
+x4 = 0            % value found for key K
+.loop
+x9 = x1 - 0
+BEQ .done
+x5 = [x2]         % key
+x8 = x2 + 4       % address of the value: the extra instruction
+x6 = [x8]         % value
+x3 = x3 + x6
+x9 = x5 - x7
+BNE .next
+x4 = x6
+.next
+x2 = x2 + 8
+x1 = x1 - 1
+BAL .loop
+.done
+[x2] = x3
+x8 = x2 + 4       % extra instruction
+[x8] = x4

@@ -1,0 +1,13 @@
+% e01: population count - how many bits of the word at 0 are 1; the count is written at 4
+% Looks at bit 0 with "& 1", then shifts right, 32 times. A fixed count is needed because
+% >> is arithmetic: a negative number never becomes 0 by shifting right.
+x1 = [0]          % n
+x2 = 0            % count
+x3 = 32           % bits left to look at
+.loop
+x4 = x1 & 1       % lowest bit
+x2 = x2 + x4
+x1 = x1 >> 1      % next bit
+x3 = x3 - 1       % sets Z when the 32 bits are done
+BNE .loop
+[4] = x2

@@ -1,0 +1,200 @@
+--- ../../simulator/compiler.cpp	2026-11-11 23:23:41
++++ compiler.cpp	2026-11-11 23:58:34
+@@ -9,10 +9,14 @@
+  *   vD = vA + vB      vD = vA * 3      vD = vA * xB  (+ - *)          vectors (Lab 3)
+  *   vD = [xA]         vD = [32]        [xA] = vS       [32] = vS      vector memory
+  *   print xR                                                          Lab 4
++ *   xD = 100000       xD = -5          xD = 0x12345678                EXT e03: any 32-bit constant
++ *                     (one line -> MOVC + up to 3 SHLOR instructions; other operands stay 0..255)
+  *   % comment         trailing ';' and ',' separators are ignored
+  */
+ #include <cctype>
++#include <cstdint>      /* EXT e03: uint32_t */
+ #include <cstdio>
++#include <cstdlib>      /* EXT e03: strtoull */
+ #include <cstring>
+ #include <fstream>
+ #include <map>
+@@ -117,7 +121,7 @@
+     }
+     long v;
+     if (parse_number(tok, v)) {
+-        if (v < 0 || v > 255) { msg = "constant " + tok + " is out of range 0..255"; return false; }
++        if (v < 0 || v > 255) { msg = "constant " + tok + " is out of range 0..255 (only 'xD = <constant>' takes any 32-bit value)"; return false; }   /* EXT e03: hint */
+         op.kind = Operand::CONST;
+         op.value = (int)v;
+         return true;
+@@ -257,6 +261,64 @@
+     return encode_arith(dst, a, op, b, ins, msg);
+ }
+ 
++/* ---------------- EXT e03: constants that do not fit in one byte ---------------- */
++
++/* Decimal "100000" or hex "0x186A0", without a sign; too many digits gives a huge value
++ * (strtoull saturates), which the caller rejects as out of range. */
++static bool parse_wide_number(const std::string &t, unsigned long long &v) {
++    bool hex = t.size() > 2 && t[0] == '0' && (t[1] == 'x' || t[1] == 'X');
++    const char *digits = t.c_str() + (hex ? 2 : 0);
++    if (!std::isxdigit((unsigned char)digits[0])) return false;   /* no sign or blank allowed here */
++    char *end = nullptr;
++    v = std::strtoull(digits, &end, hex ? 16 : 10);
++    return *end == '\0';
++}
++
++/* Is this statement "xD = <constant>" with a constant outside 0..255 (e.g. 100000, -5, 0x12345678)?
++ * Returns 1 and sets reg/value if so, 0 if the statement is anything else (encode_statement
++ * handles it, so small constants still give the old single MOVC), -1 on an error (msg). */
++static int wide_constant_move(const std::vector<std::string> &t, int &reg, uint32_t &value, std::string &msg) {
++    bool negative = t.size() == 4 && t[2] == "-";               /* the tokenizer splits "-5" into "-" "5" */
++    if ((t.size() != 3 && !negative) || t[1] != "=") return 0;
++    Operand dst;
++    std::string ignored;
++    if (!parse_simple(t[0], dst, ignored) || dst.kind != Operand::XREG) return 0;
++    unsigned long long v = 0;
++    if (!parse_wide_number(t.back(), v)) return 0;
++    if (!negative && v <= 255) return 0;
++    if (v > (negative ? 2147483648ULL : 4294967295ULL)) {
++        msg = "constant " + std::string(negative ? "-" : "") + t.back() + " does not fit in 32 bits (-2147483648 .. 4294967295)";
++        return -1;
++    }
++    reg = dst.value;
++    value = negative ? 0u - (uint32_t)v : (uint32_t)v;          /* two's complement: -5 = 0xFFFFFFFB */
++    return 1;
++}
++
++/* The instructions that load value into xreg: MOVC with the highest non-zero byte, then one
++ * SHLOR "x = (x << 8) | byte" for each lower byte. Returns how many (1..4) it wrote to code.
++ *   100000 = 0x000186A0  ->  MOVC 0x01, SHLOR 0x86, SHLOR 0xA0                     (3)
++ *   -5     = 0xFFFFFFFB  ->  MOVC 0xFF, SHLOR 0xFF, SHLOR 0xFF, SHLOR 0xFB         (4) */
++static int wide_constant_code(int reg, uint32_t value, unsigned char code[4][4]) {
++    int top = 3;
++    while (top > 0 && ((value >> (8 * top)) & 0xFF) == 0) top--;   /* skip leading zero bytes */
++    int n = 0;
++    set(code[n++], OP_MOVC, reg, 0, (value >> (8 * top)) & 0xFF);
++    for (int k = top - 1; k >= 0; k--)
++        set(code[n++], OP_SHLOR, reg, 0, (value >> (8 * k)) & 0xFF);
++    return n;
++}
++
++/* Pass 1 needs the size of every line: labels are instruction numbers. */
++static int instructions_for(const std::vector<std::string> &t) {
++    int reg = 0;
++    uint32_t value = 0;
++    std::string msg;
++    unsigned char code[4][4];
++    if (wide_constant_move(t, reg, value, msg) == 1) return wide_constant_code(reg, value, code);
++    return 1;                                                    /* everything else (errors show in pass 2) */
++}
++
+ /* ---------------- public functions ---------------- */
+ 
+ std::string file_stem(const std::string &path) {
+@@ -294,7 +356,7 @@
+             labels[s] = count;
+             prog.is_label[ln] = true;
+         } else {
+-            count++;
++            count += instructions_for(tokenize(s));      /* EXT e03: a wide constant takes up to 4 */
+         }
+     }
+     if (count + 1 > MAX_INSTRUCTIONS) {
+@@ -307,15 +369,23 @@
+     for (size_t ln = 0; ln < prog.source.size(); ln++) {
+         std::string s = clean_line(prog.source[ln]);
+         if (s.empty() || s[0] == '.') continue;
+-        unsigned char ins[4];
++        std::vector<std::string> t = tokenize(s);
++        unsigned char code[4][4];                        /* EXT e03: one line -> up to 4 instructions */
++        int n = 1, reg = 0;
++        uint32_t value = 0;
+         std::string msg;
+-        if (!encode_statement(tokenize(s), index, labels, ins, msg)) {
++        int wide = wide_constant_move(t, reg, value, msg);
++        if (wide == 1) n = wide_constant_code(reg, value, code);
++        else if (wide == 0 && !encode_statement(t, index, labels, code[0], msg)) wide = -1;
++        if (wide < 0) {
+             err = src_path + ":" + std::to_string(ln + 1) + ": " + msg + "\n    " + trim(prog.source[ln]);
+             return false;
+         }
+-        prog.code.insert(prog.code.end(), ins, ins + 4);
+-        prog.line_of.push_back((int)ln);
+-        index++;
++        for (int k = 0; k < n; k++) {                    /* EXT e03: every one maps to source line ln */
++            prog.code.insert(prog.code.end(), code[k], code[k] + 4);
++            prog.line_of.push_back((int)ln);
++            index++;
++        }
+     }
+     prog.code.insert(prog.code.end(), {OP_HALT, 0, 0, 0});   /* end of program */
+     prog.line_of.push_back(-1);
+@@ -358,6 +428,7 @@
+     case OP_STOREC:  std::snprintf(buf, sizeof buf, "[%d] = x%d", d, b); break;
+     case OP_MOV:     std::snprintf(buf, sizeof buf, "x%d = x%d", d, b); break;
+     case OP_MOVC:    std::snprintf(buf, sizeof buf, "x%d = %d", d, b); break;
++    case OP_SHLOR:   std::snprintf(buf, sizeof buf, "x%d = (x%d << 8) | 0x%02X", d, d, b); break;   /* EXT e03 */
+     case OP_PRINT:   std::snprintf(buf, sizeof buf, "print x%d", b); break;
+     case OP_VLOAD:   std::snprintf(buf, sizeof buf, "v%d = [x%d]", d, b); break;
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-11 23:46:51
+@@ -123,7 +123,10 @@
+         std::vector<bool> executable(pr.source.size(), false);
+         for (size_t i = 0; i < pr.line_of.size(); i++)
+             if (pr.line_of[i] >= 0) {
+-                count[pr.line_of[i]] += exec_count[p][i];
++                /* EXT e03: a line may compile to several instructions (x1 = 100000 -> 3). Count only
++                 * the FIRST one: it runs once each time the line runs. Summing would report 3x. */
++                bool first_of_line = (i == 0 || pr.line_of[i - 1] != pr.line_of[i]);
++                if (first_of_line) count[pr.line_of[i]] += exec_count[p][i];
+                 executable[pr.line_of[i]] = true;
+             }
+         for (size_t ln = 0; ln < pr.source.size(); ln++) {
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-11 23:46:50
+@@ -188,6 +188,9 @@
+     }
+     case OP_MOV:  x[dest] = x[src2]; break;
+     case OP_MOVC: x[dest] = src2; break;
++    case OP_SHLOR:                                       /* EXT e03: xD = (xD << 8) | c; flags unchanged, like MOVC */
++        x[dest] = (int)(((uint32_t)x[dest] << 8) | (uint32_t)src2);
++        break;
+     case OP_LOAD:   if (load_word(x[src2], value)) x[dest] = value; break;     /* xD = [xA] */
+     case OP_LOADC:  if (load_word(src2, value)) x[dest] = value; break;        /* xD = [c]  */
+     case OP_STORE:  store_word(x[dest], x[src2]); break;                       /* [xA] = xS */
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:45:54
+@@ -61,7 +61,9 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_SHLOR  = 0x60    /* EXT e03: xD = (xD << 8) | c  (shift left 8 and or)   60 D 0 c
++                         * The compiler builds a 32-bit constant as MOVC + up to 3 SHLOR. */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:40:17
+@@ -1,7 +1,7 @@
+ # CS527 mini-computer simulator (Labs 1-6)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            e03 tests (./test.sh), then the 33 base checks   (EXT e03)
++#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,8 +13,9 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e03: run from an extension folder
++	./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
+ 
+ clean:
+ 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt

@@ -1,0 +1,13 @@
+% e01: greatest common divisor by Euclid's algorithm, using mod
+% data: a at 0, b at 4 (both > 0); gcd(a, b) is written at 8
+x1 = [0]          % a
+x2 = [4]          % b
+.loop
+x9 = x2 - 0       % mod does not set the flags: compare b with 0
+BEQ .done         % b == 0 -> the answer is a
+x3 = x1 mod x2    % r = a mod b
+x1 = x2           % a = b
+x2 = x3           % b = r
+BAL .loop
+.done
+[8] = x1

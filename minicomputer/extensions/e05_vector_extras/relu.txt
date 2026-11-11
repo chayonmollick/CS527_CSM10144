@@ -1,0 +1,37 @@
+% e05: "max" with a constant, an x register and a broadcast vector; "sum" and "print v"
+% data: N at 0 (a multiple of 8), then N numbers from 4. Every number a becomes max(a, 0)
+% (ReLU, written back in place). After the array (at 4 + 4N) it writes three sums:
+%   sum of max(a, 0),  sum of max(a, 5) with x3 = 5,  sum of max(a, 5) with v7 = (5, ..., 5)
+x1 = [0]          % N
+x2 = 4            % address of a[i]
+x3 = 5
+v7 = x3           % broadcast: 5 in all 8 lanes
+x4 = 0
+v4 = x4           % three vectors of partial sums, all 0
+v5 = x4
+v6 = x4
+x6 = 0            % i
+.loop
+x8 = x6 - x1
+BGE .done
+v1 = [x2]         % a[i .. i+7]
+v2 = v1 max x3    % max(a, 5) with a scalar register
+v5 = v5 + v2
+v2 = max v1 v7    % the same with the broadcast vector (prefix form)
+v6 = v6 + v2
+v1 = v1 max 0     % ReLU: negative lanes become 0
+v4 = v4 + v1
+[x2] = v1         % write back
+x2 = x2 + 32
+x6 = x6 + 8
+BAL .loop
+.done
+print v4          % the 8 partial sums of max(a, 0)
+x9 = sum v4
+[x2] = x9         % 4 + 4N
+x2 = x2 + 4
+x9 = sum v5
+[x2] = x9         % 8 + 4N
+x2 = x2 + 4
+x9 = sum v6
+[x2] = x9         % 12 + 4N

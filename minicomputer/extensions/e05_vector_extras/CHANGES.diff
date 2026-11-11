@@ -1,0 +1,186 @@
+--- ../../simulator/compiler.cpp	2026-11-11 23:23:41
++++ compiler.cpp	2026-11-12 00:03:53
+@@ -9,6 +9,8 @@
+  *   vD = vA + vB      vD = vA * 3      vD = vA * xB  (+ - *)          vectors (Lab 3)
+  *   vD = [xA]         vD = [32]        [xA] = vS       [32] = vS      vector memory
+  *   print xR                                                          Lab 4
++ *   vD = xA           xD = sum vA      print vA                       EXT e05: broadcast, sum, print
++ *   vD = vA max vB    vD = vA max 0    vD = vA max xB  (or vD = max vA vB)   EXT e05: lane-wise max
+  *   % comment         trailing ';' and ',' separators are ignored
+  */
+ #include <cctype>
+@@ -164,7 +166,8 @@
+         if (a.kind == Operand::MEM_X) { set(ins, OP_VLOAD, dst.value, 0, a.value); return true; }
+         if (a.kind == Operand::MEM_C) { set(ins, OP_VLOADC, dst.value, 0, a.value); return true; }
+         if (a.kind == Operand::VREG)  { set(ins, OP_VADDI, dst.value, a.value, 0); return true; }  /* copy */
+-        msg = "a vector register can only be loaded from memory or copied from another vector";
++        if (a.kind == Operand::XREG)  { set(ins, OP_VBCAST, dst.value, 0, a.value); return true; } /* EXT e05: broadcast */
++        msg = "a vector register can only be loaded from memory, copied from a vector or set from an x register";   /* EXT e05 */
+         return false;
+     case Operand::MEM_X:
+     case Operand::MEM_C: {
+@@ -183,6 +186,17 @@
+ /* dest = a <op> b */
+ static bool encode_arith(const Operand &dst, const Operand &a, const std::string &op, const Operand &b,
+                          unsigned char ins[4], std::string &msg) {
++    if (lower(op) == "max") {                                   /* EXT e05: lane-wise signed maximum */
++        if (dst.kind != Operand::VREG || a.kind != Operand::VREG) {
++            msg = "max works on vectors: v<n> = v<n> max v<n> | x<n> | <constant>";
++            return false;
++        }
++        if (b.kind == Operand::VREG)  { set(ins, OP_VMAX, dst.value, a.value, b.value); return true; }
++        if (b.kind == Operand::CONST) { set(ins, OP_VMAXI, dst.value, a.value, b.value); return true; }
++        if (b.kind == Operand::XREG)  { set(ins, OP_VMAXX, dst.value, a.value, b.value); return true; }
++        msg = "the second operand of max must be a vector, an x register or a constant";
++        return false;
++    }
+     size_t k = std::string("+-*/").find(op);
+     if (op.size() != 1 || k == std::string::npos) { msg = "unknown operator '" + op + "'"; return false; }
+     if (dst.kind == Operand::XREG) {
+@@ -226,11 +240,12 @@
+     }
+     if (head == "print") {                                      /* Lab 4 */
+         Operand reg;
+-        if (t.size() != 2 || !parse_operand(t, i, reg, msg) || reg.kind != Operand::XREG) {
+-            msg = "usage: print x<n>";
++        if (t.size() != 2 || !parse_operand(t, i, reg, msg)
++            || (reg.kind != Operand::XREG && reg.kind != Operand::VREG)) {   /* EXT e05: or a vector */
++            if (msg.empty()) msg = "usage: print x<n>  or  print v<n>";
+             return false;
+         }
+-        set(ins, OP_PRINT, 0, 0, reg.value);
++        set(ins, reg.kind == Operand::VREG ? OP_VPRINT : OP_PRINT, 0, 0, reg.value);   /* EXT e05 */
+         return true;
+     }
+     int cond = branch_condition(head);
+@@ -249,6 +264,21 @@
+     if (!parse_operand(t, i, dst, msg)) return false;
+     if (i >= t.size() || t[i] != "=") { msg = "statement not recognised (expected '=')"; return false; }
+     i++;
++    if (i < t.size() && lower(t[i]) == "sum") {                 /* EXT e05: xD = sum vA */
++        i++;
++        if (!parse_operand(t, i, a, msg)) return false;
++        if (dst.kind != Operand::XREG || a.kind != Operand::VREG || i != t.size()) {
++            msg = "usage: x<n> = sum v<n>";
++            return false;
++        }
++        set(ins, OP_VSUM, dst.value, 0, a.value);
++        return true;
++    }
++    if (i + 3 == t.size() && lower(t[i]) == "max") {            /* EXT e05: prefix form vD = max vA vB */
++        i++;
++        if (!parse_operand(t, i, a, msg) || !parse_operand(t, i, b, msg)) return false;
++        return encode_arith(dst, a, "max", b, ins, msg);
++    }
+     if (!parse_operand(t, i, a, msg)) return false;
+     if (i == t.size()) return encode_move(dst, a, ins, msg);
+     if (i + 2 != t.size()) { msg = "expected <dest> = <operand> <op> <operand>"; return false; }
+@@ -363,6 +393,12 @@
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+     case OP_VSTORE:  std::snprintf(buf, sizeof buf, "[x%d] = v%d", d, b); break;
+     case OP_VSTOREC: std::snprintf(buf, sizeof buf, "[%d] = v%d", d, b); break;
++    case OP_VBCAST:  std::snprintf(buf, sizeof buf, "v%d = x%d", d, b); break;            /* EXT e05 */
++    case OP_VPRINT:  std::snprintf(buf, sizeof buf, "print v%d", b); break;               /* EXT e05 */
++    case OP_VSUM:    std::snprintf(buf, sizeof buf, "x%d = sum v%d", d, b); break;        /* EXT e05 */
++    case OP_VMAX:    std::snprintf(buf, sizeof buf, "v%d = v%d max v%d", d, a, b); break; /* EXT e05 */
++    case OP_VMAXI:   std::snprintf(buf, sizeof buf, "v%d = v%d max %d", d, a, b); break;  /* EXT e05 */
++    case OP_VMAXX:   std::snprintf(buf, sizeof buf, "v%d = v%d max x%d", d, a, b); break; /* EXT e05 */
+     default:         std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
+     }
+     return buf;
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-11 23:52:22
+@@ -150,6 +150,19 @@
+     }
+ }
+ 
++/* EXT e05: vD = max(vA, vB | c | xB) lane by lane, comparing as signed ints (max(-5, -3) = -3) */
++static void vector_max() {
++    int p = proc_id;
++    if (bad_vreg(dest) || bad_vreg(src1) || (opcode == OP_VMAX && bad_vreg(src2))) return;
++    for (int i = 0; i < VLEN; i++) {
++        int a = VRegister[p][src1][i];
++        int b = opcode == OP_VMAX  ? VRegister[p][src2][i]
++              : opcode == OP_VMAXI ? src2
++                                   : Register[p][src2];
++        VRegister[p][dest][i] = a > b ? a : b;
++    }
++}
++
+ /* execute(): perform the instruction; opcode 0 ends the task. */
+ void execute() {
+     int p = proc_id;
+@@ -203,6 +216,30 @@
+     case OP_VADDX: case OP_VSUBX: case OP_VMULX:
+         vector_op();
+         break;
++    /* EXT e05: broadcast, horizontal sum, lane-wise max, print a vector (none changes the flags) */
++    case OP_VBCAST:                                      /* vD = xA: the same value in all 8 lanes */
++        if (bad_vreg(dest)) break;
++        for (int i = 0; i < VLEN; i++) VRegister[p][dest][i] = x[src2];
++        break;
++    case OP_VSUM: {                                      /* xD = vA[0] + vA[1] + ... + vA[7] */
++        if (bad_vreg(src2)) break;
++        uint32_t sum = 0;                                /* unsigned: wraps around like add, no overflow UB */
++        for (int i = 0; i < VLEN; i++) sum += (uint32_t)VRegister[p][src2][i];
++        x[dest] = (int)sum;
++        break;
++    }
++    case OP_VMAX: case OP_VMAXI: case OP_VMAXX:
++        vector_max();
++        break;
++    case OP_VPRINT:                                      /* one log line, lanes 0..7 in hex like print x */
++        if (bad_vreg(src2)) break;
++        if (fd_log) {
++            std::fprintf(fd_log, "Process id: %d   v%d :", current_pid[p], src2);
++            for (int i = 0; i < VLEN; i++) std::fprintf(fd_log, " %08X", (unsigned)VRegister[p][src2][i]);
++            std::fprintf(fd_log, "\n");
++            std::fflush(fd_log);
++        }
++        break;
+     case OP_VLOAD: case OP_VLOADC: {                     /* vD = [xA] or [c]: 8 consecutive words */
+         if (bad_vreg(dest)) break;
+         addr = opcode == OP_VLOAD ? x[src2] : src2;
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:51:53
+@@ -61,7 +61,15 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    /* EXT e05: more vector instructions. Like the other vector instructions, none sets the flags.
++     * 0x27 and 0x28 follow the handout's pattern "vector opcode = scalar opcode + 0x20". */
++    OP_VBCAST = 0x27,   /* vD = xA  (broadcast to all 8 lanes; MOV is 07)   27 D 0 A */
++    OP_VPRINT = 0x28,   /* print vA (all 8 lanes to the log; PRINT is 08)   28 0 0 A */
++    OP_VSUM   = 0x38,   /* xD = sum vA  (horizontal sum of the 8 lanes)      38 D 0 A */
++    OP_VMAX   = 0x39,   /* vD = vA max vB  (lane-wise, signed)               39 D A B */
++    OP_VMAXI  = 0x3A,   /* vD = vA max c                                     3A D A c */
++    OP_VMAXX  = 0x3B    /* vD = vA max xB                                    3B D A B */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:40:17
+@@ -1,7 +1,7 @@
+ # CS527 mini-computer simulator (Labs 1-6)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            e05 tests (./test.sh), then the 33 base checks   (EXT e05)
++#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,8 +13,9 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                       # EXT e05: run from an extension folder
++	./test.sh
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
+ 
+ clean:
+ 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt

@@ -1,0 +1,22 @@
+% e05: the Lab 3 FIR filter written with a horizontal "sum": one output per iteration
+% data (the same file as examples/fir_data.byte): N at 0, weights w0..w7 at 4..32,
+%       input at 36 .. 36 + 4N - 4; the N - 8 outputs are written from 0x100
+% out[k] = in[k]*w0 + in[k+1]*w1 + ... + in[k+7]*w7 = sum of (in[k..k+7] * w0..w7)
+x1 = [0]          % N
+x2 = x1 - 8       % outputs left
+v9 = [4]          % w0..w7 with ONE vector load (fir_lab3.txt needs 8 scalar loads)
+x3 = 36           % address of in[k]
+x4 = 128
+x4 = x4 * 2       % address of out[k] = 0x100
+.loop
+x9 = x2 - 0
+BLE .done         % no outputs left
+v0 = [x3]         % in[k .. k+7]
+v1 = v0 * v9      % in[k+j] * w[j], j = 0..7
+x5 = sum v1       % out[k]
+[x4] = x5
+x3 = x3 + 4       % slide the window by one element
+x4 = x4 + 4
+x2 = x2 - 1
+BAL .loop
+.done

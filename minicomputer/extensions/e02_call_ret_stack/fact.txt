@@ -1,0 +1,19 @@
+% e02: recursive factorial  fact(n) = n * fact(n - 1),  fact(0) = 1
+% data: n at 0 (0..12); n! is written at 4.   Argument in x1, result in x2.
+x1 = [0]
+call .fact
+[4] = x2
+BAL .end
+.fact
+x9 = x1 - 0
+BNE .recurse      % n != 0
+x2 = 1            % fact(0) = 1
+ret
+.recurse
+push x1           % save n: the recursive call changes x1
+x1 = x1 - 1
+call .fact        % x2 = fact(n - 1)
+pop x1            % n again
+x2 = x2 * x1      % n * fact(n - 1)
+ret
+.end

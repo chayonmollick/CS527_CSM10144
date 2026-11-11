@@ -1,0 +1,20 @@
+% e03: wide constants inside a loop and a forward branch over one.
+% Labels and branch offsets must count the expanded instructions, and the .freq
+% report must count each LINE once per execution (not once per instruction).
+% writes 10 * 100000 = 1000000 at 0 and -1 at 4; [8] must stay 0
+x1 = 0            % i
+x2 = 0            % sum
+.loop
+x3 = 100000       % 3 instructions, run 10 times
+x2 = x2 + x3
+x1 = x1 + 1
+x4 = x1 - 10
+BNE .loop         % offset -6: back over 3 + 3
+[0] = x2          % 1000000 = 0x000F4240
+x9 = x2 - 0
+BNE .skip         % taken; offset +6 = 1 + 4 + 1
+x5 = 0x7FFFFFFF   % 4 instructions, skipped
+[8] = x5          % runs only if the offset is wrong
+.skip
+x5 = -1           % 4 instructions
+[4] = x5
