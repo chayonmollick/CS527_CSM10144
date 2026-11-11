@@ -1,0 +1,20 @@
+% EXT e20 example: a child that has to wait for frames, not for a processor.
+% The parent touches data pages 1..6 (each first touch maps a new frame), so it holds
+% 1 instruction + 7 data frames. Its child needs 8 frames but only 15 - 8 = 7 are free:
+% it waits until the parent finishes, then starts with copies of all 7 data pages.
+x1 = 11
+x2 = 128
+x2 = x2 * 4        % 512 = page size
+x3 = x2            % first address of data page 1
+x4 = 6             % touch pages 1..6
+.touch
+[x3] = x1          % page fault: a new frame for this page
+x3 = x3 + x2
+x4 = x4 - 1
+BNE .touch
+x5 = fork          % parent: x5 = 2, child: x5 = 0
+x6 = getpid
+[0] = x6           % own pid
+x7 = [x2]          % 11 in both: the child got a copy of the demand-mapped page
+[4] = x7
+[8] = x5           % fork result

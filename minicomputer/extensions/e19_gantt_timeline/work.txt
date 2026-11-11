@@ -1,0 +1,11 @@
+% EXT e19 demo task with a known length: sum = N + (N-1) + ... + 1, stored at 4.
+% data: N at 0 (N > 0). Instructions executed = 2 + 3N + 1 + 1 (halt) = 3N + 4, so
+%   N = 2 -> 10 (1 round), N = 5 -> 19 (2 rounds), N = 8 -> 28 (3 rounds), N = 15 -> 49 (5 rounds)
+% (one round = one slice of TIME_SLICE = 10 instructions).
+x1 = [0]          % N
+x2 = 0            % sum
+.loop
+x2 = x2 + x1
+x1 = x1 - 1
+BNE .loop         % until x1 = 0
+[4] = x2          % N(N+1)/2

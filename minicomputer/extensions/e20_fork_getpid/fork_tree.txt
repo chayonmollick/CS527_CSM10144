@@ -1,0 +1,8 @@
+% EXT e20 example: how many processes does "fork; fork; fork" create?  2^3 = 8
+% Every process (the parent and all its descendants) stores its own pid at [0] and prints it.
+x1 = fork
+x2 = fork
+x3 = fork
+x4 = getpid
+[0] = x4
+print x4

@@ -1,0 +1,6 @@
+% EXT e21 example: end the program early with an exit code.
+x1 = 7
+[0] = x1
+exit x1            % the task ends here with exit code 7
+x2 = 99            % never executed
+[0] = x2

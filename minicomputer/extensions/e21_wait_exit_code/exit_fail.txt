@@ -1,0 +1,4 @@
+% EXT e21 example: a task stopped by a runtime error gets exit code -1.
+x1 = 5
+x2 = 0
+x3 = x1 / x2       % division by zero

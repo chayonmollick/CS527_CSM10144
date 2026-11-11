@@ -1,0 +1,22 @@
+% EXT e20 example: fork() and getpid()
+% Before the fork the parent writes 7 at [12]: the child gets a copy, so both outputs have it.
+% After the fork the parent writes 100 at [0] and the child's pid at [4]; the child writes
+% 200 at [0] in its own copy. Each process prints its pid and stores it at [8].
+x5 = getpid        % 1: only the parent exists
+print x5
+x6 = 7
+[12] = x6          % written before the fork
+x1 = fork          % parent: x1 = child pid, child: x1 = 0
+x5 = getpid        % each process has its own pid now
+print x5
+x2 = x1 + 0        % Z = 1 only in the child (x1 == 0)
+BEQ .child
+x3 = 100           % parent
+[0] = x3
+[4] = x1           % the child's pid
+BAL .end
+.child
+x3 = 200           % child
+[0] = x3
+.end
+[8] = x5           % own pid

@@ -1,0 +1,12 @@
+% EXT e16 demo job: 9 statements + halt = 10 instructions = exactly 1 slice(s) of 10.
+% Straight-line code, so the static instruction count that SJF looks at equals the
+% number of instructions really executed. Result: [0] = 6.
+x1 = 0
+x1 = x1 + 1
+x1 = x1 + 1
+x1 = x1 + 1
+x1 = x1 + 1
+x1 = x1 + 1
+x1 = x1 + 1
+print x1          % one log line when the job ends: log.txt shows the finish order
+[0] = x1

@@ -1,0 +1,39 @@
+% EXT e21 example: fork three children, wait for each one, add up their exit codes.
+% Child i (i = 1, 2, 3) spins [12 + 4i] times, then exits with code 10*i:
+%   child 1 does not spin: it ends before the parent waits (a zombie, collected at once);
+%   child 2 spins 30 times, child 3 10 times: the parent blocks in wait() for them.
+% The parent stores 10 + 20 + 30 = 60 at [0], the -1 of a 4th wait at [4], and exits with 60.
+x7 = 3             % children to create
+x8 = 0             % i
+.spawn
+x8 = x8 + 1
+x1 = fork          % parent: child pid, child: 0
+x2 = x1 + 0
+BEQ .child
+x9 = x8 - x7
+BNE .spawn
+x10 = 0            % sum of exit codes
+x11 = 3            % children left to collect
+.reap
+x4 = wait x5       % x4 = pid of an ended child, x5 = its exit code
+print x4
+x10 = x10 + x5
+x11 = x11 - 1
+BNE .reap
+[0] = x10
+x6 = wait          % no children left: -1
+[4] = x6
+exit x10
+.child
+x3 = x8 * 10       % exit code 10 * i
+[0] = x3
+x13 = x8 * 4
+x13 = x13 + 12
+x12 = [x13]        % spin count of child i
+.spin
+x14 = x12 + 0
+BEQ .done
+x12 = x12 - 1
+BAL .spin
+.done
+exit x3

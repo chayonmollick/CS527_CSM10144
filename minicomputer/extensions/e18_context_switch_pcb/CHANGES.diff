@@ -1,0 +1,354 @@
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-12 00:12:53
+@@ -9,6 +9,12 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e18: context switching. A task no longer owns a processor until it ends. Every resident
++ *        task has a PCB (struct PCB in processor.h) and a page-table slot s in frame 0
++ *        (table at s * NUM_LOGICAL_PAGES). For every time slice the scheduler dispatches the
++ *        next ready task: save the processor's old task into its PCB, restore the new task's
++ *        PCB - registers, PC, flags, counters and PTBR = its own page table. So more tasks
++ *        than processors can run at once (NP = 1 in config.h); memory is the only limit.
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -23,7 +29,7 @@
+ #include "os.h"
+ #include "processor.h"
+ 
+-static_assert(NP * NUM_LOGICAL_PAGES <= PAGESIZE, "all page tables must fit in frame 0");
++static_assert(NUM_PT_SLOTS * NUM_LOGICAL_PAGES <= PAGESIZE, "all page tables must fit in frame 0");  /* EXT e18 */
+ static_assert(NUM_PHYSICAL_PAGES <= 256, "a page-table entry is one byte");
+ 
+ enum TaskState { WAITING, READY, DONE };
+@@ -31,20 +37,25 @@
+ struct Task {
+     int pid = 0;
+     TaskState state = WAITING;
+-    int proc = -1;                          /* processor while loaded, else -1 */
++    int proc = -1;                          /* EXT e18: processor holding its registers right now, else -1 */
+     std::string program_path, data_path;
+     Program prog;                           /* byte code + source map */
+     std::vector<unsigned char> data;        /* initial data image */
+     long steps = 0;
+-    int page_faults = 0;
++    int page_faults = 0;                    /* EXT e18: counted per task (was per processor) */
+     bool failed = false;
++    PCB pcb = {};                           /* EXT e18: saved state while off the processor */
++    int slot = -1;                          /* EXT e18: page-table slot in frame 0, -1 = not resident */
++    int slices = 0;                         /* EXT e18: time slices received */
++    int switches = 0;                       /* EXT e18: times its PCB was restored onto a processor */
+ };
+ 
+ static std::vector<Task> tasks;             /* tasks[pid - 1] */
+ static std::deque<int> ready_queue, waiting_queue;
+-static int proc_owner[NP];                  /* pid running on processor p, 0 = free */
++static int proc_owner[NP];                  /* EXT e18: pid whose registers are on processor p, 0 = none */
++static int slot_owner[NUM_PT_SLOTS];        /* EXT e18: pid using page-table slot s, 0 = free */
++static long context_switches = 0;           /* EXT e18: total for the run */
+ static char freePages[NUM_PHYSICAL_PAGES];  /* 1 = allocated; frame 0 holds the page tables */
+-static int page_faults_on[NP];
+ static bool shell_open = true;
+ static std::string shell_buffer;
+ 
+@@ -86,16 +97,17 @@
+         }
+         std::memset(&memory[frame * PAGESIZE], 0, PAGESIZE);
+         memory[pte] = (unsigned char)frame;
+-        page_faults_on[p]++;
++        tasks[current_pid[p] - 1].page_faults++;   /* EXT e18: the task, not the processor */
+     }
+     return frame * PAGESIZE + address % PAGESIZE;
+ }
+ 
+-/* Put bytes into freshly allocated frames, as logical pages first_index, first_index+1, ... */
+-static void copy_in(int p, int first_index, const std::vector<unsigned char> &bytes) {
++/* Put bytes into freshly allocated frames, as logical pages first_index, first_index+1, ...
++ * EXT e18: ptbr = address of the task's page table in frame 0 (no processor is involved). */
++static void copy_in(int ptbr, int first_index, const std::vector<unsigned char> &bytes) {
+     for (int pg = 0; pg < pages_for(bytes.size()); pg++) {
+         int frame = getFreePage();          /* the loader checked that enough are free */
+-        memory[PTBR[p] + first_index + pg] = (unsigned char)frame;
++        memory[ptbr + first_index + pg] = (unsigned char)frame;
+         size_t start = (size_t)pg * PAGESIZE;
+         size_t n = std::min((size_t)PAGESIZE, bytes.size() - start);
+         std::memset(&memory[frame * PAGESIZE], 0, PAGESIZE);
+@@ -103,13 +115,15 @@
+     }
+ }
+ 
+-/* initialize(): load the task's program and data into physical memory, page by page. */
+-static void initialize(int p, Task &t) {
+-    PTBR[p] = p * NUM_LOGICAL_PAGES;                       /* this processor's table in frame 0 */
+-    std::memset(&memory[PTBR[p]], 0, NUM_LOGICAL_PAGES);   /* all pages unmapped */
+-    copy_in(p, 0, t.prog.code);                            /* instruction pages 0, 1 */
+-    copy_in(p, NUM_INSTR_PAGES, t.data);                   /* data pages 2..9 */
+-    page_faults_on[p] = 0;
++/* initialize(): load the task's program and data into physical memory, page by page.
++ * EXT e18: the page table belongs to the task (its slot), not to a processor; the PCB starts
++ * cleared (what reset() did to a processor) with ptbr = the slot's address. */
++static void initialize(Task &t) {
++    t.pcb = PCB();                                         /* x, v, PC, flags, counters = 0 */
++    t.pcb.ptbr = t.slot * NUM_LOGICAL_PAGES;               /* this task's table in frame 0 */
++    std::memset(&memory[t.pcb.ptbr], 0, NUM_LOGICAL_PAGES);   /* all pages unmapped */
++    copy_in(t.pcb.ptbr, 0, t.prog.code);                   /* instruction pages 0, 1 */
++    copy_in(t.pcb.ptbr, NUM_INSTR_PAGES, t.data);          /* data pages 2..9 */
+ }
+ 
+ /* Lab 6 task 1: <program>_<pid>.freq, one line per executable source line. */
+@@ -162,36 +176,66 @@
+     PTBR[p] = -1;
+ 
+     t.steps = steps[p];
+-    t.page_faults = page_faults_on[p];
+-    t.failed = failed[p];
+-    std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
++    t.failed = failed[p];                                  /* EXT e18: page faults are counted per task */
++    std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s), "
++                "%d slice(s), %d context switch(es) -> %s, %s\n",          /* EXT e18: slices, switches */
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+-                t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++                t.steps, t.page_faults, t.slices, t.switches, out_name.c_str(), freq_name.c_str());
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+ 
+-/* loader(): start a waiting task if a processor and enough frames are free. */
++/* loader(): make a waiting task resident if a page-table slot and enough frames are free.
++ * EXT e18: it no longer needs a free processor - the processors are shared by context switching. */
+ static bool loader(int pid) {
+     Task &t = tasks[pid - 1];
+-    int p = -1;
+-    for (int i = 0; i < NP; i++)
+-        if (!proc_owner[i]) { p = i; break; }
+-    int need = pages_for(t.prog.code.size()) + pages_for(t.data.size());
+-    if (p < 0 || need > free_page_count()) return false;
++    int s = -1;
++    for (int i = 0; i < NUM_PT_SLOTS; i++)
++        if (!slot_owner[i]) { s = i; break; }
++    int need = pages_for(t.prog.code.size()) + pages_for(t.data.size());
++    if (s < 0 || need > free_page_count()) return false;
+ 
+-    proc_owner[p] = pid;
+-    t.proc = p;
+-    reset(p);
+-    current_pid[p] = pid;
+-    initialize(p, t);
++    slot_owner[s] = pid;
++    t.slot = s;
++    initialize(t);
++    if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");       /* reset() used to open it */
+     t.state = READY;
+     ready_queue.push_back(pid);
+-    std::printf("[os] pid %d (%s) loaded on processor %d: %d instruction + %d data page(s), %d frame(s) left\n",
+-                pid, t.prog.name.c_str(), p, pages_for(t.prog.code.size()), pages_for(t.data.size()), free_page_count());
++    std::printf("[os] pid %d (%s) loaded: page table in slot %d (PTBR = %d), %d instruction + %d data page(s), "
++                "%d frame(s) left\n", pid, t.prog.name.c_str(), s, t.pcb.ptbr,
++                pages_for(t.prog.code.size()), pages_for(t.data.size()), free_page_count());
+     return true;
+ }
+ 
++/* EXT e18: dispatch(): context switch - give processor p to task pid for its next time slice.
++ * The processor's previous task is saved into its PCB, then pid's PCB is restored, which also
++ * sets PTBR[p] to pid's own page table. Nothing to do if pid is still on p from its last slice. */
++static void dispatch(int p, int pid) {
++    if (proc_owner[p] == pid) return;
++    int old = proc_owner[p];
++    if (old) {                                             /* save the task leaving the processor */
++        save_context(p, tasks[old - 1].pcb);
++        tasks[old - 1].proc = -1;
++    }
++    Task &t = tasks[pid - 1];
++    if (t.proc >= 0) {                                     /* (NP > 1) still on another processor */
++        save_context(t.proc, t.pcb);
++        proc_owner[t.proc] = 0;
++        PTBR[t.proc] = -1;
++    }
++    restore_context(p, t.pcb);                             /* registers, PC, flags, counters, PTBR */
++    current_pid[p] = pid;
++    proc_owner[p] = pid;
++    t.proc = p;
++    t.switches++;
++    context_switches++;
++    if (trace) {                                           /* -t also shows every switch */
++        char from[16] = "idle";
++        if (old) std::snprintf(from, sizeof from, "pid %d", old);
++        std::fprintf(stderr, "[os] context switch on processor %d: %s -> pid %d (PTBR = %d)\n", p, from, pid, PTBR[p]);
++    }
++}
++
+ static void admit_waiting() {
+     for (size_t i = 0; i < waiting_queue.size();) {
+         if (loader(waiting_queue[i])) waiting_queue.erase(waiting_queue.begin() + (long)i);
+@@ -228,7 +272,8 @@
+     waiting_queue.push_back(t.pid);
+     std::printf("[os] pid %d created: %s %s (%zu instructions)\n", t.pid, program.c_str(), data.c_str(), t.prog.code.size() / 4);
+     admit_waiting();
+-    if (tasks.back().state == WAITING) std::printf("[os] pid %d is waiting for a free processor/frames\n", t.pid);
++    if (tasks.back().state == WAITING)                     /* EXT e18: only memory can make it wait */
++        std::printf("[os] pid %d is waiting for free frames/page-table slot\n", t.pid);
+     return t.pid;
+ }
+ 
+@@ -289,16 +334,19 @@
+     std::memset(freePages, 0, sizeof freePages);
+     freePages[0] = 1;                                  /* frame 0: page tables, never allocated */
+     for (int p = 0; p < NP; p++) { PTBR[p] = -1; proc_owner[p] = 0; }
++    std::memset(slot_owner, 0, sizeof slot_owner);     /* EXT e18: every page-table slot free */
+     shell_open = !batch;
+ }
+ 
+ static void finish_task(int pid) {
+     Task &t = tasks[pid - 1];
+-    int p = t.proc;
++    int p = t.proc;                                    /* it has just run its last slice on p */
+     finalize(p, t);
+     t.state = DONE;
+     t.proc = -1;
+     proc_owner[p] = 0;
++    slot_owner[t.slot] = 0;                            /* EXT e18: its page-table slot is free again */
++    t.slot = -1;
+ }
+ 
+ void scheduler() {
+@@ -312,7 +360,9 @@
+         for (size_t i = 0; i < n; i++) {               /* one round: every ready task gets a slice */
+             int pid = ready_queue.front();
+             ready_queue.pop_front();
+-            int p = map_pid_proc_id(pid);
++            int p = (int)(i % NP);                     /* EXT e18: processors take turns (NP = 1: always 0) */
++            dispatch(p, pid);                          /* EXT e18: context switch if p held another task */
++            tasks[pid - 1].slices++;
+             process_instructions(p, TIME_SLICE);
+             if (end_of_simulation[p]) finish_task(pid);
+             else ready_queue.push_back(pid);
+@@ -326,6 +376,7 @@
+     }
+     for (int pid : waiting_queue)
+         std::printf("[os] pid %d never started (not enough free frames)\n", pid);
++    std::printf("[os] %ld context switch(es) on %d processor(s)\n", context_switches, NP);   /* EXT e18 */
+     std::printf("[os] all tasks finished; print output is in %s\n", LOG_FILE);
+     if (fd_log) { std::fclose(fd_log); fd_log = nullptr; }
+ }
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-12 00:12:53
+@@ -52,8 +52,36 @@
+     steps[p] = 0;
+     data_high[p] = 0;
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
++}
++
++/* EXT e18: context switch helpers. save_context() copies every per-processor register of p
++ * into a PCB; restore_context() loads a PCB back, including PTBR (the task's page table). */
++void save_context(int p, PCB &c) {
++    std::memcpy(c.x, Register[p], sizeof c.x);
++    std::memcpy(c.v, VRegister[p], sizeof c.v);
++    c.pc = PC[p];
++    c.flagN = FlagN[p]; c.flagZ = FlagZ[p]; c.flagC = FlagC[p]; c.flagV = FlagV[p];
++    c.ptbr = PTBR[p];
++    c.end_of_simulation = end_of_simulation[p];
++    c.failed = failed[p];
++    c.steps = steps[p];
++    std::memcpy(c.exec_count, exec_count[p], sizeof c.exec_count);
++    c.data_high = data_high[p];
+ }
+ 
++void restore_context(int p, const PCB &c) {
++    std::memcpy(Register[p], c.x, sizeof c.x);
++    std::memcpy(VRegister[p], c.v, sizeof c.v);
++    PC[p] = c.pc;
++    FlagN[p] = c.flagN; FlagZ[p] = c.flagZ; FlagC[p] = c.flagC; FlagV[p] = c.flagV;
++    PTBR[p] = c.ptbr;
++    end_of_simulation[p] = c.end_of_simulation;
++    failed[p] = c.failed;
++    steps[p] = c.steps;
++    std::memcpy(exec_count[p], c.exec_count, sizeof c.exec_count);
++    data_high[p] = c.data_high;
++}
++
+ /* ---- logical memory access (one byte at a time, so a word may cross a page boundary) ---- */
+ 
+ static bool read_byte(int is_fetch, int addr, unsigned char &value) {
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-12 00:08:08
+@@ -5,7 +5,8 @@
+ #define CONFIG_H
+ 
+ /* ---- processors and registers (Labs 1-4) ---- */
+-#define NP              4       /* number of processors (Lab 4) */
++#define NP              1       /* EXT e18: one processor shared by every task through context
++                                   switches (base: 4 processors, one task each) */
+ #define NUM_XREGS       256     /* integer registers x0..x255, 32 bits each */
+ #define NUM_VREGS       32      /* vector registers v0..v31 (Lab 3) */
+ #define VLEN            8       /* 32-bit lanes per vector register = 256 bits */
+@@ -20,6 +21,10 @@
+ #define NUM_LOGICAL_PAGES  (NUM_INSTR_PAGES + NUM_DATA_PAGES)     /* 10 entries per page table */
+ #define NUM_PHYSICAL_PAGES (MEMSIZE / PAGESIZE)                   /* 16 frames, frame 0 reserved */
+ #define MAX_INSTRUCTIONS   (INSTR_SPACE / 4)                      /* 256 */
++/* EXT e18: every resident task keeps its page table in frame 0, in slot s at address
++ * s * NUM_LOGICAL_PAGES (PTBR = that address). 512 / 10 = 51 tables fit, but memory is the tighter
++ * limit: 15 free frames and at least 2 per task (1 instruction + 1 data page) = 7 resident tasks. */
++#define NUM_PT_SLOTS       (PAGESIZE / NUM_LOGICAL_PAGES)         /* 51 */
+ 
+ /* ---- operating system (Lab 4) ---- */
+ #define MAX_TASKS       64      /* process-table size */
+--- ../../simulator/processor.h	2026-11-11 23:23:00
++++ processor.h	2026-11-12 00:09:40
+@@ -1,6 +1,8 @@
+ /* Processor: fetch / decode / execute.
+  * Lab 4 made every piece of state an array indexed by processor id (NP processors);
+  * proc_id selects the processor that process_instructions() is currently running.
++ * EXT e18: a processor now runs many tasks in turn; between slices the OS swaps these arrays
++ * in and out of each task's PCB with save_context() / restore_context().
+  */
+ #ifndef PROCESSOR_H
+ #define PROCESSOR_H
+@@ -24,6 +26,22 @@
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
+ 
++/* EXT e18: Process Control Block - everything a task needs to continue later, on any processor.
++ * While the task is off the processor its state lives here; the OS copies it in and out. */
++struct PCB {
++    int x[NUM_XREGS];                          /* x0..x255 */
++    int v[NUM_VREGS][VLEN];                    /* v0..v31 */
++    int pc;
++    int flagN, flagZ, flagC, flagV;
++    int ptbr;                                  /* its page table in frame 0 (slot * NUM_LOGICAL_PAGES) */
++    int end_of_simulation, failed;
++    long steps;                                /* instructions executed so far */
++    long exec_count[MAX_INSTRUCTIONS];         /* Lab 6 frequency counters */
++    int data_high;
++};
++void save_context(int p, PCB &pcb);            /* EXT e18: processor p's state -> pcb */
++void restore_context(int p, const PCB &pcb);   /* EXT e18: pcb -> processor p's state */
++
+ void reset(int p);
+ void fetch();
+ void decode();
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-12 00:09:40
+@@ -1,7 +1,7 @@
+-# CS527 mini-computer simulator (Labs 1-6)
++# CS527 mini-computer simulator (Labs 1-6) + EXT e18: context switching with a PCB per task, NP = 1
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            base regression tests (../../tests/run_tests.sh) + ./test.sh   (EXT e18)
++#   ./sim -b ../../examples/counter.txt ../../examples/counter_data.byte ../../examples/counter_by100.txt ../../examples/counter_data.byte
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,8 +13,9 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                                  # EXT e18: base tests (1 check fails by design, see README), then ./test.sh
++	-SIM=$(CURDIR)/sim ../../tests/run_tests.sh
++	./test.sh
+ 
+ clean:
+ 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt

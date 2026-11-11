@@ -1,0 +1,20 @@
+% EXT e21 example: deadlock. Every process forks a child and waits for it (a chain).
+% With NP = 4, pids 1-4 end up blocked in wait(), each holding a processor, so pid 5 can
+% never be loaded. The OS stops the newest blocked task (pid 4, exit code -1); pid 5 then
+% runs (an orphan) and the parents are woken one by one.
+x8 = 0
+.again
+x8 = x8 + 1
+x1 = fork
+x2 = x1 + 0
+BEQ .child         % the child goes on forking
+x4 = wait x5       % the parent waits for its child
+x6 = getpid
+[0] = x6
+exit x8
+.child
+x9 = x8 - 4
+BNE .again         % pids 1-4 fork; pid 5 is the last child
+x6 = getpid
+[0] = x6
+exit x8

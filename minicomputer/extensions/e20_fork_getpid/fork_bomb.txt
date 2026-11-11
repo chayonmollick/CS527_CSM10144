@@ -1,0 +1,9 @@
+% EXT e20 example: 7 forks would make 2^7 = 128 processes, but the process table has
+% only MAX_TASKS = 64 entries; every fork after that returns -1 ("process table full").
+x1 = fork
+x1 = fork
+x1 = fork
+x1 = fork
+x1 = fork
+x1 = fork
+x1 = fork

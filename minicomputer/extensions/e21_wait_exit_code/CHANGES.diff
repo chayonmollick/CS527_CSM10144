@@ -1,0 +1,505 @@
+--- ../../simulator/compiler.cpp	2026-11-11 23:23:41
++++ compiler.cpp	2026-11-11 23:53:32
+@@ -9,6 +9,7 @@
+  *   vD = vA + vB      vD = vA * 3      vD = vA * xB  (+ - *)          vectors (Lab 3)
+  *   vD = [xA]         vD = [32]        [xA] = vS       [32] = vS      vector memory
+  *   print xR                                                          Lab 4
++ *   xD = fork         xD = getpid      xD = wait [xS]     exit xR     EXT e21
+  *   % comment         trailing ';' and ',' separators are ignored
+  */
+ #include <cctype>
+@@ -233,6 +234,33 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (head == "exit") {                                       /* EXT e21: exit xR */
++        Operand reg;
++        if (t.size() != 2 || !parse_operand(t, i, reg, msg) || reg.kind != Operand::XREG) {
++            msg = "usage: exit x<n>";
++            return false;
++        }
++        set(ins, OP_EXIT, 0, 0, reg.value);
++        return true;
++    }
++    if (t.size() >= 3 && t[1] == "=") {                         /* EXT e21: xD = fork | getpid | wait [xS] */
++        std::string call = lower(t[2]);
++        if (call == "fork" || call == "getpid" || call == "wait") {
++            Operand reg, status;
++            size_t k = 0, s = 3;
++            bool ok = parse_operand(t, k, reg, msg) && reg.kind == Operand::XREG;
++            bool with_status = (call == "wait" && t.size() == 4);
++            if (with_status) ok = ok && parse_operand(t, s, status, msg) && status.kind == Operand::XREG;
++            else if (t.size() != 3) ok = false;
++            if (!ok) {
++                msg = "usage: x<n> = " + call + (call == "wait" ? "   or   x<n> = wait x<m>" : "");
++                return false;
++            }
++            if (call == "wait") set(ins, OP_WAIT, reg.value, with_status ? 1 : 0, with_status ? status.value : 0);
++            else set(ins, call == "fork" ? OP_FORK : OP_GETPID, reg.value, 0, 0);
++            return true;
++        }
++    }
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }
+@@ -363,7 +391,14 @@
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+     case OP_VSTORE:  std::snprintf(buf, sizeof buf, "[x%d] = v%d", d, b); break;
+     case OP_VSTOREC: std::snprintf(buf, sizeof buf, "[%d] = v%d", d, b); break;
+-    default:         std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
++    case OP_FORK:    std::snprintf(buf, sizeof buf, "x%d = fork", d); break;              /* EXT e21 */
++    case OP_GETPID:  std::snprintf(buf, sizeof buf, "x%d = getpid", d); break;            /* EXT e21 */
++    case OP_WAIT:                                                                          /* EXT e21 */
++        if (a) std::snprintf(buf, sizeof buf, "x%d = wait x%d", d, b);
++        else   std::snprintf(buf, sizeof buf, "x%d = wait", d);
++        break;
++    case OP_EXIT:    std::snprintf(buf, sizeof buf, "exit x%d", b); break;                /* EXT e21 */
++    default:        std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
+     }
+     return buf;
+ }
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-11 23:55:33
+@@ -9,6 +9,12 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e21: process life cycle. "xD = fork" (as in e20) creates a child; "exit xR" ends a
++ *        task with an exit code (the end of the program = code 0, an error = -1);
++ *        "xD = wait [xS]" returns the pid (and exit code) of a child that has ended, and
++ *        blocks the caller while its children are still running. A child that ends before
++ *        its parent waits is a ZOMBIE until collected; orphans and the zombies of an ended
++ *        parent are reaped by the OS. At the end the OS prints every task's exit code.
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -26,7 +32,9 @@
+ static_assert(NP * NUM_LOGICAL_PAGES <= PAGESIZE, "all page tables must fit in frame 0");
+ static_assert(NUM_PHYSICAL_PAGES <= 256, "a page-table entry is one byte");
+ 
+-enum TaskState { WAITING, READY, DONE };
++/* EXT e21: BLOCKED = in wait() (keeps its processor, not on the ready queue);
++ *          ZOMBIE  = ended, exit code kept until its parent calls wait(); DONE = ended and reaped */
++enum TaskState { WAITING, READY, BLOCKED, ZOMBIE, DONE };
+ 
+ struct Task {
+     int pid = 0;
+@@ -38,9 +46,19 @@
+     long steps = 0;
+     int page_faults = 0;
+     bool failed = false;
++    int ppid = 0;                           /* EXT e21: parent pid, 0 = started by the shell/command line */
++    bool forked = false;                    /* EXT e21: start from the copy below, not from program/data */
++    CpuState cpu = {};                      /* EXT e21: parent's registers at the fork (child xD = 0) */
++    std::vector<unsigned char> saved_page[NUM_LOGICAL_PAGES];   /* EXT e21: copies of the parent's
++                                               pages, kept by the OS until the child is loaded; empty = unmapped */
++    int exit_code = 0;                      /* EXT e21: from "exit xR"; 0 = program ended; -1 = error */
++    int end_seq = 0;                        /* EXT e21: 1 = first task to end, 2 = second, ... */
++    int reaped_by = 0;                      /* EXT e21: pid whose wait() collected the code, 0 = the OS */
++    int wait_dest = 0, wait_status = -1;    /* EXT e21: registers wait() fills in (-1 = no status) */
+ };
+ 
+ static std::vector<Task> tasks;             /* tasks[pid - 1] */
++static int end_counter = 0;                 /* EXT e21: tasks ended so far */
+ static std::deque<int> ready_queue, waiting_queue;
+ static int proc_owner[NP];                  /* pid running on processor p, 0 = free */
+ static char freePages[NUM_PHYSICAL_PAGES];  /* 1 = allocated; frame 0 holds the page tables */
+@@ -50,6 +68,21 @@
+ 
+ static int pages_for(size_t bytes) { return (int)((bytes + PAGESIZE - 1) / PAGESIZE); }
+ 
++/* EXT e21: instruction and data pages a task needs when it is loaded. */
++static void page_counts(const Task &t, int &instr, int &data) {
++    if (!t.forked) {
++        instr = pages_for(t.prog.code.size());
++        data = pages_for(t.data.size());
++        return;
++    }
++    instr = data = 0;                       /* a fork child: exactly the pages its parent had */
++    for (int i = 0; i < NUM_LOGICAL_PAGES; i++)
++        if (!t.saved_page[i].empty()) {
++            if (i < NUM_INSTR_PAGES) instr++;
++            else data++;
++        }
++}
++
+ static int free_page_count() {
+     int n = 0;
+     for (int f = 1; f < NUM_PHYSICAL_PAGES; f++) n += !freePages[f];
+@@ -107,8 +140,13 @@
+ static void initialize(int p, Task &t) {
+     PTBR[p] = p * NUM_LOGICAL_PAGES;                       /* this processor's table in frame 0 */
+     std::memset(&memory[PTBR[p]], 0, NUM_LOGICAL_PAGES);   /* all pages unmapped */
+-    copy_in(p, 0, t.prog.code);                            /* instruction pages 0, 1 */
+-    copy_in(p, NUM_INSTR_PAGES, t.data);                   /* data pages 2..9 */
++    if (t.forked) {                                        /* EXT e21: fork child - its parent's pages, */
++        for (int i = 0; i < NUM_LOGICAL_PAGES; i++)        /* each copied into a new frame */
++            if (!t.saved_page[i].empty()) copy_in(p, i, t.saved_page[i]);
++    } else {
++        copy_in(p, 0, t.prog.code);                        /* instruction pages 0, 1 */
++        copy_in(p, NUM_INSTR_PAGES, t.data);               /* data pages 2..9 */
++    }
+     page_faults_on[p] = 0;
+ }
+ 
+@@ -164,9 +202,9 @@
+     t.steps = steps[p];
+     t.page_faults = page_faults_on[p];
+     t.failed = failed[p];
+-    std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
++    std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s), exit code %d -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+-                t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++                t.steps, t.page_faults, t.exit_code, out_name.c_str(), freq_name.c_str());   /* EXT e21: + exit code */
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+@@ -177,7 +215,9 @@
+     int p = -1;
+     for (int i = 0; i < NP; i++)
+         if (!proc_owner[i]) { p = i; break; }
+-    int need = pages_for(t.prog.code.size()) + pages_for(t.data.size());
++    int instr_pages = 0, data_pages = 0;                   /* EXT e21: a child needs its parent's pages */
++    page_counts(t, instr_pages, data_pages);
++    int need = instr_pages + data_pages;
+     if (p < 0 || need > free_page_count()) return false;
+ 
+     proc_owner[p] = pid;
+@@ -185,10 +225,11 @@
+     reset(p);
+     current_pid[p] = pid;
+     initialize(p, t);
++    if (t.forked) load_cpu(p, t.cpu);                      /* EXT e21: continue where the parent forked */
+     t.state = READY;
+     ready_queue.push_back(pid);
+     std::printf("[os] pid %d (%s) loaded on processor %d: %d instruction + %d data page(s), %d frame(s) left\n",
+-                pid, t.prog.name.c_str(), p, pages_for(t.prog.code.size()), pages_for(t.data.size()), free_page_count());
++                pid, t.prog.name.c_str(), p, instr_pages, data_pages, free_page_count());
+     return true;
+ }
+ 
+@@ -230,8 +271,84 @@
+     admit_waiting();
+     if (tasks.back().state == WAITING) std::printf("[os] pid %d is waiting for a free processor/frames\n", t.pid);
+     return t.pid;
++}
++
++/* ---------------- EXT e21: fork, wait and exit codes ---------------- */
++
++/* fork() for the task on processor p ("xD = fork", called from execute()), as in e20:
++ * the child gets a copy of every mapped page and of the registers and continues after
++ * the fork with xD = 0. It is loaded at once if a processor and frames are free, else it waits. */
++int os_fork(int p, int dest) {
++    int ppid = current_pid[p];
++    if (tasks.size() >= MAX_TASKS) {
++        std::printf("[os] fork() in pid %d failed: process table full (%d tasks)\n", ppid, MAX_TASKS);
++        return -1;
++    }
++    Task c;
++    const Task &parent = tasks[ppid - 1];
++    c.pid = (int)tasks.size() + 1;
++    c.ppid = ppid;
++    c.program_path = parent.program_path;
++    c.data_path = parent.data_path;
++    c.prog = parent.prog;                                  /* same byte code and source map (.freq) */
++    c.data = parent.data;                                  /* initial data image (sizes the .out file) */
++    c.forked = true;
++    save_cpu(p, c.cpu);                                    /* registers, PC (past the fork), flags */
++    c.cpu.x[dest] = 0;                                     /* fork() returns 0 in the child */
++    int copied = 0;
++    for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* copy every mapped page out of memory */
++        int frame = memory[PTBR[p] + i];
++        if (!frame) continue;
++        const unsigned char *page = &memory[frame * PAGESIZE];
++        c.saved_page[i].assign(page, page + PAGESIZE);
++        copied++;
++    }
++    tasks.push_back(c);                                    /* 'parent' is not used after this */
++    waiting_queue.push_back(c.pid);
++    std::printf("[os] pid %d created by fork() in pid %d (%d page(s) copied)\n", c.pid, ppid, copied);
++    admit_waiting();
++    if (tasks[c.pid - 1].state == WAITING) std::printf("[os] pid %d is waiting for a free processor/frames\n", c.pid);
++    return c.pid;
++}
++
++/* Give an ended child's pid (and exit code) to its parent: the parent is on its processor,
++ * so the OS writes straight into the registers that its "xD = wait [xS]" named. */
++static void collect(Task &parent, Task &child) {
++    int p = parent.proc;
++    Register[p][parent.wait_dest] = child.pid;
++    if (parent.wait_status >= 0) Register[p][parent.wait_status] = child.exit_code;
++    child.state = DONE;
++    child.reaped_by = parent.pid;
++    std::printf("[os] pid %d: wait() returns pid %d, exit code %d\n", parent.pid, child.pid, child.exit_code);
+ }
+ 
++/* wait() for the task on processor p ("xD = wait [xS]", called from execute()):
++ *   a child has already ended (zombie) -> collect the one that ended first, no blocking
++ *   children still running or waiting -> block: the slice stops, the task leaves the
++ *                                        ready queue until a child ends (finish_task)
++ *   no children at all                 -> xD = -1 */
++void os_wait(int p, int dest, int status_reg) {
++    Task &t = tasks[current_pid[p] - 1];
++    t.wait_dest = dest;
++    t.wait_status = status_reg;
++    Task *zombie = nullptr;
++    bool running_child = false;
++    for (Task &c : tasks) {
++        if (c.ppid != t.pid) continue;
++        if (c.state == ZOMBIE && (!zombie || c.end_seq < zombie->end_seq)) zombie = &c;
++        if (c.state == WAITING || c.state == READY || c.state == BLOCKED) running_child = true;
++    }
++    if (zombie) { collect(t, *zombie); return; }
++    if (!running_child) {
++        Register[p][dest] = -1;
++        std::printf("[os] pid %d: wait() returns -1 (no children left)\n", t.pid);
++        return;
++    }
++    blocked[p] = 1;                                        /* process_instructions stops the slice */
++    t.state = BLOCKED;
++    std::printf("[os] pid %d blocks in wait()\n", t.pid);
++}
++
+ /* ---------------- shell ---------------- */
+ 
+ static void prompt() {
+@@ -292,15 +409,71 @@
+     shell_open = !batch;
+ }
+ 
++/* EXT e21: when a task ends, its exit code goes
++ *   to its parent at once        if the parent is blocked in wait() (the parent is ready again)
++ *   into a ZOMBIE entry          if the parent is still running (until it calls wait())
++ *   to the OS                    if it has no parent (shell/command line) or the parent has
++ *                                ended (an orphan).
++ * Zombie children of the ending task can no longer be collected: the OS reaps them. */
+ static void finish_task(int pid) {
+     Task &t = tasks[pid - 1];
+     int p = t.proc;
++    t.exit_code = failed[p] ? -1 : exit_code[p];          /* EXT e21 */
+     finalize(p, t);
+     t.state = DONE;
+     t.proc = -1;
+     proc_owner[p] = 0;
++    blocked[p] = 0;                                        /* EXT e21 (a deadlock victim was blocked) */
++    t.end_seq = ++end_counter;                             /* EXT e21: order in which tasks end */
++
++    for (Task &c : tasks)                                  /* EXT e21: its uncollected zombies */
++        if (c.ppid == pid && c.state == ZOMBIE) {
++            c.state = DONE;
++            std::printf("[os] pid %d (zombie child of pid %d) reaped by the os\n", c.pid, pid);
++        }
++    if (t.ppid == 0) return;                               /* EXT e21: started by the shell: reaped by the os */
++    Task &parent = tasks[t.ppid - 1];
++    if (parent.state == BLOCKED) {                         /* EXT e21: the parent is waiting for it */
++        collect(parent, t);
++        blocked[parent.proc] = 0;
++        parent.state = READY;
++        ready_queue.push_back(parent.pid);                 /* runs again from the next round */
++    } else if (parent.state == READY) {                    /* EXT e21: parent alive, not waiting yet */
++        t.state = ZOMBIE;
++        std::printf("[os] pid %d is a zombie until pid %d calls wait()\n", pid, parent.pid);
++    } else {                                               /* EXT e21: parent has ended */
++        std::printf("[os] pid %d is an orphan (pid %d has ended): reaped by the os\n", pid, parent.pid);
++    }
+ }
+ 
++/* EXT e21: deadlock recovery. Nothing is ready and nothing in the waiting queue can be loaded,
++ * yet tasks are blocked in wait(): they hold the processors (no context switch here) and frames
++ * that the children they wait for need. Stop the newest blocked task (exit code -1) to free them. */
++static bool stop_deadlock_victim() {
++    int victim = 0;
++    for (const Task &t : tasks)
++        if (t.state == BLOCKED) victim = t.pid;            /* highest pid = newest */
++    if (!victim) return false;
++    int p = tasks[victim - 1].proc;
++    std::printf("[os] deadlock: blocked tasks hold the processors/frames their children need; stopping pid %d\n", victim);
++    failed[p] = 1;
++    end_of_simulation[p] = 1;
++    finish_task(victim);
++    return true;
++}
++
++/* EXT e21: ps-like table of how every task ended. */
++static void print_exit_table() {
++    std::printf("[os] exit codes:\n  pid  ppid  program          state      exit  instructions  reaped by\n");
++    for (const Task &t : tasks) {
++        bool ran = (t.state != WAITING);
++        std::string code = ran ? std::to_string(t.exit_code) : "-";
++        std::string by = !ran ? "-" : t.reaped_by ? "pid " + std::to_string(t.reaped_by) + " (wait)" : "os";
++        std::printf("  %3d  %4d  %-15s  %-9s  %4s  %12ld  %s\n", t.pid, t.ppid, t.prog.name.c_str(),
++                    !ran ? "never ran" : t.failed ? "error" : "exited", code.c_str(), t.steps, by.c_str());
++    }
++}
++
+ void scheduler() {
+     if (shell_open) {
+         std::printf("[shell] type '<program> <data.byte>' to start a task, 'exit' to stop accepting tasks\n");
+@@ -315,17 +488,18 @@
+             int p = map_pid_proc_id(pid);
+             process_instructions(p, TIME_SLICE);
+             if (end_of_simulation[p]) finish_task(pid);
+-            else ready_queue.push_back(pid);
++            else if (!blocked[p]) ready_queue.push_back(pid);   /* EXT e21: blocked in wait(): off the queue */
+         }
+         shell();
+         if (!shell_open && ready_queue.empty()) {
+             admit_waiting();
+-            if (ready_queue.empty()) break;            /* nothing running, nothing can start */
++            if (ready_queue.empty() && !stop_deadlock_victim()) break;   /* EXT e21: nothing can run */
+         }
+         if (ready_queue.empty()) usleep(10000);        /* idle: wait for shell input */
+     }
+     for (int pid : waiting_queue)
+         std::printf("[os] pid %d never started (not enough free frames)\n", pid);
++    if (!tasks.empty()) print_exit_table();            /* EXT e21 */
+     std::printf("[os] all tasks finished; print output is in %s\n", LOG_FILE);
+     if (fd_log) { std::fclose(fd_log); fd_log = nullptr; }
+ }
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-11 23:53:08
+@@ -22,6 +22,8 @@
+ long steps[NP];
+ long exec_count[NP][MAX_INSTRUCTIONS];
+ int data_high[NP];
++int exit_code[NP];               /* EXT e21 */
++int blocked[NP];                 /* EXT e21 */
+ 
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+@@ -51,9 +53,27 @@
+     end_of_simulation[p] = failed[p] = 0;
+     steps[p] = 0;
+     data_high[p] = 0;
++    exit_code[p] = blocked[p] = 0;               /* EXT e21 */
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+ 
++/* EXT e21: copy the registers of processor p out (fork) and back in (starting the child). */
++void save_cpu(int p, CpuState &s) {
++    std::memcpy(s.x, Register[p], sizeof s.x);
++    std::memcpy(s.v, VRegister[p], sizeof s.v);
++    s.pc = PC[p];                                /* already points past the fork instruction */
++    s.flagN = FlagN[p]; s.flagZ = FlagZ[p]; s.flagC = FlagC[p]; s.flagV = FlagV[p];
++    s.data_high = data_high[p];
++}
++
++void load_cpu(int p, const CpuState &s) {
++    std::memcpy(Register[p], s.x, sizeof s.x);
++    std::memcpy(VRegister[p], s.v, sizeof s.v);
++    PC[p] = s.pc;
++    FlagN[p] = s.flagN; FlagZ[p] = s.flagZ; FlagC[p] = s.flagC; FlagV[p] = s.flagV;
++    data_high[p] = s.data_high;
++}
++
+ /* ---- logical memory access (one byte at a time, so a word may cross a page boundary) ---- */
+ 
+ static bool read_byte(int is_fetch, int addr, unsigned char &value) {
+@@ -218,6 +238,19 @@
+         for (int i = 0; i < VLEN; i++)
+             if (!store_word(addr + 4 * i, VRegister[p][src2][i])) return;
+         break;
++    case OP_GETPID:                                      /* EXT e21: xD = getpid */
++        x[dest] = current_pid[p];
++        break;
++    case OP_FORK:                                        /* EXT e21: xD = fork; os_fork copies the */
++        x[dest] = os_fork(p, dest);                      /* parent (with xD = 0) before xD is set  */
++        break;
++    case OP_WAIT:                                        /* EXT e21: xD = wait [xS]; the OS writes xD */
++        os_wait(p, dest, src1 ? src2 : -1);              /* (and xS) now or when a child finishes    */
++        break;
++    case OP_EXIT:                                        /* EXT e21: exit xR - end now with code xR */
++        exit_code[p] = x[src2];
++        end_of_simulation[p] = 1;
++        break;
+     default:
+         if (opcode >= OP_BRANCH && opcode < OP_BRANCH + NUM_CONDITIONS) {   /* Lab 2 */
+             if (condition_holds(p, opcode - OP_BRANCH))
+@@ -232,7 +265,7 @@
+ int process_instructions(int p, int count) {
+     proc_id = p;
+     int done = 0;
+-    for (int i = 0; i < count && !end_of_simulation[p]; i++) {
++    for (int i = 0; i < count && !end_of_simulation[p] && !blocked[p]; i++) {   /* EXT e21: wait() ends the slice */
+         fetch();
+         if (end_of_simulation[p]) break;                 /* fetch fault */
+         decode();
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:52:50
+@@ -61,7 +61,12 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB   (EXT e21: comma added) */
++    OP_FORK   = 0x40,   /* EXT e21: xD = fork   (parent: child pid, child: 0)   40 D 0 0 */
++    OP_GETPID = 0x41,   /* EXT e21: xD = getpid                                 41 D 0 0 */
++    OP_WAIT   = 0x43,   /* EXT e21: xD = wait [xS]: pid of a finished child     43 D F S */
++                        /*          (F = 1: its exit code also goes to xS; -1 = no children) */
++    OP_EXIT   = 0x44    /* EXT e21: exit xR: end the task with exit code xR     44 0 0 R */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+--- ../../simulator/os.h	2026-11-11 23:23:48
++++ os.h	2026-11-11 23:53:38
+@@ -18,5 +18,8 @@
+ void shell();                           /* non-blocking: handles whatever is waiting on stdin */
+ int  map_pid_proc_id(int pid);          /* processor running pid, -1 if none */
+ int  failed_task_count();
++int  os_fork(int p, int dest);          /* EXT e21: fork() for the task on processor p: child pid, -1 on failure */
++void os_wait(int p, int dest, int status_reg);   /* EXT e21: wait() for the task on processor p;
++                                           status_reg = register for the child's exit code, -1 = none */
+ 
+ #endif
+--- ../../simulator/processor.h	2026-11-11 23:23:00
++++ processor.h	2026-11-11 23:52:51
+@@ -19,11 +19,25 @@
+ extern long steps[NP];                         /* instructions executed by the current task */
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
++extern int exit_code[NP];                      /* EXT e21: set by "exit xR" (0 if the program just ends) */
++extern int blocked[NP];                        /* EXT e21: 1 = the task blocked in wait(): stop its slice */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
+ 
++/* EXT e21: the register state of a task, copied from the parent at fork() and loaded
++ * into the child's processor when the child starts (same as e20). */
++struct CpuState {
++    int x[NUM_XREGS];
++    int v[NUM_VREGS][VLEN];
++    int pc;
++    int flagN, flagZ, flagC, flagV;
++    int data_high;
++};
++void save_cpu(int p, CpuState &s);         /* EXT e21: processor p's registers -> s */
++void load_cpu(int p, const CpuState &s);   /* EXT e21: s -> processor p's registers */
++
+ void reset(int p);
+ void fetch();
+ void decode();
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:55:33
+@@ -1,7 +1,7 @@
+-# CS527 mini-computer simulator (Labs 1-6)
++# CS527 mini-computer simulator (Labs 1-6) + EXT e21: exit codes, fork() and wait()
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            base regression tests on this build, then ./test.sh   (EXT e21)
++#   ./sim -b wait_demo.txt wait_demo_data.byte                                  (EXT e21)
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,8 +13,8 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim    # EXT e21: run the base tests against this build, then this extension's tests
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh && ./test.sh
+ 
+ clean:
+ 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt

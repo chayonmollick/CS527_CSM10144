@@ -1,0 +1,180 @@
+--- ../../simulator/main.cpp	2026-11-11 23:25:42
++++ main.cpp	2026-11-11 23:53:34
+@@ -8,7 +8,7 @@
+  *                                     and print the byte-code listing
+  * A program may also be given as an already compiled .byte file.
+  * Results: <data>_<pid>.out (final data memory), <program>_<pid>.freq (Lab 6 task 1),
+- *          log.txt (print output).
++ *          log.txt (print output), timeline.txt (EXT e19: Gantt chart and task times).
+  */
+ #include <cstdio>
+ #include <cstring>
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-11 23:53:15
+@@ -9,6 +9,9 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e19: the scheduler records, for every round, which pid ran on each processor; at exit
++ *        timeline.txt gets a text Gantt chart, per-task arrival/start/finish rounds with
++ *        waiting and turnaround times, and the utilisation of every processor.
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -38,6 +41,8 @@
+     long steps = 0;
+     int page_faults = 0;
+     bool failed = false;
++    int arrival = 0, start = 0, finish = 0; /* EXT e19: rounds: created, first slice, last slice (0 = not yet) */
++    int run_rounds = 0;                     /* EXT e19: rounds in which it got a slice */
+ };
+ 
+ static std::vector<Task> tasks;             /* tasks[pid - 1] */
+@@ -47,6 +52,10 @@
+ static int page_faults_on[NP];
+ static bool shell_open = true;
+ static std::string shell_buffer;
++
++static int round_no = 0;                    /* EXT e19: rounds in which some task ran (round 1 = first) */
++static std::vector<int> gantt;              /* EXT e19: gantt[(r - 1) * NP + p] = pid that ran on processor p
++                                               in round r, 0 = idle (NP entries per round) */
+ 
+ static int pages_for(size_t bytes) { return (int)((bytes + PAGESIZE - 1) / PAGESIZE); }
+ 
+@@ -215,6 +224,7 @@
+     t.pid = (int)tasks.size() + 1;
+     t.program_path = program;
+     t.data_path = data;
++    t.arrival = round_no;                                  /* EXT e19: 0 for command-line tasks */
+     std::string err;
+     bool is_bytecode = program.size() > 5 && program.compare(program.size() - 5, 5, ".byte") == 0;
+     bool ok = is_bytecode ? load_bytecode(program, t.prog, err) : compile_file(program, t.prog, err);
+@@ -299,8 +309,63 @@
+     t.state = DONE;
+     t.proc = -1;
+     proc_owner[p] = 0;
++    t.finish = round_no;                               /* EXT e19 */
+ }
+ 
++/* EXT e19: timeline.txt = Gantt chart (rows = processors, columns = rounds, cell = pid or '.'),
++ * then per-task times and processor utilisation. Times are in rounds:
++ *   turnaround = finish - arrival,  waiting = turnaround - run_rounds (in the system, not running). */
++static void write_timeline() {
++    FILE *f = std::fopen(TIMELINE_FILE, "w");
++    if (!f) { std::printf("[os] could not write %s\n", TIMELINE_FILE); return; }
++    int w = 2;                                         /* cell width = digits of the largest number + 1 */
++    for (int v = std::max(round_no, (int)tasks.size()); v >= 10; v /= 10) w++;
++    std::fprintf(f, "Gantt chart: pid that ran on each processor in each round ('.' = idle)\n");
++    std::fprintf(f, "NP = %d processors, TIME_SLICE = %d instructions, %d rounds\n", NP, TIME_SLICE, round_no);
++    for (int first = 1; first <= round_no; first += GANTT_COLUMNS) {   /* blocks of GANTT_COLUMNS rounds */
++        int last = std::min(round_no, first + GANTT_COLUMNS - 1);
++        std::fprintf(f, "\nround");
++        for (int r = first; r <= last; r++) std::fprintf(f, "%*d", w, r);
++        std::fprintf(f, "\n");
++        for (int p = 0; p < NP; p++) {
++            std::fprintf(f, "P%-4d", p);
++            for (int r = first; r <= last; r++) {
++                int pid = gantt[(size_t)(r - 1) * NP + p];
++                if (pid) std::fprintf(f, "%*d", w, pid);
++                else std::fprintf(f, "%*s", w, ".");
++            }
++            std::fprintf(f, "\n");
++        }
++    }
++
++    std::fprintf(f, "\npid program          arrival start finish  run waiting turnaround\n");
++    int n = 0;
++    double sum_wait = 0, sum_turn = 0;
++    for (const Task &t : tasks) {
++        if (!t.finish) continue;                       /* never ran */
++        int turnaround = t.finish - t.arrival, waiting = turnaround - t.run_rounds;
++        std::fprintf(f, "%3d %-16s %7d %5d %6d %4d %7d %10d\n", t.pid, t.prog.name.c_str(), t.arrival,
++                     t.start, t.finish, t.run_rounds, waiting, turnaround);
++        sum_wait += waiting;
++        sum_turn += turnaround;
++        n++;
++    }
++    if (n) std::fprintf(f, "average waiting %.2f rounds, average turnaround %.2f rounds (%d tasks)\n",
++                        sum_wait / n, sum_turn / n, n);
++
++    std::fprintf(f, "\nprocessor utilisation = busy rounds / %d rounds\n", round_no);
++    int all_busy = 0;
++    for (int p = 0; p < NP; p++) {
++        int busy = 0;
++        for (int r = 1; r <= round_no; r++) busy += gantt[(size_t)(r - 1) * NP + p] != 0;
++        all_busy += busy;
++        std::fprintf(f, "P%-4d %4d / %-5d %5.1f %%\n", p, busy, round_no, 100.0 * busy / round_no);
++    }
++    std::fprintf(f, "all   %4d / %-5d %5.1f %%\n", all_busy, round_no * NP, 100.0 * all_busy / (round_no * NP));
++    std::fclose(f);
++    std::printf("[os] Gantt chart, task times and processor utilisation written to %s\n", TIMELINE_FILE);
++}
++
+ void scheduler() {
+     if (shell_open) {
+         std::printf("[shell] type '<program> <data.byte>' to start a task, 'exit' to stop accepting tasks\n");
+@@ -308,11 +373,18 @@
+     }
+     for (;;) {
+         admit_waiting();
++        if (!ready_queue.empty()) {                    /* EXT e19: a new round = one more Gantt column */
++            round_no++;                                /* (idle waits for shell input are not rounds) */
++            gantt.resize(gantt.size() + NP, 0);        /* every processor idle until it runs a slice */
++        }
+         size_t n = ready_queue.size();
+         for (size_t i = 0; i < n; i++) {               /* one round: every ready task gets a slice */
+             int pid = ready_queue.front();
+             ready_queue.pop_front();
+             int p = map_pid_proc_id(pid);
++            gantt[(size_t)(round_no - 1) * NP + p] = pid;                  /* EXT e19 */
++            if (!tasks[pid - 1].start) tasks[pid - 1].start = round_no;    /* EXT e19: first slice */
++            tasks[pid - 1].run_rounds++;                                   /* EXT e19 */
+             process_instructions(p, TIME_SLICE);
+             if (end_of_simulation[p]) finish_task(pid);
+             else ready_queue.push_back(pid);
+@@ -326,6 +398,7 @@
+     }
+     for (int pid : waiting_queue)
+         std::printf("[os] pid %d never started (not enough free frames)\n", pid);
++    if (round_no > 0) write_timeline();                /* EXT e19 */
+     std::printf("[os] all tasks finished; print output is in %s\n", LOG_FILE);
+     if (fd_log) { std::fclose(fd_log); fd_log = nullptr; }
+ }
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:53:33
+@@ -27,6 +27,8 @@
+ #define SLEEP_US        10      /* pause after every time slice, to watch execution */
+ #define MAX_STEPS       10000000L  /* a task that runs longer is killed (endless loop guard) */
+ #define LOG_FILE        "log.txt"  /* print output (Lab 4), opened in append mode */
++#define TIMELINE_FILE   "timeline.txt" /* EXT e19: Gantt chart + task times + utilisation, written at exit */
++#define GANTT_COLUMNS   40      /* EXT e19: rounds per block of the chart (long runs wrap) */
+ 
+ /* ---- opcodes (first byte of every 4-byte instruction) ----
+  * Format: <opcode> <dest> <operand1> <operand2>. "c" = constant 0..255.
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:53:36
+@@ -1,7 +1,7 @@
+ # CS527 mini-computer simulator (Labs 1-6)
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            build, run the base regression tests and ./test.sh   (EXT e19)
++#   ./sim -b work.txt work3.byte work.txt work1.byte; cat timeline.txt          (EXT e19)
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,10 +13,10 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                     # EXT e19: base regression tests on this build, then this extension's tests
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh && ./test.sh
+ 
+-clean:
+-	rm -f sim $(OBJS) program.byte *.out *.freq log.txt
++clean:                        # EXT e19: also timeline.txt
++	rm -f sim $(OBJS) program.byte *.out *.freq log.txt timeline.txt
+ 
+ .PHONY: test clean

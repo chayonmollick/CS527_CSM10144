@@ -1,0 +1,277 @@
+--- ../../simulator/compiler.cpp	2026-11-11 23:23:41
++++ compiler.cpp	2026-11-11 23:46:39
+@@ -9,6 +9,7 @@
+  *   vD = vA + vB      vD = vA * 3      vD = vA * xB  (+ - *)          vectors (Lab 3)
+  *   vD = [xA]         vD = [32]        [xA] = vS       [32] = vS      vector memory
+  *   print xR                                                          Lab 4
++ *   xD = fork         xD = getpid                                     EXT e20
+  *   % comment         trailing ';' and ',' separators are ignored
+  */
+ #include <cctype>
+@@ -241,6 +242,17 @@
+         int offset = it->second - index;                        /* in instructions, relative to this one */
+         if (offset < -128 || offset > 127) { msg = "branch to " + t[1] + " is too far (offset must fit in -128..127)"; return false; }
+         set(ins, OP_BRANCH + cond, 0, 0, offset & 0xFF);
++        return true;
++    }
++
++    if (t.size() == 3 && t[1] == "=" && (lower(t[2]) == "fork" || lower(t[2]) == "getpid")) {   /* EXT e20 */
++        Operand reg;
++        i = 0;
++        if (!parse_operand(t, i, reg, msg) || reg.kind != Operand::XREG) {
++            msg = "usage: x<n> = " + lower(t[2]);
++            return false;
++        }
++        set(ins, lower(t[2]) == "fork" ? OP_FORK : OP_GETPID, reg.value, 0, 0);
+         return true;
+     }
+ 
+@@ -363,7 +375,9 @@
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+     case OP_VSTORE:  std::snprintf(buf, sizeof buf, "[x%d] = v%d", d, b); break;
+     case OP_VSTOREC: std::snprintf(buf, sizeof buf, "[%d] = v%d", d, b); break;
+-    default:         std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
++    case OP_FORK:    std::snprintf(buf, sizeof buf, "x%d = fork", d); break;      /* EXT e20 */
++    case OP_GETPID:  std::snprintf(buf, sizeof buf, "x%d = getpid", d); break;    /* EXT e20 */
++    default:        std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
+     }
+     return buf;
+ }
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-11 23:46:37
+@@ -9,6 +9,9 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e20: os_fork() - "xD = fork" makes a child task that is a copy of the parent: a copy
++ *        of every mapped page and of the registers; it starts after the fork instruction
++ *        with xD = 0 (the parent gets the child's pid). "xD = getpid" is in processor.cpp.
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -38,6 +41,11 @@
+     long steps = 0;
+     int page_faults = 0;
+     bool failed = false;
++    int ppid = 0;                           /* EXT e20: parent pid, 0 = started by the shell/command line */
++    bool forked = false;                    /* EXT e20: start from the copy below, not from program/data */
++    CpuState cpu = {};                      /* EXT e20: parent's registers at the fork (child xD = 0) */
++    std::vector<unsigned char> saved_page[NUM_LOGICAL_PAGES];   /* EXT e20: copies of the parent's
++                                               pages, kept by the OS until the child is loaded; empty = unmapped */
+ };
+ 
+ static std::vector<Task> tasks;             /* tasks[pid - 1] */
+@@ -50,6 +58,21 @@
+ 
+ static int pages_for(size_t bytes) { return (int)((bytes + PAGESIZE - 1) / PAGESIZE); }
+ 
++/* EXT e20: instruction and data pages a task needs when it is loaded. */
++static void page_counts(const Task &t, int &instr, int &data) {
++    if (!t.forked) {
++        instr = pages_for(t.prog.code.size());
++        data = pages_for(t.data.size());
++        return;
++    }
++    instr = data = 0;                       /* a fork child: exactly the pages its parent had */
++    for (int i = 0; i < NUM_LOGICAL_PAGES; i++)
++        if (!t.saved_page[i].empty()) {
++            if (i < NUM_INSTR_PAGES) instr++;
++            else data++;
++        }
++}
++
+ static int free_page_count() {
+     int n = 0;
+     for (int f = 1; f < NUM_PHYSICAL_PAGES; f++) n += !freePages[f];
+@@ -107,8 +130,13 @@
+ static void initialize(int p, Task &t) {
+     PTBR[p] = p * NUM_LOGICAL_PAGES;                       /* this processor's table in frame 0 */
+     std::memset(&memory[PTBR[p]], 0, NUM_LOGICAL_PAGES);   /* all pages unmapped */
+-    copy_in(p, 0, t.prog.code);                            /* instruction pages 0, 1 */
+-    copy_in(p, NUM_INSTR_PAGES, t.data);                   /* data pages 2..9 */
++    if (t.forked) {                                        /* EXT e20: fork child - its parent's pages, */
++        for (int i = 0; i < NUM_LOGICAL_PAGES; i++)        /* each copied into a new frame */
++            if (!t.saved_page[i].empty()) copy_in(p, i, t.saved_page[i]);
++    } else {
++        copy_in(p, 0, t.prog.code);                        /* instruction pages 0, 1 */
++        copy_in(p, NUM_INSTR_PAGES, t.data);               /* data pages 2..9 */
++    }
+     page_faults_on[p] = 0;
+ }
+ 
+@@ -177,7 +205,9 @@
+     int p = -1;
+     for (int i = 0; i < NP; i++)
+         if (!proc_owner[i]) { p = i; break; }
+-    int need = pages_for(t.prog.code.size()) + pages_for(t.data.size());
++    int instr_pages = 0, data_pages = 0;                   /* EXT e20: a child needs its parent's pages */
++    page_counts(t, instr_pages, data_pages);
++    int need = instr_pages + data_pages;
+     if (p < 0 || need > free_page_count()) return false;
+ 
+     proc_owner[p] = pid;
+@@ -185,10 +215,11 @@
+     reset(p);
+     current_pid[p] = pid;
+     initialize(p, t);
++    if (t.forked) load_cpu(p, t.cpu);                      /* EXT e20: continue where the parent forked */
+     t.state = READY;
+     ready_queue.push_back(pid);
+     std::printf("[os] pid %d (%s) loaded on processor %d: %d instruction + %d data page(s), %d frame(s) left\n",
+-                pid, t.prog.name.c_str(), p, pages_for(t.prog.code.size()), pages_for(t.data.size()), free_page_count());
++                pid, t.prog.name.c_str(), p, instr_pages, data_pages, free_page_count());
+     return true;
+ }
+ 
+@@ -232,6 +263,45 @@
+     return t.pid;
+ }
+ 
++/* EXT e20: fork() for the task on processor p ("xD = fork", called from execute()).
++ * The child is a new task with the same program and data file, a copy of every page the
++ * parent has mapped and a copy of its registers, so it continues right after the fork
++ * instruction; only xD differs: 0 in the child, the child's pid in the parent.
++ * Like a new shell task it is loaded at once if a processor and enough frames are free,
++ * otherwise it waits (the OS keeps its copy, like a swapped-out process). */
++int os_fork(int p, int dest) {
++    int ppid = current_pid[p];
++    if (tasks.size() >= MAX_TASKS) {
++        std::printf("[os] fork() in pid %d failed: process table full (%d tasks)\n", ppid, MAX_TASKS);
++        return -1;
++    }
++    Task c;
++    const Task &parent = tasks[ppid - 1];
++    c.pid = (int)tasks.size() + 1;
++    c.ppid = ppid;
++    c.program_path = parent.program_path;
++    c.data_path = parent.data_path;
++    c.prog = parent.prog;                                  /* same byte code and source map (.freq) */
++    c.data = parent.data;                                  /* initial data image (sizes the .out file) */
++    c.forked = true;
++    save_cpu(p, c.cpu);                                    /* registers, PC (past the fork), flags */
++    c.cpu.x[dest] = 0;                                     /* fork() returns 0 in the child */
++    int copied = 0;
++    for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* copy every mapped page out of memory */
++        int frame = memory[PTBR[p] + i];
++        if (!frame) continue;
++        const unsigned char *page = &memory[frame * PAGESIZE];
++        c.saved_page[i].assign(page, page + PAGESIZE);
++        copied++;
++    }
++    tasks.push_back(c);                                    /* 'parent' is not used after this */
++    waiting_queue.push_back(c.pid);
++    std::printf("[os] pid %d created by fork() in pid %d (%d page(s) copied)\n", c.pid, ppid, copied);
++    admit_waiting();
++    if (tasks[c.pid - 1].state == WAITING) std::printf("[os] pid %d is waiting for a free processor/frames\n", c.pid);
++    return c.pid;
++}
++
+ /* ---------------- shell ---------------- */
+ 
+ static void prompt() {
+--- ../../simulator/processor.cpp	2026-11-11 23:23:41
++++ processor.cpp	2026-11-11 23:45:44
+@@ -54,6 +54,23 @@
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+ 
++/* EXT e20: copy the registers of processor p out (fork) and back in (starting the child). */
++void save_cpu(int p, CpuState &s) {
++    std::memcpy(s.x, Register[p], sizeof s.x);
++    std::memcpy(s.v, VRegister[p], sizeof s.v);
++    s.pc = PC[p];                                /* already points past the fork instruction */
++    s.flagN = FlagN[p]; s.flagZ = FlagZ[p]; s.flagC = FlagC[p]; s.flagV = FlagV[p];
++    s.data_high = data_high[p];
++}
++
++void load_cpu(int p, const CpuState &s) {
++    std::memcpy(Register[p], s.x, sizeof s.x);
++    std::memcpy(VRegister[p], s.v, sizeof s.v);
++    PC[p] = s.pc;
++    FlagN[p] = s.flagN; FlagZ[p] = s.flagZ; FlagC[p] = s.flagC; FlagV[p] = s.flagV;
++    data_high[p] = s.data_high;
++}
++
+ /* ---- logical memory access (one byte at a time, so a word may cross a page boundary) ---- */
+ 
+ static bool read_byte(int is_fetch, int addr, unsigned char &value) {
+@@ -218,6 +235,12 @@
+         for (int i = 0; i < VLEN; i++)
+             if (!store_word(addr + 4 * i, VRegister[p][src2][i])) return;
+         break;
++    case OP_GETPID:                                      /* EXT e20: xD = getpid */
++        x[dest] = current_pid[p];
++        break;
++    case OP_FORK:                                        /* EXT e20: xD = fork; os_fork copies the */
++        x[dest] = os_fork(p, dest);                      /* parent (with xD = 0) before xD is set  */
++        break;
+     default:
+         if (opcode >= OP_BRANCH && opcode < OP_BRANCH + NUM_CONDITIONS) {   /* Lab 2 */
+             if (condition_holds(p, opcode - OP_BRANCH))
+--- ../../simulator/config.h	2026-11-11 23:19:26
++++ config.h	2026-11-11 23:45:42
+@@ -61,7 +61,9 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB   (EXT e20: comma added) */
++    OP_FORK   = 0x40,   /* EXT e20: xD = fork   (parent: child pid, child: 0)   40 D 0 0 */
++    OP_GETPID = 0x41    /* EXT e20: xD = getpid (pid of the running task)       41 D 0 0 */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+--- ../../simulator/os.h	2026-11-11 23:23:48
++++ os.h	2026-11-11 23:45:45
+@@ -18,5 +18,6 @@
+ void shell();                           /* non-blocking: handles whatever is waiting on stdin */
+ int  map_pid_proc_id(int pid);          /* processor running pid, -1 if none */
+ int  failed_task_count();
++int  os_fork(int p, int dest);          /* EXT e20: fork() for the task on processor p: child pid, -1 on failure */
+ 
+ #endif
+--- ../../simulator/processor.h	2026-11-11 23:23:00
++++ processor.h	2026-11-11 23:45:43
+@@ -24,6 +24,18 @@
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
+ 
++/* EXT e20: the register state of a task, copied from the parent at fork() and loaded
++ * into the child's processor when the child starts. */
++struct CpuState {
++    int x[NUM_XREGS];
++    int v[NUM_VREGS][VLEN];
++    int pc;
++    int flagN, flagZ, flagC, flagV;
++    int data_high;
++};
++void save_cpu(int p, CpuState &s);         /* EXT e20: processor p's registers -> s */
++void load_cpu(int p, const CpuState &s);   /* EXT e20: s -> processor p's registers */
++
+ void reset(int p);
+ void fetch();
+ void decode();
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-11 23:46:49
+@@ -1,7 +1,7 @@
+-# CS527 mini-computer simulator (Labs 1-6)
++# CS527 mini-computer simulator (Labs 1-6) + EXT e20: fork() and getpid()
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            base regression tests on this build, then ./test.sh   (EXT e20)
++#   ./sim -b fork_demo.txt fork_demo_data.byte                                  (EXT e20)
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,8 +13,8 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim    # EXT e20: run the base tests against this build, then this extension's tests
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh && ./test.sh
+ 
+ clean:
+ 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt

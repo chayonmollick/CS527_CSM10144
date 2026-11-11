@@ -1,0 +1,8 @@
+% EXT e17 example: a task that never ends - stop it with the shell's kill command.
+% Counts forever and stores the count at [0] after every step, so the output
+% file of a killed task shows how far it got (after 30 instructions [0] = 10).
+x1 = 0
+.loop
+x1 = x1 + 1
+[0] = x1
+BAL .loop

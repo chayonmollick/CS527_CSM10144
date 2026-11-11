@@ -1,0 +1,251 @@
+--- ../../simulator/os.cpp	2026-11-11 23:27:51
++++ os.cpp	2026-11-12 00:03:53
+@@ -9,6 +9,8 @@
+  * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
+  *        task 2 - page tables live in physical frame 0: processor p's table starts at
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
++ * EXT e17: shell commands ps, kill <pid>, mem, help (and sleep <n> for scripted tests);
++ *        an unknown command prints the help text.
+  */
+ #include <algorithm>
+ #include <cstdio>
+@@ -26,7 +28,7 @@
+ static_assert(NP * NUM_LOGICAL_PAGES <= PAGESIZE, "all page tables must fit in frame 0");
+ static_assert(NUM_PHYSICAL_PAGES <= 256, "a page-table entry is one byte");
+ 
+-enum TaskState { WAITING, READY, DONE };
++enum TaskState { WAITING, READY, DONE, KILLED };    /* EXT e17: KILLED = stopped by 'kill' */
+ 
+ struct Task {
+     int pid = 0;
+@@ -38,6 +40,7 @@
+     long steps = 0;
+     int page_faults = 0;
+     bool failed = false;
++    bool killed = false;                    /* EXT e17: stopped by the shell's kill command */
+ };
+ 
+ static std::vector<Task> tasks;             /* tasks[pid - 1] */
+@@ -47,6 +50,8 @@
+ static int page_faults_on[NP];
+ static bool shell_open = true;
+ static std::string shell_buffer;
++static bool input_ended = false;            /* EXT e17: stdin reached end of file */
++static int shell_sleep = 0;                 /* EXT e17: rounds left before the next command ('sleep n') */
+ 
+ static int pages_for(size_t bytes) { return (int)((bytes + PAGESIZE - 1) / PAGESIZE); }
+ 
+@@ -165,7 +170,8 @@
+     t.page_faults = page_faults_on[p];
+     t.failed = failed[p];
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+-                t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
++                t.pid, t.prog.name.c_str(),
++                t.killed ? "KILLED" : t.failed ? "STOPPED WITH AN ERROR" : "finished", p,   /* EXT e17 */
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
+ }
+ 
+@@ -236,8 +242,97 @@
+ 
+ static void prompt() {
+     if (shell_open) { std::printf("$ "); std::fflush(stdout); }
++}
++
++/* ---- EXT e17: built-in shell commands ps, kill, mem, help, sleep ---- */
++
++static void finish_task(int pid);                      /* EXT e17: defined with the scheduler below */
++
++static const char *state_name(const Task &t) {         /* EXT e17 */
++    switch (t.state) {
++    case WAITING: return "WAITING";
++    case READY:   return "READY";
++    case KILLED:  return "KILLED";
++    default:      return t.failed ? "FAILED" : "DONE";
++    }
++}
++
++static int frames_held(int p) {                        /* EXT e17: mapped entries of p's page table */
++    int n = 0;
++    for (int i = 0; i < NUM_LOGICAL_PAGES; i++) n += memory[PTBR[p] + i] != 0;
++    return n;
++}
++
++/* EXT e17: ps - one line per task: pid, program, state, processor, instructions so far, frames held */
++static void ps() {
++    std::printf("  PID  PROGRAM         STATE    PROC   INSTR  PAGES\n");
++    for (const Task &t : tasks) {
++        int p = t.proc;                                /* >= 0 only while the task is loaded */
++        char proc[16] = "-";
++        if (p >= 0) std::snprintf(proc, sizeof proc, "%d", p);
++        std::printf("%5d  %-14s  %-7s  %4s  %6ld  %5d\n", t.pid, t.prog.name.c_str(), state_name(t), proc,
++                    p >= 0 ? steps[p] : t.steps, p >= 0 ? frames_held(p) : 0);
++    }
+ }
+ 
++/* EXT e17: mem - free frames, and which pid owns each frame (read from the page tables in frame 0) */
++static void mem() {
++    int owner[NUM_PHYSICAL_PAGES] = {0};
++    for (int p = 0; p < NP; p++)
++        if (proc_owner[p])
++            for (int i = 0; i < NUM_LOGICAL_PAGES; i++)
++                if (memory[PTBR[p] + i]) owner[memory[PTBR[p] + i]] = proc_owner[p];
++    std::printf("[mem] %d of %d frames free (frame 0 holds the page tables)\n", free_page_count(), NUM_PHYSICAL_PAGES - 1);
++    std::printf("[mem] frame");
++    for (int f = 0; f < NUM_PHYSICAL_PAGES; f++) std::printf(" %3d", f);
++    std::printf("\n[mem] owner  PT");
++    for (int f = 1; f < NUM_PHYSICAL_PAGES; f++) {
++        if (owner[f]) std::printf(" %3d", owner[f]);
++        else std::printf("   .");
++    }
++    std::printf("\n");
++}
++
++/* EXT e17: kill <pid> - stop a running or waiting task. Its output is still written. */
++static void kill_task(int pid) {
++    if (pid < 1 || pid > (int)tasks.size()) { std::printf("[shell] kill: no task with pid %d\n", pid); return; }
++    Task &t = tasks[pid - 1];
++    if (t.state == READY) {                            /* on a processor: drop it from the ready queue */
++        auto it = std::find(ready_queue.begin(), ready_queue.end(), pid);
++        if (it != ready_queue.end()) ready_queue.erase(it);
++        t.killed = true;
++        finish_task(pid);                              /* writes .out and .freq, frees frames and processor */
++    } else if (t.state == WAITING) {                   /* never ran: its output is its initial data */
++        auto it = std::find(waiting_queue.begin(), waiting_queue.end(), pid);
++        if (it != waiting_queue.end()) waiting_queue.erase(it);
++        t.killed = true;
++        t.state = KILLED;
++        std::vector<unsigned char> out = t.data;
++        out.resize((out.size() + 3) / 4 * 4, 0);
++        std::string out_name = file_stem(t.data_path) + "_" + std::to_string(t.pid) + ".out";
++        write_byte_file(out_name, out);
++        std::printf("[os] pid %d (%s) KILLED while waiting (it never ran) -> %s\n", t.pid, t.prog.name.c_str(), out_name.c_str());
++    } else {
++        std::printf("[shell] kill: pid %d is not running or waiting (it is %s)\n", pid, state_name(t));
++    }
++}
++
++static void help() {                                   /* EXT e17 */
++    std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   start a task\n"
++                "        ps            list tasks: pid, program, state, processor, instructions, pages\n"
++                "        kill <pid>    stop a running or waiting task (its output is still written)\n"
++                "        mem           free frames and the owner of every frame\n"
++                "        sleep <n>     read the next command after n scheduler rounds\n"
++                "        help          this text\n"
++                "        exit          accept no new tasks; finish the running ones\n");
++}
++
++static bool to_number(const std::string &s, int &v) {  /* EXT e17: "12" -> 12; false if not 0..999999 */
++    if (s.empty() || s.size() > 6 || s.find_first_not_of("0123456789") != std::string::npos) return false;
++    v = std::stoi(s);
++    return true;
++}
++
+ static void run_command(const std::string &line) {
+     std::istringstream in(line);
+     std::vector<std::string> words;
+@@ -249,16 +344,31 @@
+         std::printf("[shell] exit: no new tasks; waiting for the running ones to finish\n");
+         return;
+     }
+-    if (words.size() == 2) create_task(words[0], words[1]);
+-    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   exit\n");
++    int n = 0;                                         /* EXT e17: built-in commands first */
++    if (words[0] == "ps") ps();
++    else if (words[0] == "mem") mem();
++    else if (words[0] == "help") help();
++    else if (words[0] == "kill") {
++        if (words.size() == 2 && to_number(words[1], n)) kill_task(n);
++        else std::printf("[shell] kill: give one pid, e.g. 'kill 2'\n");
++    } else if (words[0] == "sleep") {
++        if (words.size() == 2 && to_number(words[1], n)) {
++            shell_sleep = n;
++            std::printf("[shell] sleep: next command after %d round(s)\n", n);
++        } else std::printf("[shell] sleep: give a number of rounds, e.g. 'sleep 3'\n");
++    }
++    else if (words.size() == 2) create_task(words[0], words[1]);
++    else {                                             /* EXT e17: unknown command -> help */
++        std::printf("[shell] unknown command '%s'\n", words[0].c_str());
++        help();
++    }
+     prompt();
+ }
+ 
+ /* shell(): non-blocking - reads only what is already waiting on stdin. */
+ void shell() {
+     if (!shell_open) return;
+-    bool end_of_input = false;
+-    for (;;) {                                         /* take whatever is already typed */
++    while (!input_ended) {                             /* take whatever is already typed */
+         fd_set fds;
+         FD_ZERO(&fds);
+         FD_SET(0, &fds);
+@@ -266,18 +376,22 @@
+         if (select(1, &fds, nullptr, nullptr, &no_wait) <= 0) break;
+         char buf[256];
+         ssize_t n = read(0, buf, sizeof buf);
+-        if (n <= 0) { end_of_input = true; break; }
++        if (n <= 0) {                                  /* EXT e17: remember end of input; lines may */
++            input_ended = true;                        /* still be queued behind a 'sleep'          */
++            if (!shell_buffer.empty() && shell_buffer.back() != '\n') shell_buffer += '\n';
++            break;
++        }
+         shell_buffer.append(buf, (size_t)n);
+     }
++    if (shell_sleep > 0 && --shell_sleep > 0) return;  /* EXT e17: 'sleep n' - n rounds without commands */
+     size_t nl;                                         /* run every complete line */
+-    while (shell_open && (nl = shell_buffer.find('\n')) != std::string::npos) {
++    while (shell_open && shell_sleep == 0 && (nl = shell_buffer.find('\n')) != std::string::npos) {
+         std::string line = shell_buffer.substr(0, nl);
+         shell_buffer.erase(0, nl + 1);
+         run_command(line);
+     }
+-    if (end_of_input && shell_open) {                  /* end of input acts like "exit" */
+-        if (!shell_buffer.empty()) { run_command(shell_buffer); shell_buffer.clear(); }
+-        if (shell_open) std::printf("\n[shell] end of input: no new tasks\n");
++    if (input_ended && shell_open && shell_sleep == 0) {   /* end of input acts like "exit" (EXT e17: */
++        std::printf("\n[shell] end of input: no new tasks\n");   /* once every queued line has run) */
+         shell_open = false;
+     }
+ }
+@@ -296,14 +410,15 @@
+     Task &t = tasks[pid - 1];
+     int p = t.proc;
+     finalize(p, t);
+-    t.state = DONE;
++    t.state = t.killed ? KILLED : DONE;                /* EXT e17 */
+     t.proc = -1;
+     proc_owner[p] = 0;
+ }
+ 
+ void scheduler() {
+     if (shell_open) {
+-        std::printf("[shell] type '<program> <data.byte>' to start a task, 'exit' to stop accepting tasks\n");
++        std::printf("[shell] type '<program> <data.byte>' to start a task, 'help' for ps/kill/mem, "
++                    "'exit' to stop accepting tasks\n");      /* EXT e17 */
+         prompt();
+     }
+     for (;;) {
+--- ../../simulator/Makefile	2026-11-11 23:25:43
++++ Makefile	2026-11-12 00:03:23
+@@ -1,7 +1,7 @@
+-# CS527 mini-computer simulator (Labs 1-6)
++# CS527 mini-computer simulator (Labs 1-6) + EXT e17: shell commands ps, kill, mem, help
+ #   make                 build ./sim
+-#   make test            build and run the regression tests (../tests/run_tests.sh)
+-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
++#   make test            base regression tests (../../tests/run_tests.sh) + ./test.sh   (EXT e17)
++#   printf 'loop.txt loop_data.byte\nsleep 3\nps\nkill 1\nps\nexit\n' | ./sim
+ CXX      ?= g++
+ CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+ OBJS = main.o compiler.o processor.o memory.o os.o
+@@ -13,8 +13,8 @@
+ %.o: %.cpp $(HDRS)
+ 	$(CXX) $(CXXFLAGS) -c $<
+ 
+-test: sim
+-	cd ../tests && ./run_tests.sh
++test: sim                                  # EXT e17: base tests on this build, then this extension's tests
++	SIM=$(CURDIR)/sim ../../tests/run_tests.sh && ./test.sh
+ 
+ clean:
+ 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt

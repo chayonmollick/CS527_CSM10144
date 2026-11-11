@@ -1,0 +1,28 @@
+% EXT e21 example: a parent that never calls wait().
+% Child A (pid 2) ends at once and stays a zombie while the parent still runs; when the
+% parent ends, the OS reaps it. Child B (pid 3) is still running when the parent ends:
+% an orphan, reaped by the OS when it ends. Exit codes: parent 5, child A 1, child B 2.
+x8 = 1
+x1 = fork          % child A: x8 = 1
+x2 = x1 + 0
+BEQ .child
+x8 = 2
+x1 = fork          % child B: x8 = 2
+x2 = x1 + 0
+BEQ .child
+x12 = 10           % the parent works a while (child A ends meanwhile) ...
+.work
+x12 = x12 - 1
+BNE .work
+x3 = 5
+exit x3            % ... and ends without calling wait()
+.child
+x12 = x8 - 1
+x12 = x12 * 30     % child A spins 0 times, child B 30 times
+.spin
+x14 = x12 + 0
+BEQ .done
+x12 = x12 - 1
+BAL .spin
+.done
+exit x8
