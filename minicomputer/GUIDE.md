@@ -130,7 +130,7 @@ Full versions: `e11_tlb`, `e12_data_cache`, `e13_page_replacement`, `e14_pte_fla
 Full versions: `e16_priority_scheduling`, `e17_shell_commands`, `e18_context_switch_pcb` (more tasks than processors), `e19_gantt_timeline`, `e20_fork_getpid`, `e21_wait_exit_code`.
 
 ### Recipe F — write a program in the language
-See `programs/README.md`; there are 25+ solved programs there. Remember:
+See `programs/README.md`; there are 35 solved programs there. Remember:
 - **Constants** are 0..255. Build bigger numbers: `x2 = 255`, `x3 = x2 * 4`.
 - **Compare** with `x9 = xA - xB`, then `BEQ/BNE/BGE/BLT/BGT/BLE`. Only add and subtract set the flags.
 - **Labels** go alone on their line, start with `.`, and need no `:`. `%` starts a comment.

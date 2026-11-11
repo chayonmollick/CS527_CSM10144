@@ -31,8 +31,8 @@
  }
  
  /* ---------------- loader and tasks ---------------- */
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-11 23:52:14
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -1,5 +1,6 @@
  /* Processor: executes byte code for the task mapped to processor proc_id.
   * Every memory access goes through getPhysicalAddress() (Lab 5 MMU, in os.cpp).
@@ -92,7 +92,7 @@
 +    if (!in_cache(p, pa)) { hit = false; fill_line(p, pa); }
 +    return dcache[p][line_index(pa)].data[pa % LINE_SIZE];
 +}
- 
++
 +/* Write one byte through the cache, with the policy chosen by WRITE_BACK. */
 +static void cache_write(int p, int pa, unsigned char value, bool &hit) {
 +    bool present = in_cache(p, pa);
@@ -108,7 +108,7 @@
 +    memory_bytes_written[p]++;
 +#endif
 +}
-+
+ 
 +/* End of task: write every dirty line back so memory[] (read by finalize) is up to date,
 + * then invalidate, because the task's frames are freed and will be reused by other tasks. */
 +int cache_flush(int p) {
@@ -140,11 +140,12 @@
 + * Statistics count one access per word: it is a hit only if all 4 bytes were cached. */
  static bool load_word(int addr, int &value) {   /* 32-bit little-endian */
      unsigned int v = 0;
-+    bool hit = true;                                       /* EXT e12 */
-     for (int k = 3; k >= 0; k--) {
+-    for (int k = 0; k < 4; k++) {               /* lowest address first, so a fault names addr */
 -        unsigned char b;
 -        if (!read_byte(0, addr + k, b)) return false;
--        v = (v << 8) | b;
+-        v |= (unsigned int)b << (8 * k);
++    bool hit = true;                                       /* EXT e12 */
++    for (int k = 3; k >= 0; k--) {
 +        int pa = getPhysicalAddress(proc_id, 0, addr + k);
 +        if (pa < 0) return false;                          /* fault already reported */
 +        v = (v << 8) | cache_read(proc_id, pa, hit);       /* EXT e12: through the cache */

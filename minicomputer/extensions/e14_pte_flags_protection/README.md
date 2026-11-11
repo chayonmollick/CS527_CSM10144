@@ -47,8 +47,8 @@ data image. Show that the output is still correct.
   - **Read-only program** (`x1 = [0]; print x1`): 1 referenced, 0 dirty. The `.out` file
     is byte-for-byte the data file.
 - **STRICT_MEMORY 1:** pages.txt dies at instruction 3 (`[x3] = x1` with x3 = 1020, data
-  page 1). A *load* from a missing page faults too: the address is 2043, because
-  `load_word` reads the bytes from high to low. Protection works per page: `[100]` is
+  page 1). A *load* from a missing page faults too, reported at the word's
+  address 2040 (`load_word` reads the lowest byte first). Protection works per page: `[100]` is
   past the end of sum_array's 40-byte file but inside page 0, so it is allowed (as with a
   real segmentation fault).
 
@@ -106,7 +106,7 @@ e14 (STRICT_MEMORY 1): a data page that is not in the data file is a segmentatio
   ok    pages.txt stops (exit code 1)
   ok    store to address 1020 (data page 1) -> segmentation fault, at instruction 3
   ok    the task is reported as stopped
-  ok    a load from data page 3 (not in the 3-page file) faults too (bytes are read high first: 2043)
+  ok    a load from data page 3 (not in the 3-page file) faults too (reported at the word's address, 2040)
   ok    partial.txt only uses pages of its data file: still runs, 2040
   ok    protection is per page: [100] is past the 40-byte file but in page 0 -> allowed
 

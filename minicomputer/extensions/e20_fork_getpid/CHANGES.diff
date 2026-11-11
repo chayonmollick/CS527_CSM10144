@@ -169,8 +169,8 @@
  /* ---------------- shell ---------------- */
  
  static void prompt() {
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-11 23:45:44
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -54,6 +54,23 @@
      if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
  }

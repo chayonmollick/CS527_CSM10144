@@ -74,8 +74,8 @@
      if (op >= OP_BRANCH && op < OP_BRANCH + NUM_CONDITIONS) {
          std::snprintf(buf, sizeof buf, "B%s %+d", COND_NAMES[op - OP_BRANCH], (int)(signed char)b);
          return buf;
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-11 23:40:05
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -115,6 +115,14 @@
      }
  }

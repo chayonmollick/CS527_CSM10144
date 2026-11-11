@@ -356,8 +356,8 @@
      std::printf("[os] all tasks finished; print output is in %s\n", LOG_FILE);
      if (fd_log) { std::fclose(fd_log); fd_log = nullptr; }
  }
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-11 23:53:08
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -22,6 +22,8 @@
  long steps[NP];
  long exec_count[NP][MAX_INSTRUCTIONS];

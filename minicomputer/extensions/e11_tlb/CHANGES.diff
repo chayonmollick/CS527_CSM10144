@@ -118,8 +118,8 @@
  }
  
  /* ---------------- loader and tasks ---------------- */
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-11 23:44:30
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -54,33 +54,39 @@
      if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
  }
@@ -153,10 +153,10 @@
 +    int pa[4];
 +    if (!translate_word(0, addr, pa)) return false;    /* EXT e11 */
      unsigned int v = 0;
--    for (int k = 3; k >= 0; k--) {
+-    for (int k = 0; k < 4; k++) {               /* lowest address first, so a fault names addr */
 -        unsigned char b;
 -        if (!read_byte(0, addr + k, b)) return false;
--        v = (v << 8) | b;
+-        v |= (unsigned int)b << (8 * k);
 -    }
 +    for (int k = 3; k >= 0; k--) v = (v << 8) | memory[pa[k]];
      value = (int)v;

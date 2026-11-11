@@ -117,8 +117,8 @@
  }
  
  /* ---------------- loader and tasks ---------------- */
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-12 00:02:14
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -77,7 +77,7 @@
  static bool store_word(int addr, int value) {
      unsigned int v = (unsigned int)value;

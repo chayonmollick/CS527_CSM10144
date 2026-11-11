@@ -47,8 +47,8 @@
              if (end_of_simulation[p]) finish_task(pid);
              else ready_queue.push_back(pid);
          }
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-11 23:36:26
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -28,6 +28,7 @@
  int trace = 0;
  

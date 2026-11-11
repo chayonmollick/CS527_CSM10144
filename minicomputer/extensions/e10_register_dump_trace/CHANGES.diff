@@ -123,8 +123,8 @@
      t.state = READY;
      ready_queue.push_back(pid);
      std::printf("[os] pid %d (%s) loaded on processor %d: %d instruction + %d data page(s), %d frame(s) left\n",
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-11 23:56:01
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -5,6 +5,7 @@
  #include <cstdarg>
  #include <cstdint>
@@ -205,8 +205,8 @@
          execute();
 +        if (trace_fd[p]) write_trace_line(p);            /* EXT e10: -T */
          done++;
-         if (steps[p] >= MAX_STEPS) {
-             processor_error("more than %ld instructions executed: endless loop?", MAX_STEPS);
+         if (!end_of_simulation[p] && steps[p] >= MAX_STEPS) {
+             processor_error("%ld instructions executed without halting: endless loop?", MAX_STEPS);
 --- ../../simulator/processor.h	2026-11-11 23:23:00
 +++ processor.h	2026-11-11 23:52:45
 @@ -23,6 +23,8 @@

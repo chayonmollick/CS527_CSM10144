@@ -85,8 +85,8 @@
      default:         std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
      }
      return buf;
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-12 00:04:11
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -85,6 +85,12 @@
      return true;
  }

@@ -87,10 +87,10 @@ static bool read_byte(int is_fetch, int addr, unsigned char &value) {
 
 static bool load_word(int addr, int &value) {   /* 32-bit little-endian */
     unsigned int v = 0;
-    for (int k = 3; k >= 0; k--) {
+    for (int k = 0; k < 4; k++) {               /* lowest address first, so a fault names addr */
         unsigned char b;
         if (!read_byte(0, addr + k, b)) return false;
-        v = (v << 8) | b;
+        v |= (unsigned int)b << (8 * k);
     }
     value = (int)v;
     return true;
@@ -350,8 +350,8 @@ int process_instructions(int p, int count) {
         decode();
         execute();
         done++;
-        if (steps[p] >= MAX_STEPS) {
-            processor_error("more than %ld instructions executed: endless loop?", MAX_STEPS);
+        if (!end_of_simulation[p] && steps[p] >= MAX_STEPS) {
+            processor_error("%ld instructions executed without halting: endless loop?", MAX_STEPS);
             break;
         }
     }

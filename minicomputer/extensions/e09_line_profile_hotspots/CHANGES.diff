@@ -129,8 +129,8 @@
  }
  
  /* ---------------- loader and tasks ---------------- */
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-11 23:50:14
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -21,6 +21,7 @@
  int current_pid[NP];
  long steps[NP];

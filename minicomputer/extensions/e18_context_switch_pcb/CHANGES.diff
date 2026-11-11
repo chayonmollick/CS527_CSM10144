@@ -231,8 +231,8 @@
      std::printf("[os] all tasks finished; print output is in %s\n", LOG_FILE);
      if (fd_log) { std::fclose(fd_log); fd_log = nullptr; }
  }
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-12 00:12:53
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -52,8 +52,36 @@
      steps[p] = 0;
      data_high[p] = 0;

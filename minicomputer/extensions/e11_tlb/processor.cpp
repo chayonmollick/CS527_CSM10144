@@ -243,8 +243,8 @@ int process_instructions(int p, int count) {
         decode();
         execute();
         done++;
-        if (steps[p] >= MAX_STEPS) {
-            processor_error("more than %ld instructions executed: endless loop?", MAX_STEPS);
+        if (!end_of_simulation[p] && steps[p] >= MAX_STEPS) {
+            processor_error("%ld instructions executed without halting: endless loop?", MAX_STEPS);
             break;
         }
     }

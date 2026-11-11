@@ -76,8 +76,8 @@ check "store to address 1020 (data page 1) -> segmentation fault, at instruction
 check "the task is reported as stopped" "$(grep -c 'pid 1 (pages) STOPPED WITH AN ERROR' "$WORK/spg/run.txt")" 1
 printf 'x1 = 255\nx1 = x1 * 8\nx2 = [x1]\n' > "$WORK/readfar.txt"
 run "$STRICT" sfar "$WORK/readfar.txt" partial_data.byte > /dev/null
-check "a load from data page 3 (not in the 3-page file) faults too (bytes are read high first: 2043)" \
-      "$(grep -c 'segmentation fault: data address 2043 is in data page 3' "$WORK/sfar/run.txt")" 1
+check "a load from data page 3 (not in the 3-page file) faults too (reported at the word's address, 2040)" \
+      "$(grep -c 'segmentation fault: data address 2040 is in data page 3' "$WORK/sfar/run.txt")" 1
 run "$STRICT" spa partial.txt partial_data.byte > /dev/null
 check "partial.txt only uses pages of its data file: still runs, 2040" "$(word_at "$WORK/spa/partial_data_1.out" 4)" 2040
 printf 'x1 = 7\n[100] = x1\n' > "$WORK/tail.txt"

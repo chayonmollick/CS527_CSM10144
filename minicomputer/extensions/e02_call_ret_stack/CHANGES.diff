@@ -61,8 +61,8 @@
  }
  
  /* ---------------- loader and tasks ---------------- */
---- ../../simulator/processor.cpp	2026-11-11 23:23:41
-+++ processor.cpp	2026-11-11 23:43:00
+--- ../../simulator/processor.cpp	2026-11-12 00:32:15
++++ processor.cpp	2026-11-12 00:32:15
 @@ -22,7 +22,11 @@
  long steps[NP];
  long exec_count[NP][MAX_INSTRUCTIONS];
