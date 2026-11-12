@@ -1,0 +1,20 @@
+% Lab 5: write to all 8 data pages. The data file covers only data page 0, so pages
+% 1..7 are mapped on first touch: 7 page faults, 1 + 8 = 9 frames in total.
+% One copy fits in the 15 free frames; two copies need 18, so the second one runs out
+% of frames at run time and is stopped with an ERROR.
+% Stores k at the start of data page k (address 512 * k) for k = 1..7, reads each back,
+% and writes their sum (28) at 0.
+x1 = 0            % k
+x2 = 0            % address of page k = 512 * k
+x3 = 0            % sum
+.loop
+x1 = x1 + 1
+x2 = x2 + 255     % constants stop at 255: 512 = 255 + 255 + 2
+x2 = x2 + 255
+x2 = x2 + 2
+[x2] = x1         % first touch of data page k: page fault
+x4 = [x2]
+x3 = x3 + x4
+x5 = x1 - 7
+BNE .loop
+[0] = x3

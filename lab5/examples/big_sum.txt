@@ -1,0 +1,21 @@
+% Lab 5: sum of N numbers with a big data file, to show the frames running out.
+% data: N at 0, the numbers at 4 .. 4N; the sum is written right after them (4N + 4).
+%   big_sum_data.byte:  N = 500, the numbers 1..500 (2004 bytes), sum 125250
+%   big_sum_short.byte: N = 400, the numbers 1..400 (1604 bytes), sum 80200
+% Both files fill 4 data pages, so a task needs 1 instruction page + 4 data pages = 5
+% frames. Physical memory has 15 free frames: start 4 tasks and only 3 fit. The 4th
+% waits, although a processor is free, until a finished task frees its 5 frames.
+x1 = [0]          % N
+x2 = 0            % i
+x3 = 0            % sum
+x4 = 4            % address of a[i]
+.loop
+x5 = x2 - x1
+BGE .done         % i >= N
+x6 = [x4]
+x3 = x3 + x6
+x4 = x4 + 4
+x2 = x2 + 1
+BAL .loop
+.done
+[x4] = x3

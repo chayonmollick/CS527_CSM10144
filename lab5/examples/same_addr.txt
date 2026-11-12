@@ -1,0 +1,18 @@
+% Lab 5: run two copies at once, one with same_addr_a.byte and one with same_addr_b.byte.
+% Both copies use the SAME logical address 2000 (data page 3, not in the data file, so it
+% is mapped on first touch). Each task has its own page table, so its page 3 is a
+% different physical frame and the copies cannot see each other's value.
+% data: a value V at 0. The task writes V at 2000, counts to 20 so that the other copy
+% runs in between (and writes its own V at its own 2000), then reads 2000 back and
+% stores it at 4. Each task must get its own V back: 11 in one, 22 in the other.
+x1 = [0]          % V
+x2 = 250
+x2 = x2 * 8       % address 2000 (data page 3)
+[x2] = x1         % first touch of data page 3: page fault
+x3 = 0
+.wait
+x3 = x3 + 1
+x4 = x3 - 20
+BNE .wait
+x5 = [x2]         % read 2000 back
+[4] = x5

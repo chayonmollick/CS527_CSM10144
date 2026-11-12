@@ -1,0 +1,19 @@
+% Lab 5: a 32-bit word that crosses a page boundary. Address 510 is near the end of data
+% page 0, so bytes 510-511 of the word go to the frame of data page 0 and bytes 512-513
+% to the frame of data page 1 (first touch: a page fault). The two frames need not be
+% next to each other, which is why every byte is translated on its own.
+% Writes 0x01020304 (16909060) at 510, reads it back and stores it at 0.
+x4 = 255
+x4 = x4 + 1       % 256
+x3 = 1
+x3 = x3 * x4
+x3 = x3 + 2       % 0x0102
+x3 = x3 * x4
+x3 = x3 + 3       % 0x010203
+x3 = x3 * x4
+x3 = x3 + 4       % 0x01020304
+x1 = 255
+x2 = x1 + 255     % address 510
+[x2] = x3         % bytes 510, 511 in data page 0; 512, 513 in data page 1
+x5 = [x2]
+[0] = x5
