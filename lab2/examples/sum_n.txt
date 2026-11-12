@@ -1,0 +1,16 @@
+% Lab 2 example program: sum of N numbers, N given at run time
+% data: N at 0, the numbers at 4 .. 4N; the sum is written right after them, at 4N + 4
+x1 = [0]          % N
+x2 = 0            % i
+x3 = 0            % sum
+x4 = 4            % address of a[i]
+.loop
+x5 = x2 - x1
+BGE .done         % i >= N
+x6 = [x4]
+x3 = x3 + x6
+x4 = x4 + 4
+x2 = x2 + 1
+BAL .loop
+.done
+[x4] = x3         % x4 = 4N + 4 here

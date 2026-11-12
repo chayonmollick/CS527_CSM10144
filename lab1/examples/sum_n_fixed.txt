@@ -1,0 +1,12 @@
+Read x1, 0
+Read x2, 4
+x1 = x1 + x2
+Read x2, 8
+x1 = x1 + x2
+Read x2, 12
+x1 = x1 + x2
+Read x2, 16
+x1 = x1 + x2
+Read x2, 20
+x1 = x1 + x2
+Write x1, 24

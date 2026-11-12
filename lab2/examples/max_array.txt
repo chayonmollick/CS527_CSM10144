@@ -1,0 +1,19 @@
+% Lab 2 example program: maximum of an array (signed numbers)
+% data: N at 0 (N >= 1), elements at 4 .. 4N; the maximum is written at 4N + 4
+x1 = [0]          % N
+x2 = [4]          % max = a[0]
+x3 = 1            % i
+x4 = 8            % address of a[i]
+.loop
+x5 = x3 - x1
+BGE .done         % i >= N
+x6 = [x4]         % a[i]
+x7 = x6 - x2
+BLE .next         % a[i] <= max (signed): keep max
+x2 = x6           % new max
+.next
+x4 = x4 + 4
+x3 = x3 + 1
+BAL .loop
+.done
+[x4] = x2         % x4 = 4N + 4 here

@@ -1,0 +1,5 @@
+# build output and run results (examples/*.byte are inputs and stay tracked)
+sim
+*.o
+program.byte
+*.out
