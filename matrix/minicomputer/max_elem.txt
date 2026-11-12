@@ -1,0 +1,45 @@
+% max_elem.txt - the largest element of an R x C matrix and its (row, column)
+% Task:   Find the largest element of an R x C integer matrix (R, C >= 1) and the row
+%         and column of its first occurrence in row-major order.
+% Data:   R at 0, C at 4, A (row-major, R*C words) at 8 .. 4 + 4RC
+% Result: the maximum at 8 + 4RC, its row at 12 + 4RC, its column at 16 + 4RC
+%         max_elem_data.byte : R = 3, C = 4, 15 at (0,2) and (1,0) -> [56] = 15, [60] = 0, [64] = 2
+%         max_elem_data2.byte: R = 2, C = 5, all negative, -3 twice -> [48] = -3, [52] = 1, [56] = 0
+% Method: SCALAR (vectors cannot compare or take a max). One loop over the N = R*C
+%         words with a linear index k; the best value and its k are kept. At the end
+%         row = k / C and column = k - row*C (the remainder: there is no % operator,
+%         % starts a comment). BLE skips equal values, so the first occurrence wins.
+% Variants: minimum -> BGE instead of BLE; last occurrence -> BLT instead of BLE;
+%         max of every row -> reset the best at the start of each row (nested loops).
+% Regs:   x1 R, x15 C, x16 N = R*C, x2 k, x3 &A[k], x6 element, x12 best, x13 its k,
+%         x14 row, x17 column, x4 result address
+x1 = [0]          % R
+x15 = [4]         % C
+x16 = x1 * x15    % N = R*C
+x3 = 8            % &A[0][0]
+x12 = [x3]        % best = A[0][0]
+x13 = 0           % its linear index k
+x2 = 1            % k
+.loop
+x9 = x2 - x16
+BGE .found        % k >= N
+x3 = x3 + 4       % &A[k]
+x6 = [x3]
+x9 = x6 - x12
+BLE .next         % not larger: keep the first occurrence
+x12 = x6
+x13 = x2
+.next
+x2 = x2 + 1
+BAL .loop
+.found
+x4 = x16 * 4
+x4 = x4 + 8       % result address 8 + 4N
+[x4] = x12        % the maximum
+x14 = x13 / x15   % row = k / C
+x17 = x14 * x15
+x17 = x13 - x17   % column = k - row*C
+x4 = x4 + 4
+[x4] = x14
+x4 = x4 + 4
+[x4] = x17

@@ -1,0 +1,48 @@
+% is_identity.txt - is an N x N matrix the identity matrix?
+% Task:   Store 1 if the N x N integer matrix A is the identity matrix (1 on the main
+%         diagonal, 0 everywhere else), otherwise 0.
+% Data:   N at 0, A (row-major, N*N words) at 4 .. 4N^2
+% Result: 1 or 0 at 4 + 4N^2
+%         is_identity_data.byte : the 4x4 identity                      -> [68] = 1
+%         is_identity_data2.byte: 4x4 identity except A[3][2] = 1       -> [68] = 0
+%         is_identity_data3.byte: 3x3 diag(1, 2, 1): fails on the diagonal -> [40] = 0
+% Method: SCALAR, one loop over the N*N words with no i and j. The diagonal elements
+%         are 4(N+1) bytes apart (one row down + one column right), so a second pointer
+%         x20 holds the address of the next diagonal element: when the walking pointer
+%         reaches it, the element must be 1 (and x20 moves on), otherwise it must be 0.
+%         The first wrong element ends the loop with 0 (early exit).
+% Variants: diagonal matrix -> skip the "must be 1" test; scalar matrix (cI) -> compare
+%         the diagonal with A[0][0]; zero matrix -> every element must be 0.
+% Regs:   x1 N, x16 N*N, x17 4(N+1), x2 k, x3 &A[k], x20 next diagonal address,
+%         x6 element, x10 answer, x4 result address
+x1 = [0]          % N
+x16 = x1 * x1     % N*N elements
+x17 = x1 * 4
+x17 = x17 + 4     % 4(N+1): from one diagonal element to the next
+x3 = 4            % &A[0][0], walks through A
+x20 = 4           % address of the next diagonal element
+x10 = 1           % identity until an element is wrong
+x2 = 0            % k
+.loop
+x9 = x2 - x16
+BGE .store        % all N*N elements checked
+x6 = [x3]
+x9 = x3 - x20
+BNE .offdiag      % not on the diagonal
+x20 = x20 + x17   % on the diagonal: move to the next one
+x9 = x6 - 1
+BNE .no           % a diagonal element must be 1
+BAL .next
+.offdiag
+x9 = x6 - 0
+BNE .no           % an off-diagonal element must be 0
+.next
+x3 = x3 + 4
+x2 = x2 + 1
+BAL .loop
+.no
+x10 = 0
+.store
+x4 = x16 * 4
+x4 = x4 + 4       % 4 + 4N^2, right after A
+[x4] = x10

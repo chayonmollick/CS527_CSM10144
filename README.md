@@ -10,6 +10,8 @@ solved practice questions for the lab test sit alongside the labs.
 
 **Parallel program examples** (one per OpenMP construct, and jobs split across the simulator's processors): [`parallel_examples/`](parallel_examples/).
 
+**Every matrix problem in one place** (92 entries, with new matrix programs for the simulator and in OpenMP): [`matrix/`](matrix/).
+
 ## The labs
 | Lab (problems) | Folder |
 |---|---|

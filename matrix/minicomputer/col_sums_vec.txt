@@ -1,0 +1,30 @@
+% col_sums_vec.txt - column sums of an R x 8 matrix, with vector instructions
+% Task:   Compute the 8 column sums S[j] = A[0][j] + A[1][j] + ... + A[R-1][j] of an
+%         R x 8 integer matrix (any number of rows R >= 0) using vector instructions.
+% Data:   R at 0, A (row-major, 8 words per row) at 4 .. 32R; row i at 4 + 32i
+% Result: S[0..7] right after A, at 4 + 32R .. 32R + 32
+%         col_sums_vec_data.byte : R = 5 -> S at 164 .. 192 = 110 -24 57 36 60 67 77 92
+%         col_sums_vec_data2.byte: R = 8, A[i][j] = 8i + j -> S at 260 .. 288 = 224 232 .. 280
+% Method: VECTOR. A row of 8 words is one vector, and lane j of every row is column j,
+%         so adding the rows as vectors adds every column at once: one vector load and
+%         one vector add per row instead of 8 scalar loads and 8 adds. Row sums are the
+%         opposite case: they add across the lanes of one vector, which needs a store
+%         and scalar adds (row_sums.txt is scalar).
+% Variants: C = 16 columns -> two accumulators (v0 for columns 0-7 from x3, v2 for 8-15
+%         from x3 + 32) and step 64 per row; column means -> divide each sum by R
+%         with scalar instructions (vectors cannot divide).
+% Regs:   x1 R, x2 i, x3 &A[i][0], v0 the 8 column sums, v1 row i
+x1 = [0]          % R
+x3 = 4            % &A[0][0]
+v0 = v0 - v0      % 8 column sums = 0 (any vector minus itself)
+x2 = 0            % row i
+.loop
+x9 = x2 - x1
+BGE .done         % i >= R
+v1 = [x3]         % row i: A[i][0] .. A[i][7]
+v0 = v0 + v1      % S[j] += A[i][j] for all 8 columns
+x3 = x3 + 32      % next row
+x2 = x2 + 1
+BAL .loop
+.done
+[x3] = v0         % x3 = 4 + 32R: right after A

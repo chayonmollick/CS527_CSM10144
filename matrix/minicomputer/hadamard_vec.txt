@@ -1,0 +1,50 @@
+% hadamard_vec.txt - element-wise (Hadamard) product of two 8x8 matrices, with vectors
+% Task:   Compute H[i][j] = A[i][j] * B[i][j] for two 8x8 integer matrices using vector
+%         instructions, and the sum of all the products S = sum of A[i][j] * B[i][j]
+%         (the Frobenius inner product of A and B).
+% Data:   A (row-major, 64 words) at 0 .. 252; B at 256 .. 508
+%         (the data file holds A[i][j] = (i + 2j) mod 7 - 3 and B[i][j] = (3i + j) mod 5 - 2)
+% Result: H at 512 .. 764 (row i at 512 + 32i); the 8 column sums of H at 768 .. 796;
+%         S at 800
+%         hadamard_vec_data.byte -> H row 0 = 6 1 0 3 -4 0 -2 0, row 7 = 3 0 1 6 4 0 0 -3,
+%                                   column sums = 7 -1 -1 7 5 8 9 -4, S = 30
+% Method: VECTOR. One row of 8 words = one vector: per row one load of A, one load of B,
+%         one vector multiply, one store, and one vector add that keeps 8 running column
+%         sums in v0. After the loop v0 holds the column sums of H; they are stored and
+%         their 8 lanes added in a short scalar loop (vectors cannot add across lanes).
+%         Addresses above 255 are built: 256 = 128 * 2, 512 = 256 * 2.
+% Variants: A + B, A - B -> change the "*"; only S -> drop the store of v3;
+%         sum of squares of A (Frobenius norm squared) -> v3 = v1 * v1.
+% Regs:   x1 &A[i], x2 &B[i], x3 &H[i], x4 i, x5 lane pointer, x6 lanes left, x10 S,
+%         x11 one lane, v0 column sums of H, v1 v2 rows of A and B, v3 row of H
+x1 = 0            % &A[0][0]
+x2 = 128
+x2 = x2 * 2       % &B[0][0] = 256
+x3 = x2 * 2       % &H[0][0] = 512
+v0 = v0 - v0      % column sums of H = 0
+x4 = 0            % row i
+.loop
+x9 = x4 - 8
+BGE .colsums      % 8 rows done
+v1 = [x1]         % row i of A
+v2 = [x2]         % row i of B
+v3 = v1 * v2      % row i of H: 8 products at once
+[x3] = v3
+v0 = v0 + v3      % running column sums
+x1 = x1 + 32      % next row: 8 words = 32 bytes
+x2 = x2 + 32
+x3 = x3 + 32
+x4 = x4 + 1
+BAL .loop
+.colsums
+[x3] = v0         % x3 = 768 now: the column sums of H
+x10 = 0           % S
+x5 = x3           % lane pointer
+x6 = 8            % lanes left
+.lanes
+x11 = [x5]
+x10 = x10 + x11
+x5 = x5 + 4
+x6 = x6 - 1       % sets Z when it reaches 0
+BNE .lanes
+[x5] = x10        % x5 = 800: S

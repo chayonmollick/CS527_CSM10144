@@ -1,0 +1,55 @@
+% mat_square.txt - C = A * A for an N x N matrix (4x4 in the data)
+% Task:   Compute the square C = A*A of a 4x4 integer matrix:
+%         C[i][j] = A[i][0]*A[0][j] + A[i][1]*A[1][j] + ... + A[i][N-1]*A[N-1][j].
+% Data:   N at 0 (4 for a 4x4 matrix), A (row-major, N*N words) at 4 .. 4N^2
+% Result: C (row-major) right after A, at 4 + 4N^2
+%         mat_square_data.byte : N = 4 -> C at 68 .. 128 = 5 4 1 -2 / 6 3 4 5 / 2 -4 9 8 / 4 -2 6 11
+%         mat_square_data2.byte: N = 2, A = [[1,1],[1,0]] -> C at 20 .. 32 = 2 1 1 1 (Fibonacci)
+% Method: SCALAR triple loop i, j, k. The same matrix is both factors: one pointer walks
+%         along row i (+4) and another down column j (+4N). C is written in order, so
+%         its address is a pointer too (+4). C must not overlap A: A*A cannot be done in
+%         place, because row i of A is still needed after C[i][*] is known.
+%         Two matrices (A*B): programs/matmul4.txt; 8x8 with vectors: programs/matmul8_vec.txt.
+% Variants: A*A^T -> C[i][j] = row i . row j, both pointers step +4 (row j starts at
+%         4 + 4Nj); A^3 -> copy C into a third area and multiply again; trace of A*A ->
+%         add only the C[i][i].
+% Regs:   x1 N, x15 row length 4N, x2 i, x3 j, x4 k, x5 &A[i][k], x6 &A[k][j],
+%         x7 x8 the factors, x10 sum, x11 &C[i][j]
+x1 = [0]          % N
+x15 = x1 * 4      % one row = 4N bytes
+x11 = x1 * x15
+x11 = x11 + 4     % &C[0][0] = 4 + 4N^2, right after A; walks through C
+x2 = 0            % i
+.iloop
+x9 = x2 - x1
+BGE .done         % i >= N
+x3 = 0            % j
+.jloop
+x9 = x3 - x1
+BGE .inext        % j >= N
+x5 = x2 * x15
+x5 = x5 + 4       % &A[i][0] = 4 + 4Ni
+x6 = x3 * 4
+x6 = x6 + 4       % &A[0][j] = 4 + 4j
+x10 = 0           % sum
+x4 = 0            % k
+.kloop
+x9 = x4 - x1
+BGE .kdone        % k >= N
+x7 = [x5]         % A[i][k]
+x8 = [x6]         % A[k][j]
+x7 = x7 * x8
+x10 = x10 + x7    % sum += A[i][k] * A[k][j]
+x5 = x5 + 4       % along row i
+x6 = x6 + x15     % down column j
+x4 = x4 + 1
+BAL .kloop
+.kdone
+[x11] = x10       % C[i][j]
+x11 = x11 + 4
+x3 = x3 + 1
+BAL .jloop
+.inext
+x2 = x2 + 1
+BAL .iloop
+.done

@@ -56,6 +56,8 @@ Then download the problem PDF, and open this file and the two guides in the IDE.
 | "use OpenMP to make the simulator's processors run in parallel" | `minicomputer/extensions/e22_openmp_parallel_processors` |
 | "parallelise this C code with OpenMP, time it, explain the speedup" | `GUIDE.md`, then `PROBLEMS.md` (104 solved problems) |
 | matrix rules, which matrix loops can run in parallel | `MATRIX_RULES.md` |
+| any matrix problem (simulator program or OpenMP) | [`matrix/`](matrix/): index of every matrix problem in the repo |
+| an OpenMP construct, or splitting a job across the simulator's processors | [`parallel_examples/`](parallel_examples/) |
 
 ## Example questions you may get, and their worked answers
 

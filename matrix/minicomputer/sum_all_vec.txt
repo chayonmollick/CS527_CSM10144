@@ -1,0 +1,63 @@
+% sum_all_vec.txt - sum and mean of all elements of an R x C matrix, with vectors
+% Task:   Find the sum of all the elements of an R x C integer matrix (R, C >= 1) and
+%         their integer mean, sum / (R*C) (the machine's division: rounds towards 0).
+% Data:   R at 0, C at 4, A (row-major, R*C words) at 8 .. 4 + 4RC
+% Result: sum at 8 + 4RC, mean at 12 + 4RC; the 8 words after them are scratch space
+%         sum_all_vec_data.byte : R = 3, C = 7 (2 blocks + 5 left over) -> [92] = 111, [96] = 5
+%         sum_all_vec_data2.byte: R = 4, C = 4 (2 blocks, negative sum) -> [72] = -23, [76] = -1
+% Method: VECTOR. The matrix is one array of N = R*C words. Blocks of 8 are added into
+%         the 8 lanes of v0 and the N mod 8 leftovers into x10 with a scalar loop. The
+%         lanes are then added by "shift and add" (programs/sum_squares_vec.txt): store v0,
+%         load it back 4 words further on and add (lanes 0..3 hold pair sums), then
+%         2 words, then 1 word: lane 0 is the total of the 8 lanes.
+%         A 4x4 matrix alone is exactly 2 vectors: v0 = [x3]; v1 = [x3 + 32]; v0 = v0 + v1.
+% Variants: sum of squares -> v1 = v1 * v1 and x4 = x4 * x4; count of elements above the
+%         mean -> a second scalar pass (vectors cannot compare).
+% Regs:   x1 N = R*C, x2 i, x3 &A[i], x7 N - 8, x10 sum of the leftovers then the total,
+%         x12 mean, x20 scratch S, x21..x23 S + 16, + 8, + 4, v0 8 partial sums, v1 a block
+x10 = [0]         % R
+x11 = [4]         % C
+x1 = x10 * x11    % N = R*C
+x2 = 0            % i
+x3 = 8            % &A[0]
+x7 = x1 - 8       % a full block of 8 starts at i <= N - 8
+v0 = v0 - v0      % 8 partial sums = 0
+.vloop
+x9 = x2 - x7
+BGT .tail         % i > N - 8: fewer than 8 left
+v1 = [x3]         % A[i .. i+7]
+v0 = v0 + v1
+x3 = x3 + 32
+x2 = x2 + 8
+BAL .vloop
+.tail
+x10 = 0           % sum of the leftover elements
+.sloop
+x9 = x2 - x1
+BGE .reduce       % i >= N
+x4 = [x3]
+x10 = x10 + x4
+x3 = x3 + 4
+x2 = x2 + 1
+BAL .sloop
+.reduce
+x20 = x3 + 8      % x3 = 8 + 4N (sum), x3 + 4 (mean), scratch S = x3 + 8
+x21 = x20 + 16    % S + 16 (4 words on)
+x22 = x20 + 8     % S + 8  (2 words on)
+x23 = x20 + 4     % S + 4  (1 word on)
+[x20] = v0        % lanes l0 .. l7 at S
+v1 = [x21]        % l4 l5 l6 l7 and 4 words we do not care about
+v0 = v0 + v1      % lanes 0..3: l0+l4, l1+l5, l2+l6, l3+l7
+[x20] = v0
+v1 = [x22]
+v0 = v0 + v1      % lanes 0..1 hold the sums of 4 lanes each
+[x20] = v0
+v1 = [x23]
+v0 = v0 + v1      % lane 0: the sum of all 8 lanes
+[x20] = v0
+x11 = [x20]       % read lane 0
+x10 = x10 + x11   % + the leftovers = the total
+[x3] = x10        % sum at 8 + 4N
+x12 = x10 / x1    % mean, rounded towards 0
+x3 = x3 + 4
+[x3] = x12        % mean at 12 + 4N

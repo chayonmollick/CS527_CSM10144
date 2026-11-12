@@ -1,7 +1,8 @@
 # Matrix rules for OpenMP problems
 
 Indexing formulas, math rules and parallelisation rules for matrix questions.
-Section 8 lists solved matrix problems in this repo.
+Section 8 lists solved matrix problems in this repo; [`matrix/`](matrix/) indexes all of them
+(92 entries) and adds more.
 
 ---
 

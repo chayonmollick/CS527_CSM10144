@@ -1,0 +1,55 @@
+% det_adj2x2.txt - determinant and adjugate of a 2x2 matrix (the inverse times det)
+% Task:   For A = [[a, b], [c, d]] compute det A = ad - bc and the adjugate
+%         adj A = [[d, -b], [-c, a]], so that A^-1 = adj A / det A. Store 1 if A is
+%         invertible (det != 0), else 0, and check the result: A * adj A = det * I.
+% Data:   a at 0, b at 4, c at 8, d at 12 (A row-major)
+% Result: det at 16; adj A (row-major) at 20 .. 32; invertible flag at 36;
+%         A * adj A (row-major) at 40 .. 52, which must be det 0 0 det
+%         det_adj2x2_data.byte : A = [[4,7],[2,6]]   -> det 10, adj = 6 -7 -2 4, flag 1,
+%                                                       A * adj = 10 0 0 10
+%         det_adj2x2_data2.byte: A = [[2,-3],[-4,6]] -> det 0 (singular), adj = 6 3 4 2,
+%                                                       flag 0, A * adj = 0 0 0 0
+% Method: SCALAR, straight-line code: every address is below 256, so constant
+%         addresses work for loads and stores. -b is 0 - b (there is no unary minus).
+%         The machine has no fractions: keep det and adj, the inverse is adj / det
+%         (exact integers only when det = 1 or -1, e.g. [[2,3],[1,1]] has A^-1 = [[-1,3],[1,-2]]).
+% Variants: 3x3 determinant -> examples/det3x3.txt (cofactor expansion); 2x2 system
+%         Ax = e by Cramer's rule -> x = (d*e1 - b*e2) / det, y = (a*e2 - c*e1) / det.
+% Regs:   x1..x4 a b c d, x10 det, x11 -b, x12 -c, x13 flag, x14 x15 products, x20 zero
+x1 = [0]          % a
+x2 = [4]          % b
+x3 = [8]          % c
+x4 = [12]         % d
+x5 = x1 * x4      % ad
+x6 = x2 * x3      % bc
+x10 = x5 - x6     % det = ad - bc
+[16] = x10
+x20 = 0
+x11 = x20 - x2    % -b
+x12 = x20 - x3    % -c
+[20] = x4         % adj[0][0] = d
+[24] = x11        % adj[0][1] = -b
+[28] = x12        % adj[1][0] = -c
+[32] = x1         % adj[1][1] = a
+x13 = 0           % invertible?
+x9 = x10 - 0
+BEQ .flag         % det = 0: singular
+x13 = 1
+.flag
+[36] = x13
+x14 = x1 * x4     % check: row 0 of A times column 0 of adj = a*d + b*(-c)
+x15 = x2 * x12
+x14 = x14 + x15
+[40] = x14
+x14 = x1 * x11    % a*(-b) + b*a
+x15 = x2 * x1
+x14 = x14 + x15
+[44] = x14
+x14 = x3 * x4     % c*d + d*(-c)
+x15 = x4 * x12
+x14 = x14 + x15
+[48] = x14
+x14 = x3 * x11    % c*(-b) + d*a
+x15 = x4 * x1
+x14 = x14 + x15
+[52] = x14
