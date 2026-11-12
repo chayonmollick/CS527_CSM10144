@@ -30,3 +30,14 @@ None: program only (`solution.txt`)
 - **Why is the subtraction needed for the even test?** Multiply and divide do not set flags; only add and subtract do, so `x1 - x3` is the compare.
 - **Can the loop run forever?** No n tried so far does (the Collatz conjecture is open), and the simulator stops a task after 10 million instructions anyway.
 - **Overflow?** 3n + 1 can pass 2³¹ - 1 for large n; for n = 27 the peak is only 9232.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q011_collatz/solution.txt ../final_practice/q011_collatz/collatz_data.byte`
+  (the final data memory is then in `lab6/collatz_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference collatz_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `collatz_data.byte`, `collatz_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

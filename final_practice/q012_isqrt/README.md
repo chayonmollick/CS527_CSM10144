@@ -31,3 +31,14 @@ None: program only (`solution.txt`)
 - **Why stop when y ≥ x?** While x > ⌊√n⌋ the next guess is smaller but still ≥ ⌊√n⌋; at x = ⌊√n⌋ it is not smaller. So the first guess that does not go down marks the answer.
 - **Why (n + 1) / 2 for the first y?** It is (x + n/x)/2 with x = n, without dividing by n, which would be a division by 0 for n = 0.
 - **Binary search?** Also works, in about log₂(range) steps, but with hi = n the product mid·mid overflows 32 bits once mid > 46340: test `mid <= n / mid` instead, or start hi at 46340.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q012_isqrt/solution.txt ../final_practice/q012_isqrt/isqrt_data.byte`
+  (the final data memory is then in `lab6/isqrt_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference isqrt_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `isqrt_data.byte`, `isqrt_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

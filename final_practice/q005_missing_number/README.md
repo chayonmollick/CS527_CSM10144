@@ -31,3 +31,14 @@ None: program only (`solution.txt`)
 - **Is N(N+1)/2 always exact?** Yes: N and N + 1 are consecutive, so one of them is even.
 - **Overflow?** N(N+1) fits in 32 bits up to N = 46340. For bigger N, start from N and add k - A[k-1] in the loop, so the running value stays small.
 - **Other method?** Mark each number in a table of N words, then find the unmarked one: also O(N), but needs N words of memory. With vectors the sum could be done 8 at a time, as in `programs/sum_squares_vec.txt`.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q005_missing_number/solution.txt ../final_practice/q005_missing_number/missing_number_data.byte`
+  (the final data memory is then in `lab6/missing_number_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference missing_number_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `missing_number_data.byte`, `missing_number_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

@@ -37,3 +37,14 @@ None: program only (`solution.txt`)
 - **Why not one more full block instead of the tail?** It would write up to 7 words past the end of C and read past the end of B.
 - **How is the vector use optimal?** One load per input block, one multiply, one store per output block, and no scalar work on the data inside the vector loop.
 - **Could the tail be a vector too?** Only by overlapping: for N ≥ 8, one last full block starting at N - 8 recomputes a few products with the same values, which is harmless out of place.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q019_vec_product/solution.txt ../final_practice/q019_vec_product/vec_product_data.byte`
+  (the final data memory is then in `lab6/vec_product_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference vec_product_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `vec_product_data.byte`, `vec_product_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

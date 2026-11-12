@@ -34,3 +34,14 @@ None: program only (`solution.txt`)
 - **Why must the array be sorted?** The program only compares with the last kept value. In `1 2 1` the second 1 is not next to the first; finding it needs a search (O(N²)) or a table of values already seen.
 - **Is it safe to write into the array being read?** Yes: w ≤ r at every store and A[r] is already in a register, so no word is overwritten before it has been read.
 - **Cost?** One pass, N - 1 compares, at most N - 1 stores, no extra memory.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q003_remove_duplicates/solution.txt ../final_practice/q003_remove_duplicates/remove_duplicates_data.byte`
+  (the final data memory is then in `lab6/remove_duplicates_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference remove_duplicates_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `remove_duplicates_data.byte`, `remove_duplicates_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

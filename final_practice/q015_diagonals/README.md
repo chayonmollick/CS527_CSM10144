@@ -28,3 +28,14 @@ None: program only (`solution.txt`)
 - **Why not vectors?** The 8 wanted elements are in 8 different rows and lanes. Each vector load would bring 7 unwanted values, and there is no add across lanes, so it would cost more than 8 scalar loads.
 - **For an n×n matrix?** Steps 4(n+1) and 4(n-1), start addresses 0 and 4(n-1), n iterations. For odd n the centre element is on both diagonals.
 - **Why is A[i][j] = 8i + j + 1 a bad test?** Its trace and its anti-diagonal sum are both 260, so swapped results would not be noticed.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q015_diagonals/solution.txt ../final_practice/q015_diagonals/diagonals_data.byte`
+  (the final data memory is then in `lab6/diagonals_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference diagonals_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `diagonals_data.byte`, `diagonals_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

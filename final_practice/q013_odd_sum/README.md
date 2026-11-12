@@ -31,3 +31,14 @@ None: program only (`solution.txt`)
 - **Why is the flag always 1?** N² - (N-1)² = 2N - 1: each odd number adds the L-shaped border that turns an (N-1)×(N-1) square into an N×N one. Only overflow (N > 46340) breaks it.
 - **Why does BNE work without a compare?** `x3 = x3 - 1` is a subtraction, so it sets Z when the counter becomes 0.
 - **What if the guard is missing and N = 0?** The body runs with the counter going -1, -2, … and never meets 0 in time: the simulator stops the task after 10 million instructions with an error.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q013_odd_sum/solution.txt ../final_practice/q013_odd_sum/odd_sum_data.byte`
+  (the final data memory is then in `lab6/odd_sum_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference odd_sum_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `odd_sum_data.byte`, `odd_sum_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

@@ -30,3 +30,14 @@ None: program only (`solution.txt`)
 ## Viva
 - **Why is -5 not counted in data2, although -5 > -5.4?** The question uses the integer average, and division rounds towards zero: -27 / 5 = -5. To compare with the exact average, test `N * A[i] > sum` instead: no division at all.
 - **Can vectors help?** Only for the sum (8 lanes, then add the lanes, as in `programs/sum_squares_vec.txt`). Counting needs a compare per element, and there is no vector compare.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q007_above_average/solution.txt ../final_practice/q007_above_average/above_average_data.byte`
+  (the final data memory is then in `lab6/above_average_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference above_average_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `above_average_data.byte`, `above_average_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

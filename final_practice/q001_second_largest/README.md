@@ -39,3 +39,14 @@ None: program only (`solution.txt`)
 - **Why not sort and take the element before the last?** Sorting is O(N²) with these loops and changes the array, and with a repeated maximum the element before the last is the maximum again. One pass is O(N).
 - **Why does the old maximum become the second when a new maximum appears?** Every value seen so far is ≤ the old maximum, so it is the largest value below the new one.
 - **Why test BEQ before BLT?** An element equal to the maximum must be ignored; without the BEQ it would fall into the `a > max` case and make the maximum its own second.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q001_second_largest/solution.txt ../final_practice/q001_second_largest/second_largest_data.byte`
+  (the final data memory is then in `lab6/second_largest_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference second_largest_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `second_largest_data.byte`, `second_largest_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

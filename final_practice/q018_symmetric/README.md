@@ -28,3 +28,14 @@ None: program only (`solution.txt`)
 - **Why only i < j?** The diagonal always matches itself, and checking (j, i) after (i, j) repeats the same compare: 6 compares instead of 16.
 - **Why put data2's difference in the last pair?** It shows the loops reach every pair: a loop that stops one row early would answer 1.
 - **Skew-symmetric (A = -Aᵀ)?** Check A[i][j] + A[j][i] = 0 for i ≤ j, which includes the diagonal (it must be 0).
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q018_symmetric/solution.txt ../final_practice/q018_symmetric/symmetric_data.byte`
+  (the final data memory is then in `lab6/symmetric_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference symmetric_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `symmetric_data.byte`, `symmetric_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

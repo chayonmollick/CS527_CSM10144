@@ -31,3 +31,14 @@ None: program only (`solution.txt`)
 - **Why clear the counters if new memory is 0 anyway?** They lie after the data, where a longer data file or earlier results may have left values; clearing costs only 2 vector stores.
 - **Ties to the largest value instead?** Use BLT instead of BLE in the scan, so an equal count also replaces the best.
 - **Values outside 0..15?** H + 4a would write outside the counters. Check `a < 0` (BMI) and `a > 15` (BGT) first, as `programs/histogram.txt` does.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q016_mode/solution.txt ../final_practice/q016_mode/mode_data.byte`
+  (the final data memory is then in `lab6/mode_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference mode_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `mode_data.byte`, `mode_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

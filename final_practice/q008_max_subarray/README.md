@@ -32,3 +32,14 @@ None: program only (`solution.txt`)
 - **Why is restarting when cur < 0 right?** Every run that ends at i and starts earlier is (a run ending at i-1) + A[i]; if the best of those runs is negative, A[i] alone is bigger.
 - **What goes wrong if best starts at 0?** An all-negative array gives 0, the sum of the empty run; data2 would give 0 instead of -2.
 - **Cost?** O(N). Trying every (start, end) pair is O(N²) with running sums, O(N³) without.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q008_max_subarray/solution.txt ../final_practice/q008_max_subarray/max_subarray_data.byte`
+  (the final data memory is then in `lab6/max_subarray_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference max_subarray_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `max_subarray_data.byte`, `max_subarray_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

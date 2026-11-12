@@ -32,3 +32,14 @@ None: program only (`solution.txt`)
 - **Why does it work?** Write A = X Y with X the first k elements; the rotation is Y X. Reversing the parts gives Xʳ Yʳ, and reversing that whole gives (Xʳ Yʳ)ʳ = Y X.
 - **Other ways?** Copy into a second array (`B[i] = A[(i + k) mod N]`, then copy back: N extra words and 2N stores), or rotate by one place k times (O(N·k)).
 - **Rotate right by k?** Rotate left by N - (k mod N).
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q004_rotate_left/solution.txt ../final_practice/q004_rotate_left/rotate_left_data.byte`
+  (the final data memory is then in `lab6/rotate_left_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference rotate_left_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `rotate_left_data.byte`, `rotate_left_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

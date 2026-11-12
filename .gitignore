@@ -10,3 +10,10 @@ task5_matmul
 results/
 # task sheet (provided by the course, not my work)
 *.docx
+
+# simulator and reference builds and run results (lab6, final_practice, ...)
+sim
+reference
+program.byte
+*.freq
+log.txt

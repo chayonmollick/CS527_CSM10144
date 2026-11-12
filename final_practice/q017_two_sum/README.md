@@ -32,3 +32,14 @@ None: program only (`solution.txt`)
 - **Why does j start at i + 1?** j = i pairs an element with itself (50 + 50 in data2), and j < i only finds the same pairs again in the other order.
 - **Faster ways?** On a sorted array, two pointers from both ends: O(N). For small values, a table of the values seen so far: O(N).
 - **Why compare with T - A[i] instead of adding A[i] + A[j]?** The subtraction is done once per i instead of an add for every pair.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q017_two_sum/solution.txt ../final_practice/q017_two_sum/two_sum_data.byte`
+  (the final data memory is then in `lab6/two_sum_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference two_sum_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `two_sum_data.byte`, `two_sum_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

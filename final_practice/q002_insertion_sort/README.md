@@ -39,3 +39,14 @@ None: program only (`solution.txt`)
 - **How does it differ from bubble and selection sort (`programs/`)?** It shifts instead of swapping (one store per move instead of two), and on a sorted array the inner loop stops at once: O(N) best case, O(N²) worst case (data2).
 - **Why `p < 4` and not `j < 0`?** The loop walks addresses; &A[0] = 4, so j = -1 is address 0.
 - **Is it stable?** Yes: the inner loop stops at an equal element, so the key goes after it.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q002_insertion_sort/solution.txt ../final_practice/q002_insertion_sort/insertion_sort_data.byte`
+  (the final data memory is then in `lab6/insertion_sort_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference insertion_sort_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `insertion_sort_data.byte`, `insertion_sort_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

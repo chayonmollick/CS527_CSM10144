@@ -38,3 +38,14 @@ None: program only (`solution.txt`)
 - **Why right to left?** In place, the block at j needs old[j-1], the last word of the block on its left. Doing that block first would replace it with its new value.
 - **Why N ≤ 33?** C(34,17) = 2333606220 > 2³¹ - 1, and adds wrap around silently.
 - **Scalar alternatives?** `for j = i down to 1: row[j] = row[j] + row[j-1]` for each row (right to left for the same reason), or C(N,k+1) = C(N,k)·(N-k)/(k+1) in one loop; that division is exact, but the product overflows from N = 30.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q014_pascal_row/solution.txt ../final_practice/q014_pascal_row/pascal_row_data.byte`
+  (the final data memory is then in `lab6/pascal_row_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference pascal_row_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `pascal_row_data.byte`, `pascal_row_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

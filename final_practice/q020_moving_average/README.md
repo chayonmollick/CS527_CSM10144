@@ -36,3 +36,14 @@ None: program only (`solution.txt`)
 - **Why is the division scalar?** The machine has vector + - * only. Dividing by 3 with a multiply would need the high half of a 64-bit product, which it does not have.
 - **Scalar alternative?** A sliding window: after each output, s = s - A[i] + A[i+3]: 2 loads per output instead of 3.
 - **Why -2 and not -3 for -8 / 3?** Signed division rounds towards zero, as in C. Rounding down (floor) needs a correction when the remainder is negative.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q020_moving_average/solution.txt ../final_practice/q020_moving_average/moving_average_data.byte`
+  (the final data memory is then in `lab6/moving_average_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference moving_average_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `moving_average_data.byte`, `moving_average_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.

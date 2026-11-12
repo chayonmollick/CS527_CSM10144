@@ -33,3 +33,14 @@ None: program only (`solution.txt`)
 - **Why `less <= k < leq` and not `less == k`?** With repeated values no element may have exactly k smaller ones: in data2 every -3 has 1 smaller element, but k = 2.
 - **Other way?** Sort a copy (insertion sort, Q002) and read the word at 4 + 4k: also O(N²), but it needs N extra words, or it changes A.
 - **Even N?** The median is the average of the elements of rank N/2 - 1 and N/2; find both with the same test.
+
+## Files
+- `solution.txt`: the answer program. To run it on lab6:
+  `cd ../../lab6 && make && ./sim -b ../final_practice/q009_median/solution.txt ../final_practice/q009_median/median_data.byte`
+  (the final data memory is then in `lab6/median_data_1.out`).
+- `reference.cpp`: the same task in C++.
+  `g++ -std=c++17 reference.cpp -o reference && ./reference median_data.byte` prints the expected result
+  words, one `<address>: <value>` per line; use it to check your own program on new data.
+- Inputs: `median_data.byte`, `median_data2.byte`.
+- `test.sh`: runs `solution.txt` on a fresh copy of lab6 with both inputs and checks the results, then
+  checks that the simulator's output has every word `reference.cpp` prints.
