@@ -1,0 +1,17 @@
+% Lab 2 example from the handout, unchanged: sum of an array.
+% data: size N at 0, elements from 4. The handout says the sum goes to N*4 + 4, but its program
+% stores it at [x3] = N*4 (over the last element); kept as written so the byte code matches the handout.
+x1 = 0       % index
+x2 = 0        % sum
+x3 = 0        % array address
+x4 =  [x3]    %  read the size of array
+.loopback
+x15 = x1 - x4   % compare
+BEQ .exit
+x3 = x3 + 4    % increase the address
+x6 =  [x3]       % load the array data
+x2 = x2 + x6  % update sum
+x1 = x1 + 1    % increment index
+BAL .loopback
+.exit
+[x3] = x2

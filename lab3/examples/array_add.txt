@@ -1,0 +1,23 @@
+% Lab 3 test, example 1: C = A + B for two arrays of N numbers, with vector instructions.
+% data: N at 0 (a multiple of 8), A from 4, B from 4 + 4N; the result C is written from 4 + 8N.
+% Each pass of the loop adds 8 elements: 2 vector reads, 1 vector add, 1 vector write,
+% plus 3 address steps, a compare and a branch (9 instructions per 8 elements).
+x1 = [0]          % N
+x2 = 4            % address of A[i]
+x3 = x1 * 4       % 4N = bytes in one array
+x4 = x2 + x3      % address of B[i] (A ends here)
+x5 = x4 + x3      % address of C[i]
+x6 = x4           % end of A: stop when the address of A[i] reaches it
+x7 = x2 - x6
+BGE .done         % N = 0: nothing to add
+.loop
+v1 = [x2]         % A[i .. i+7]
+v2 = [x4]         % B[i .. i+7]
+v3 = v1 + v2      % 8 additions in one instruction
+[x5] = v3         % C[i .. i+7]
+x2 = x2 + 32      % next 8 elements (8 words = 32 bytes)
+x4 = x4 + 32
+x5 = x5 + 32
+x7 = x2 - x6
+BLT .loop         % more elements left
+.done

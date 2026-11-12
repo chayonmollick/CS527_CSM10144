@@ -1,0 +1,6 @@
+# build output and run results (make clean removes them)
+sim
+*.o
+program.byte
+*.out
+log.txt
