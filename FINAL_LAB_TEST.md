@@ -1,26 +1,27 @@
 # CS527 final lab test — start here
 
-The CS527 labs had two halves. Both are complete in this repo, tested, and come
-with guides and worked practice questions.
+The CS527 labs had two halves. Every lab has its own complete folder (`lab1/` …
+`lab9/`) with code, examples, tests and a README, and each half has a guide and
+worked practice questions.
 
-| Labs | Topic | Folder | Guide |
+| Labs | Topic | Guide | Worked questions |
 |---|---|---|---|
-| 1–6 | Mini-computer simulator: compiler, processor, vectors, OS with shell and scheduler, paging, page tables in memory | [`minicomputer/`](minicomputer/) | [`minicomputer/GUIDE.md`](minicomputer/GUIDE.md) |
-| 7–9 | OpenMP: loops, reductions, matrices, search/sort/histogram, tasks, scheduling | root, [`session2/`](session2/), [`session3/`](session3/) | [`GUIDE.md`](GUIDE.md), [`CHEATSHEET.md`](CHEATSHEET.md) |
+| 1–6 | Mini-computer simulator: compiler, processor, vectors, OS with shell and scheduler, paging, page tables in memory | [`minicomputer/GUIDE.md`](minicomputer/GUIDE.md) | [`minicomputer/extensions/`](minicomputer/extensions/), [`minicomputer/programs/`](minicomputer/programs/) |
+| 7–9 | OpenMP: loops, reductions, matrices, search/sort/histogram, tasks, scheduling | [`GUIDE.md`](GUIDE.md), [`CHEATSHEET.md`](CHEATSHEET.md) | [`PROBLEMS.md`](PROBLEMS.md), [`practice/`](practice/) |
 
 ## Every lab and where it is
 
-| Classroom lab | What it asked | Where | Checked by |
+| Classroom lab | What it asked | Folder | Checked by |
 |---|---|---|---|
-| Lab 1: Mini computer system | Compiler → byte code, memory, fetch/decode/execute | `minicomputer/simulator/` | `make test` (Lab 1 checks) |
-| Lab 2 (Practice) | Constants, flags ZNCV, `[x]` memory, labels, branches, comments | same | Lab 2 checks; byte code identical to the handout's listing |
-| Lab 3 Test / Takehome | Vector registers and instructions; array-add and FIR programs | same; `minicomputer/examples/array_add.txt`, `fir.txt` | Lab 3 checks |
-| Lab 4 take home | NP processors, OS, round-robin scheduler, non-blocking shell, loader, `print` | same | Lab 4 checks (5 tasks on 4 processors) |
-| Lab 5 take home | Logical/physical memory, paging, free frames, frame 0 reserved | same | Lab 5 checks (demand-mapped pages) |
-| Lab 6 Test | Task 1: executions per source line (`.freq`); task 2: page tables in frame 0 + PTBR | same | `.freq` identical to the handout's example |
-| Lab 7: Getting started with OpenMP | Vector add, sum, max/min with index, matrix add, matmul | root `task1`–`task5`, `REPORT.md` | each program checks itself against serial |
-| Lab 8 (OpenMP session 2) | Search, sort, histogram, transpose, convolution | `session2/` | same |
-| Lab 9 (OpenMP session 3) | Merge sort with tasks, static/dynamic/guided, even/odd count | `session3/` | same |
+| Lab 1: Mini computer system | Compiler → byte code, memory, fetch/decode/execute | [`lab1/`](lab1/) | `make test`: byte code identical to the handout's listing |
+| Lab 2 (Practice) | Constants, flags ZNCV, `[x]` memory, labels, branches, comments, hex files | [`lab2/`](lab2/) | `make test`: byte code identical to the handout's listing |
+| Lab 3 Test / Takehome | Vector registers and instructions; array-add and FIR programs | [`lab3/`](lab3/) | `make test` |
+| Lab 4 take home | NP processors, OS, round-robin scheduler, non-blocking shell, loader, `print` | [`lab4/`](lab4/) | `make test` (5 tasks on 4 processors) |
+| Lab 5 take home | Logical/physical memory, paging, free frames, frame 0 reserved | [`lab5/`](lab5/) | `make test` |
+| Lab 6 Test | Task 1: executions per source line (`.freq`); task 2: page tables in frame 0 + PTBR. Final simulator with Labs 1–5 | [`lab6/`](lab6/) | `make test`: 33 checks for every lab; `.freq` identical to the handout's example |
+| Lab 7: Getting started with OpenMP | Vector add, sum, max/min with index, matrix add, matmul | [`lab7/`](lab7/) | each program checks itself against serial; `REPORT.md` |
+| Lab 8 (OpenMP session 2) | Search, sort, histogram, transpose, convolution | [`lab8/`](lab8/) | same |
+| Lab 9 (OpenMP session 3) | Merge sort with tasks, static/dynamic/guided, even/odd count | [`lab9/`](lab9/) | same |
 
 ## How past lab tests ran
 - **Lab 3 Test (13 Aug):**
@@ -37,10 +38,10 @@ In both tests you **extended your own lab code** with a new feature, so expect t
 ## Setup (first 20 minutes)
 ```bash
 git clone https://github.com/chayonmollick/CS527_CSM10144.git && cd CS527_CSM10144
-(cd minicomputer/simulator && make && make test)     # 33 passed, 0 failed
-make -s && make -s -C session3 && make -s -C problems # OpenMP side builds
+(cd lab6 && make && make test)                      # final simulator: 33 passed, 0 failed
+make -s -C lab7 && make -s -C lab8 && make -s -C lab9 && make -s -C problems   # OpenMP side builds
 nproc; g++ --version | head -1; tar --version | head -1
-mkdir -p ~/exam && cp -r minicomputer/simulator ~/exam/sim && (cd ~/exam/sim && make clean && make)
+mkdir -p ~/exam && cp -r lab6 ~/exam/sim && (cd ~/exam/sim && make clean && make)
 ```
 Then download the problem PDF, and open this file and the two guides in the IDE.
 

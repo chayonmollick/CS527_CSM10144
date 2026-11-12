@@ -1,4 +1,4 @@
---- ../../simulator/compiler.cpp	2026-11-11 23:23:41
+--- ../../../lab6/compiler.cpp	2026-11-11 23:23:41
 +++ compiler.cpp	2026-11-11 23:46:39
 @@ -9,6 +9,7 @@
   *   vD = vA + vB      vD = vA * 3      vD = vA * xB  (+ - *)          vectors (Lab 3)
@@ -37,7 +37,7 @@
      }
      return buf;
  }
---- ../../simulator/os.cpp	2026-11-11 23:27:51
+--- ../../../lab6/os.cpp	2026-11-11 23:27:51
 +++ os.cpp	2026-11-11 23:46:37
 @@ -9,6 +9,9 @@
   * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
@@ -169,7 +169,7 @@
  /* ---------------- shell ---------------- */
  
  static void prompt() {
---- ../../simulator/processor.cpp	2026-11-12 00:32:15
+--- ../../../lab6/processor.cpp	2026-11-12 00:32:15
 +++ processor.cpp	2026-11-12 00:32:15
 @@ -54,6 +54,23 @@
      if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
@@ -208,7 +208,7 @@
      default:
          if (opcode >= OP_BRANCH && opcode < OP_BRANCH + NUM_CONDITIONS) {   /* Lab 2 */
              if (condition_holds(p, opcode - OP_BRANCH))
---- ../../simulator/config.h	2026-11-11 23:19:26
+--- ../../../lab6/config.h	2026-11-11 23:19:26
 +++ config.h	2026-11-11 23:45:42
 @@ -61,7 +61,9 @@
      OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
@@ -221,7 +221,7 @@
  };
  
  /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
---- ../../simulator/os.h	2026-11-11 23:23:48
+--- ../../../lab6/os.h	2026-11-11 23:23:48
 +++ os.h	2026-11-11 23:45:45
 @@ -18,5 +18,6 @@
  void shell();                           /* non-blocking: handles whatever is waiting on stdin */
@@ -230,7 +230,7 @@
 +int  os_fork(int p, int dest);          /* EXT e20: fork() for the task on processor p: child pid, -1 on failure */
  
  #endif
---- ../../simulator/processor.h	2026-11-11 23:23:00
+--- ../../../lab6/processor.h	2026-11-11 23:23:00
 +++ processor.h	2026-11-11 23:45:43
 @@ -24,6 +24,18 @@
  extern FILE *fd_log;                           /* print output (Lab 4) */
@@ -251,14 +251,14 @@
  void reset(int p);
  void fetch();
  void decode();
---- ../../simulator/Makefile	2026-11-11 23:25:43
+--- ../../../lab6/Makefile	2026-11-12 10:34:26
 +++ Makefile	2026-11-11 23:46:49
 @@ -1,7 +1,7 @@
--# CS527 mini-computer simulator (Labs 1-6)
+-# CS527 Lab 6: the complete mini-computer simulator (includes Labs 1-5)
 +# CS527 mini-computer simulator (Labs 1-6) + EXT e20: fork() and getpid()
  #   make                 build ./sim
--#   make test            build and run the regression tests (../tests/run_tests.sh)
--#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
+-#   make test            build and run the regression tests (../minicomputer/tests/run_tests.sh)
+-#   ./sim -b ../minicomputer/examples/sum_array.txt ../minicomputer/examples/sum_array_data.byte
 +#   make test            base regression tests on this build, then ./test.sh   (EXT e20)
 +#   ./sim -b fork_demo.txt fork_demo_data.byte                                  (EXT e20)
  CXX      ?= g++
@@ -269,7 +269,7 @@
  	$(CXX) $(CXXFLAGS) -c $<
  
 -test: sim
--	cd ../tests && ./run_tests.sh
+-	cd ../minicomputer/tests && ./run_tests.sh
 +test: sim    # EXT e20: run the base tests against this build, then this extension's tests
 +	SIM=$(CURDIR)/sim ../../tests/run_tests.sh && ./test.sh
  

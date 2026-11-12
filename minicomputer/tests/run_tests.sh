@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Regression tests for the simulator: run every example and check the results.
-#   cd minicomputer/simulator && make test        (or: ../tests/run_tests.sh from anywhere)
+#   cd lab6 && make test        (or: minicomputer/tests/run_tests.sh from anywhere)
 #   SIM=$PWD/sim ../../tests/run_tests.sh          test an extension's build against the same checks
 # Each test runs in a fresh scratch directory so output files never mix.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
-SIM="${SIM:-$HERE/../simulator/sim}"   # SIM=/path/to/other/sim tests another build (e.g. an extension)
+SIM="${SIM:-$HERE/../../lab6/sim}"   # SIM=/path/to/other/sim tests another build (e.g. an extension)
 EX="$HERE/../examples"
-[ -x "$SIM" ] || { echo "build first: (cd $HERE/../simulator && make)"; exit 1; }
+[ -x "$SIM" ] || { echo "build first: (cd $HERE/../../lab6 && make)"; exit 1; }
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 pass=0; fail=0

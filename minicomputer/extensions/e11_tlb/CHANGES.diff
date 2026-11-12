@@ -1,4 +1,4 @@
---- ../../simulator/os.cpp	2026-11-11 23:27:51
+--- ../../../lab6/os.cpp	2026-11-11 23:27:51
 +++ os.cpp	2026-11-11 23:47:25
 @@ -9,6 +9,8 @@
   * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
@@ -118,7 +118,7 @@
  }
  
  /* ---------------- loader and tasks ---------------- */
---- ../../simulator/processor.cpp	2026-11-12 00:32:15
+--- ../../../lab6/processor.cpp	2026-11-12 00:32:15
 +++ processor.cpp	2026-11-12 00:32:15
 @@ -54,33 +54,39 @@
      if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
@@ -190,7 +190,7 @@
      PC[p] = instr_pc + 4;
  }
  
---- ../../simulator/config.h	2026-11-11 23:19:26
+--- ../../../lab6/config.h	2026-11-11 23:19:26
 +++ config.h	2026-11-11 23:44:14
 @@ -20,6 +20,7 @@
  #define NUM_LOGICAL_PAGES  (NUM_INSTR_PAGES + NUM_DATA_PAGES)     /* 10 entries per page table */
@@ -200,13 +200,14 @@
  
  /* ---- operating system (Lab 4) ---- */
  #define MAX_TASKS       64      /* process-table size */
---- ../../simulator/Makefile	2026-11-11 23:25:43
+--- ../../../lab6/Makefile	2026-11-12 10:34:26
 +++ Makefile	2026-11-11 23:44:15
 @@ -1,7 +1,7 @@
- # CS527 mini-computer simulator (Labs 1-6)
+-# CS527 Lab 6: the complete mini-computer simulator (includes Labs 1-5)
++# CS527 mini-computer simulator (Labs 1-6)
  #   make                 build ./sim
--#   make test            build and run the regression tests (../tests/run_tests.sh)
--#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
+-#   make test            build and run the regression tests (../minicomputer/tests/run_tests.sh)
+-#   ./sim -b ../minicomputer/examples/sum_array.txt ../minicomputer/examples/sum_array_data.byte
 +#   make test            e11 tests (./test.sh), then the 33 base checks   (EXT e11)
 +#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
  CXX      ?= g++
@@ -217,7 +218,7 @@
  	$(CXX) $(CXXFLAGS) -c $<
  
 -test: sim
--	cd ../tests && ./run_tests.sh
+-	cd ../minicomputer/tests && ./run_tests.sh
 +test: sim                       # EXT e11: run from an extension folder
 +	./test.sh
 +	SIM=$(CURDIR)/sim ../../tests/run_tests.sh

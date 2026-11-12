@@ -148,28 +148,28 @@ grep -l "declare reduction" problems/*.c practice/*.c      # files using a const
 
 | Pattern | Look at |
 |---|---|
-| Map: independent element-wise work | `task1_vecadd.c`, `p021`, `p022`, `p055`, `p080` |
-| Sum/count/norm reductions | `task2_sum.c`, `p000`, `p023`, `p025`, `session3/task3_evenodd.c` |
+| Map: independent element-wise work | `lab7/task1_vecadd.c`, `p021`, `p022`, `p055`, `p080` |
+| Sum/count/norm reductions | `lab7/task2_sum.c`, `p000`, `p023`, `p025`, `lab9/task3_evenodd.c` |
 | Several reductions / two phases in one region | `p024`, `p004`, `practice/q04`, `practice/q09` |
-| Max/min **with index**, top-k, smallest nonzero | `task3_maxmin.c`, `p011`, `p032`, `p033`, `practice/q31` |
+| Max/min **with index**, top-k, smallest nonzero | `lab7/task3_maxmin.c`, `p011`, `p032`, `p033`, `practice/q31` |
 | Custom (user-defined) reduction, mod arithmetic, structs | `p026`, `p101`, `practice/q31` |
-| Search: exists / first / last / all positions / early exit | `session2/task1_search.c`, `p005`, `p036`, `practice/q08`, `p054` |
-| Histogram / counting / mode | `session2/task3_histogram.c`, `p035`, `p045`, `practice/q25` |
+| Search: exists / first / last / all positions / early exit | `lab8/task1_search.c`, `p005`, `p036`, `practice/q08`, `p054` |
+| Histogram / counting / mode | `lab8/task3_histogram.c`, `p035`, `p045`, `practice/q25` |
 | Prefix sum, compaction, partition, recurrences | `practice/q06`, `p037`–`p041`, `p044` |
 | Breaking a dependency (Fibonacci, recurrence) | `p040`, `p041`, `p042` |
 | Numerical integration, π, series | `p028`–`p030`, `p027`, `practice/q02`, `practice/q03` |
-| Sorting | `session2/task2_sort.c`, `session3/task1_mergesort.c`, `p046`–`p052`, `practice/q28`, `practice/q30` |
-| Matrix add/scale/transpose/rotate/flip | `task4_matadd.c`, `session2/task4_transpose.c`, `p055`, `p063`, `p064` |
-| Matrix multiply / power / blocks / triangular | `task5_matmul.c`, `practice/q13`, `p065`, `p067`–`p069` |
+| Sorting | `lab8/task2_sort.c`, `lab9/task1_mergesort.c`, `p046`–`p052`, `practice/q28`, `practice/q30` |
+| Matrix add/scale/transpose/rotate/flip | `lab7/task4_matadd.c`, `lab8/task4_transpose.c`, `p055`, `p063`, `p064` |
+| Matrix multiply / power / blocks / triangular | `lab7/task5_matmul.c`, `practice/q13`, `p065`, `p067`–`p069` |
 | Matrix–vector, Aᵀx, sparse | `practice/q05`, `p056`, `p076` |
 | Matrix properties, diagonals, row/column stats | `practice/q10`, `practice/q11`, `p058`–`p062` |
 | Linear algebra: LU, elimination, determinant, inverse, Jacobi, eigenvalue | `p070`–`p075` |
-| `collapse` rules (when it is legal / when it races) | `p066`, `task4_matadd.c` |
-| Stencils: convolution, heat, Jacobi, Game of Life, pooling, median | `session2/task5_convolution.c`, `practice/q32`–`q34`, `p079`, `p082`, `p083` |
+| `collapse` rules (when it is legal / when it races) | `p066`, `lab7/task4_matadd.c` |
+| Stencils: convolution, heat, Jacobi, Game of Life, pooling, median | `lab8/task5_convolution.c`, `practice/q32`–`q34`, `p079`, `p082`, `p083` |
 | Gauss–Seidel, red-black, wavefront / anti-diagonals (lecture slides) | `p077`, `p078`, `p103` |
 | Images | `p080`–`p084` |
-| Scheduling / uneven work | `session3/task2_schedule.c`, `p030`, `p086`, `p099`, `p100`, `practice/q07`, `practice/q26` |
-| Tasks: recursion, cutoff, dependencies, pipelines | `session3/task1_mergesort.c`, `p087`–`p092`, `p104`, `practice/q27`–`q29` |
+| Scheduling / uneven work | `lab9/task2_schedule.c`, `p030`, `p086`, `p099`, `p100`, `practice/q07`, `practice/q26` |
+| Tasks: recursion, cutoff, dependencies, pipelines | `lab9/task1_mergesort.c`, `p087`–`p092`, `p104`, `practice/q27`–`q29` |
 | Graphs | `p093`–`p095` |
 | Synchronisation, locks, deadlock, producer–consumer | `p010`, `p015`–`p017`, `practice/q22`, `practice/q23` |
 | Performance effects: false sharing, chunk size, first touch, Amdahl | `p008`, `p009`, `p012`–`p014`, `p019`, `p020` |
@@ -190,7 +190,7 @@ Or start from `practice/q00_template.c` (self-contained, no `common.h` needed).
 Typical edits:
 - Different element type: change `double` ↔ `int`/`long`, and the checker (`close_doubles` ↔ `same_ints`).
 - Required sizes: change the default `N` or loop over a sizes array:
-  `long sizes[] = {100000, 1000000, 10000000};` (copy the loop from `session3/task3_evenodd.c`).
+  `long sizes[] = {100000, 1000000, 10000000};` (copy the loop from `lab9/task3_evenodd.c`).
 - Required thread counts: edit `THREADS[]` in `common.h`, or the `threads[]` array.
 - Thread count via environment instead of code: remove `omp_set_num_threads` and run
   `for t in 1 2 4 8; do OMP_NUM_THREADS=$t ./solution; done`.

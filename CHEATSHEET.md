@@ -20,9 +20,9 @@ lscpu | grep -E 'Model name|^CPU\(s\)|Thread|Core|Socket'
 gcc --version | head -1
 echo | gcc -fopenmp -dM -E - | grep _OPENMP   # 201511 = OpenMP 4.5 (gcc reports this even for gcc 15)
 
-make                    # Lab 7  (task1..task5 in the root)
-make -C session2        # Lab 8
-make -C session3        # Lab 9
+make -C lab7            # Lab 7
+make -C lab8            # Lab 8
+make -C lab9            # Lab 9
 make -C practice        # practice bank q01..q34
 make -C problems        # problem bank p000..p104
 ```
@@ -42,19 +42,19 @@ make -C problems        # problem bank p000..p104
 
 | Lab | Task | File |
 |---|---|---|
-| 7 | Vector addition | `task1_vecadd.c` |
-| 7 | Sum: naive race / `reduction` / `critical` | `task2_sum.c` |
-| 7 | Max/min **with index**: reduction, critical, manual per-thread | `task3_maxmin.c` |
-| 7 | Matrix addition: outer vs `collapse(2)` | `task4_matadd.c` |
-| 7 | Matrix multiply: `i` vs `collapse(2)`, bonus `ikj` | `task5_matmul.c` |
-| 8 | Array search (exists + first index) | `session2/task1_search.c` |
-| 8 | Parallel sort (odd-even transposition) | `session2/task2_sort.c` |
-| 8 | Histogram 0..9 (race demo, private bins, array reduction) | `session2/task3_histogram.c` |
-| 8 | Matrix transpose | `session2/task4_transpose.c` |
-| 8 | 3×3 convolution (handout 5×5 example) | `session2/task5_convolution.c` |
-| 9 | Merge sort with `task`/`taskwait` + cutoff | `session3/task1_mergesort.c` |
-| 9 | `static` / `dynamic` / `guided` scheduling | `session3/task2_schedule.c` |
-| 9 | Even/odd count: `reduction(+:even,odd)` vs `atomic` | `session3/task3_evenodd.c` |
+| 7 | Vector addition | `lab7/task1_vecadd.c` |
+| 7 | Sum: naive race / `reduction` / `critical` | `lab7/task2_sum.c` |
+| 7 | Max/min **with index**: reduction, critical, manual per-thread | `lab7/task3_maxmin.c` |
+| 7 | Matrix addition: outer vs `collapse(2)` | `lab7/task4_matadd.c` |
+| 7 | Matrix multiply: `i` vs `collapse(2)`, bonus `ikj` | `lab7/task5_matmul.c` |
+| 8 | Array search (exists + first index) | `lab8/task1_search.c` |
+| 8 | Parallel sort (odd-even transposition) | `lab8/task2_sort.c` |
+| 8 | Histogram 0..9 (race demo, private bins, array reduction) | `lab8/task3_histogram.c` |
+| 8 | Matrix transpose | `lab8/task4_transpose.c` |
+| 8 | 3×3 convolution (handout 5×5 example) | `lab8/task5_convolution.c` |
+| 9 | Merge sort with `task`/`taskwait` + cutoff | `lab9/task1_mergesort.c` |
+| 9 | `static` / `dynamic` / `guided` scheduling | `lab9/task2_schedule.c` |
+| 9 | Even/odd count: `reduction(+:even,odd)` vs `atomic` | `lab9/task3_evenodd.c` |
 
 Practice bank (likely test variants), all in `practice/` — see `practice/README.md`:
 
@@ -197,10 +197,10 @@ double **alloc_matrix(int n) {
 |---|---|---|
 | Independent iterations, each writes its own element | `parallel for` | vecadd, matadd, transpose, convolution |
 | Combine everything into one value (sum, count, max) | `reduction(op:var)` | sum, dot product, even/odd |
-| Value **and** where it is (argmax) | per-thread local best + `critical` merge, or `declare reduction` | `task3_maxmin.c`, `q31` |
-| Many counters (histogram) | `reduction(+:h[:B])` or private arrays merged once | `session2/task3_histogram.c`, `q25` |
-| Few outer iterations (N=8) | `collapse(2)` | `task4_matadd.c` |
-| Iterations of very different cost | `schedule(dynamic, c)` or `guided` | `session3/task2_schedule.c`, `q07`, `q26` |
+| Value **and** where it is (argmax) | per-thread local best + `critical` merge, or `declare reduction` | `lab7/task3_maxmin.c`, `q31` |
+| Many counters (histogram) | `reduction(+:h[:B])` or private arrays merged once | `lab8/task3_histogram.c`, `q25` |
+| Few outer iterations (N=8) | `collapse(2)` | `lab7/task4_matadd.c` |
+| Iterations of very different cost | `schedule(dynamic, c)` or `guided` | `lab9/task2_schedule.c`, `q07`, `q26` |
 | Recursion / divide-and-conquer / linked list | `task` + `taskwait` with a cutoff | merge sort, quicksort, fib |
 | A few different jobs at once | `sections` (or tasks) | `q24` |
 | Stages that depend on each other (sort phases, prefix sum) | barrier between stages (implicit at end of `omp for`) | odd-even sort, `q06` |
@@ -265,7 +265,7 @@ limited by strided writes (cache misses); blocking/tiling helps.
 cell, so it's race-free; use `collapse(2)` over output pixels. Valid output is (n−2)×(n−2);
 the handout's first value is 630/9 = 70.
 
-### Lab 9 (Tasks, scheduling, multiple reductions) — details in `session3/REPORT.md`
+### Lab 9 (Tasks, scheduling, multiple reductions) — details in `lab9/REPORT.md`
 
 **Tasks vs parallel for:** `for` splits a loop whose iteration count is known at
 entry, statically or dynamically, and ends with a barrier. Tasks are units of

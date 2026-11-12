@@ -1,4 +1,4 @@
---- ../../simulator/main.cpp	2026-11-11 23:25:42
+--- ../../../lab6/main.cpp	2026-11-11 23:25:42
 +++ main.cpp	2026-11-11 23:51:01
 @@ -9,6 +9,7 @@
   * A program may also be given as an already compiled .byte file.
@@ -8,7 +8,7 @@
   */
  #include <cstdio>
  #include <cstring>
---- ../../simulator/os.cpp	2026-11-11 23:27:51
+--- ../../../lab6/os.cpp	2026-11-11 23:27:51
 +++ os.cpp	2026-11-11 23:51:01
 @@ -9,6 +9,7 @@
   * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
@@ -129,7 +129,7 @@
  }
  
  /* ---------------- loader and tasks ---------------- */
---- ../../simulator/processor.cpp	2026-11-12 00:32:15
+--- ../../../lab6/processor.cpp	2026-11-12 00:32:15
 +++ processor.cpp	2026-11-12 00:32:15
 @@ -21,6 +21,7 @@
  int current_pid[NP];
@@ -189,7 +189,7 @@
      steps[p]++;
      if (trace)
          std::fprintf(stderr, "[pid %d p%d] %3d: %02X %02X %02X %02X   %s\n", current_pid[p], p,
---- ../../simulator/config.h	2026-11-11 23:19:26
+--- ../../../lab6/config.h	2026-11-11 23:19:26
 +++ config.h	2026-11-11 23:50:10
 @@ -70,4 +70,22 @@
      COND_HI, COND_LS, COND_GE, COND_LT, COND_GT, COND_LE, COND_AL, NUM_CONDITIONS
@@ -214,7 +214,7 @@
 +#define PROF_TOP            3   /* EXT e09: how many hottest lines to list */
 +
  #endif
---- ../../simulator/processor.h	2026-11-11 23:23:00
+--- ../../../lab6/processor.h	2026-11-11 23:23:00
 +++ processor.h	2026-11-11 23:50:11
 @@ -18,6 +18,7 @@
  extern int current_pid[NP];                    /* task running on processor p */
@@ -224,14 +224,15 @@
  extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
  
  extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
---- ../../simulator/Makefile	2026-11-11 23:25:43
+--- ../../../lab6/Makefile	2026-11-12 10:34:26
 +++ Makefile	2026-11-11 23:55:42
 @@ -1,7 +1,8 @@
- # CS527 mini-computer simulator (Labs 1-6)
+-# CS527 Lab 6: the complete mini-computer simulator (includes Labs 1-5)
++# CS527 mini-computer simulator (Labs 1-6)
 +# EXT e09: line profile with hot spots and dead code (writes <program>_<pid>.prof)
  #   make                 build ./sim
--#   make test            build and run the regression tests (../tests/run_tests.sh)
--#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
+-#   make test            build and run the regression tests (../minicomputer/tests/run_tests.sh)
+-#   ./sim -b ../minicomputer/examples/sum_array.txt ../minicomputer/examples/sum_array_data.byte
 +#   make test            EXT e09: base regression tests on this build, then ./test.sh
 +#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte   (EXT e09: path from extensions/<dir>)
  CXX      ?= g++
@@ -242,7 +243,7 @@
  	$(CXX) $(CXXFLAGS) -c $<
  
 -test: sim
--	cd ../tests && ./run_tests.sh
+-	cd ../minicomputer/tests && ./run_tests.sh
 +test: sim                       # EXT e09: run the base tests on this build, then ./test.sh
 +	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
 +	./test.sh

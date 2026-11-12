@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run every program in this folder on the simulator and check its results.
-#   ./run_programs.sh                    all programs (first builds ../simulator/sim if needed)
+#   ./run_programs.sh                    all programs (first builds ../../lab6/sim if needed)
 #   ./run_programs.sh sort               only the programs whose name contains "sort"
 #   SIM=~/exam/sim/sim ./run_programs.sh test another simulator build (no make then)
 # Each program runs in its own scratch directory, so nothing is written in this folder.
@@ -10,8 +10,8 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 FILTER="${1:-}"
 if [ -z "${SIM:-}" ]; then
-    SIM="$HERE/../simulator/sim"
-    make -s -C "$HERE/../simulator" || { echo "could not build the simulator"; exit 1; }
+    SIM="$HERE/../../lab6/sim"
+    make -s -C "$HERE/../../lab6" || { echo "could not build the simulator"; exit 1; }
 fi
 [ -x "$SIM" ] || { echo "no simulator at $SIM"; exit 1; }
 WORK="$(mktemp -d)"

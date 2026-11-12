@@ -10,8 +10,8 @@ How to use these for a new question: `GUIDE.md`. Matrix questions: `MATRIX_RULES
 Sources: textbook exercises are from *Parallel Programming in MPI and OpenMP* (Eijkhout),
 Part II (the book named in the lab handouts); the lecture slides are *ParallelComputation.pptx*.
 
-Also solved elsewhere in the repo: the lab tasks (root = Lab 7, `session2/` = Lab 8,
-`session3/` = Lab 9) and `practice/q00`–`q34` (see `practice/README.md`).
+Also solved elsewhere in the repo: the lab tasks (`lab7/`, `lab8/`, `lab9/`)
+and `practice/q00`–`q34` (see `practice/README.md`).
 
 ## Contents
 
@@ -598,7 +598,7 @@ File: [`problems/p051_parallel_merge.c`](problems/p051_parallel_merge.c)
 
 **Solution.** Sort: task for each half, taskwait, then merge a[0..h) and a[h..n) into tmp and copy back. Parallel merge of A (na) and B (nb) into C: let A be the larger, r = na/2, s = number of B elements < A[r] (lower bound); then A[r] lands at C[r+s], everything left of it is merge(A[0..r), B[0..s)) and everything right is merge(A[r+1..), B[s..)) -> two independent merges on disjoint input and output ranges (one as a task, one by the current thread, then taskwait). If B is larger, split B the same way using upper bound (A elements <= B[r] go first: ties from A first -> stable). The copy back is split into tasks too. Recursion stops at the cutoffs. Tasks are started from `parallel` + `single`; every task owns disjoint ranges of a and tmp -> race-free.
 
-*Source:* Lab 9 Task 1 extension (session3/task1_mergesort.c).
+*Source:* Lab 9 Task 1 extension (lab9/task1_mergesort.c).
 
 File: [`problems/p052_mergesort_parallel_merge.c`](problems/p052_mergesort_parallel_merge.c)
 

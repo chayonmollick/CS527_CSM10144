@@ -1,4 +1,4 @@
---- ../../simulator/os.cpp	2026-11-11 23:27:51
+--- ../../../lab6/os.cpp	2026-11-11 23:27:51
 +++ os.cpp	2026-11-12 00:03:53
 @@ -9,6 +9,8 @@
   * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
@@ -225,14 +225,14 @@
          prompt();
      }
      for (;;) {
---- ../../simulator/Makefile	2026-11-11 23:25:43
+--- ../../../lab6/Makefile	2026-11-12 10:34:26
 +++ Makefile	2026-11-12 00:03:23
 @@ -1,7 +1,7 @@
--# CS527 mini-computer simulator (Labs 1-6)
+-# CS527 Lab 6: the complete mini-computer simulator (includes Labs 1-5)
 +# CS527 mini-computer simulator (Labs 1-6) + EXT e17: shell commands ps, kill, mem, help
  #   make                 build ./sim
--#   make test            build and run the regression tests (../tests/run_tests.sh)
--#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
+-#   make test            build and run the regression tests (../minicomputer/tests/run_tests.sh)
+-#   ./sim -b ../minicomputer/examples/sum_array.txt ../minicomputer/examples/sum_array_data.byte
 +#   make test            base regression tests (../../tests/run_tests.sh) + ./test.sh   (EXT e17)
 +#   printf 'loop.txt loop_data.byte\nsleep 3\nps\nkill 1\nps\nexit\n' | ./sim
  CXX      ?= g++
@@ -243,7 +243,7 @@
  	$(CXX) $(CXXFLAGS) -c $<
  
 -test: sim
--	cd ../tests && ./run_tests.sh
+-	cd ../minicomputer/tests && ./run_tests.sh
 +test: sim                                  # EXT e17: base tests on this build, then this extension's tests
 +	SIM=$(CURDIR)/sim ../../tests/run_tests.sh && ./test.sh
  

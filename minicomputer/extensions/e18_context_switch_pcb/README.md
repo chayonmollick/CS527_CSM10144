@@ -56,7 +56,7 @@ Set NP = 1, run 4 counter programs concurrently, show the interleaved output in 
 | Makefile | header, `test` | `make test` = base tests (1 failure expected) + `./test.sh` |
 | test.sh | — | 24 checks |
 
-`grep -n "EXT e18" *.cpp *.h Makefile` lists every change; `CHANGES.diff` has the full diff against `simulator/`.
+`grep -n "EXT e18" *.cpp *.h Makefile` lists every change; `CHANGES.diff` has the full diff against the base simulator in `../../../lab6/`.
 
 ## Run
 ```

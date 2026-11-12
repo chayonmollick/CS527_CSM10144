@@ -1,4 +1,4 @@
---- ../../simulator/os.cpp	2026-11-11 23:27:51
+--- ../../../lab6/os.cpp	2026-11-11 23:27:51
 +++ os.cpp	2026-11-12 00:12:20
 @@ -9,6 +9,9 @@
   * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
@@ -117,7 +117,7 @@
  }
  
  /* ---------------- loader and tasks ---------------- */
---- ../../simulator/processor.cpp	2026-11-12 00:32:15
+--- ../../../lab6/processor.cpp	2026-11-12 00:32:15
 +++ processor.cpp	2026-11-12 00:32:15
 @@ -77,7 +77,7 @@
  static bool store_word(int addr, int value) {
@@ -128,7 +128,7 @@
          if (pa < 0) return false;
          memory[pa] = (unsigned char)(v >> (8 * k));
      }
---- ../../simulator/config.h	2026-11-11 23:19:26
+--- ../../../lab6/config.h	2026-11-11 23:19:26
 +++ config.h	2026-11-12 00:02:12
 @@ -21,6 +21,15 @@
  #define NUM_PHYSICAL_PAGES (MEMSIZE / PAGESIZE)                   /* 16 frames, frame 0 reserved */
@@ -146,7 +146,7 @@
  /* ---- operating system (Lab 4) ---- */
  #define MAX_TASKS       64      /* process-table size */
  #define TIME_SLICE      10      /* instructions per scheduler turn */
---- ../../simulator/os.h	2026-11-11 23:23:48
+--- ../../../lab6/os.h	2026-11-11 23:23:48
 +++ os.h	2026-11-12 00:02:13
 @@ -8,8 +8,10 @@
  
@@ -160,13 +160,14 @@
  
  int  getFreePage();                     /* first free frame (marked allocated), -1 if none */
  void os_init(bool batch);               /* batch = no shell: stop when the tasks finish */
---- ../../simulator/Makefile	2026-11-11 23:25:43
+--- ../../../lab6/Makefile	2026-11-12 10:34:26
 +++ Makefile	2026-11-12 00:02:57
 @@ -1,7 +1,7 @@
- # CS527 mini-computer simulator (Labs 1-6)
+-# CS527 Lab 6: the complete mini-computer simulator (includes Labs 1-5)
++# CS527 mini-computer simulator (Labs 1-6)
  #   make                 build ./sim
--#   make test            build and run the regression tests (../tests/run_tests.sh)
--#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
+-#   make test            build and run the regression tests (../minicomputer/tests/run_tests.sh)
+-#   ./sim -b ../minicomputer/examples/sum_array.txt ../minicomputer/examples/sum_array_data.byte
 +#   make test            e14 tests (./test.sh), then the 33 base checks   (EXT e14)
 +#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
  CXX      ?= g++
@@ -177,7 +178,7 @@
  	$(CXX) $(CXXFLAGS) -c $<
  
 -test: sim
--	cd ../tests && ./run_tests.sh
+-	cd ../minicomputer/tests && ./run_tests.sh
 +test: sim                       # EXT e14: run from an extension folder
 +	./test.sh
 +	SIM=$(CURDIR)/sim ../../tests/run_tests.sh

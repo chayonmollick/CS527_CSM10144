@@ -19,14 +19,14 @@ and `complex_mul.txt`.
 ## Run and check
 ```bash
 cd minicomputer/programs
-./run_programs.sh                 # builds ../simulator/sim if needed, runs all 35: 154 checks
+./run_programs.sh                 # builds ../../lab6/sim if needed, runs all 35: 154 checks
 ./run_programs.sh sort            # only the programs whose name contains "sort"
 SIM=~/exam/sim/sim ./run_programs.sh   # check your own (modified) simulator build instead
 
-../simulator/sim -c max_array.txt                         # compile only: errors with line numbers, byte-code listing
-../simulator/sim -b max_array.txt max_array_data.byte     # run one program
+../../lab6/sim -c max_array.txt                           # compile only: errors with line numbers, byte-code listing
+../../lab6/sim -b max_array.txt max_array_data.byte       # run one program
 ../tools/words.sh max_array_data_1.out                    # every word of the result, with its address
-../simulator/sim -b -t max_array.txt max_array_data.byte  # trace every instruction (stderr)
+../../lab6/sim -b -t max_array.txt max_array_data.byte  # trace every instruction (stderr)
 rm -f program.byte *.out *.freq log.txt                   # clean up after running here
 ```
 - **Output files:** the final data memory is written to `<data file>_1.out` (1 is the pid), in the same format as the data file.

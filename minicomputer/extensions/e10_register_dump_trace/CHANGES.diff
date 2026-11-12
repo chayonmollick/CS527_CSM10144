@@ -1,4 +1,4 @@
---- ../../simulator/main.cpp	2026-11-11 23:25:42
+--- ../../../lab6/main.cpp	2026-11-11 23:25:42
 +++ main.cpp	2026-11-11 23:54:01
 @@ -4,11 +4,13 @@
   *         start these tasks; the shell then accepts more ("exit" or end of input stops it)
@@ -35,7 +35,7 @@
          else if (!std::strcmp(argv[i], "-c")) {
              if (i + 1 >= argc) { usage(); return 1; }
              return compile_only(argv[i + 1], i + 2 < argc ? argv[i + 2] : "program.byte");
---- ../../simulator/os.cpp	2026-11-11 23:27:51
+--- ../../../lab6/os.cpp	2026-11-11 23:27:51
 +++ os.cpp	2026-11-11 23:54:01
 @@ -9,6 +9,8 @@
   * Lab 6: task 1 - finalize() writes <program>_<pid>.freq (executions per source line).
@@ -123,7 +123,7 @@
      t.state = READY;
      ready_queue.push_back(pid);
      std::printf("[os] pid %d (%s) loaded on processor %d: %d instruction + %d data page(s), %d frame(s) left\n",
---- ../../simulator/processor.cpp	2026-11-12 00:32:15
+--- ../../../lab6/processor.cpp	2026-11-12 00:32:15
 +++ processor.cpp	2026-11-12 00:32:15
 @@ -5,6 +5,7 @@
  #include <cstdarg>
@@ -207,7 +207,7 @@
          done++;
          if (!end_of_simulation[p] && steps[p] >= MAX_STEPS) {
              processor_error("%ld instructions executed without halting: endless loop?", MAX_STEPS);
---- ../../simulator/processor.h	2026-11-11 23:23:00
+--- ../../../lab6/processor.h	2026-11-11 23:23:00
 +++ processor.h	2026-11-11 23:52:45
 @@ -23,6 +23,8 @@
  extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
@@ -218,14 +218,15 @@
  
  void reset(int p);
  void fetch();
---- ../../simulator/Makefile	2026-11-11 23:25:43
+--- ../../../lab6/Makefile	2026-11-12 10:34:26
 +++ Makefile	2026-11-11 23:55:42
 @@ -1,7 +1,8 @@
- # CS527 mini-computer simulator (Labs 1-6)
+-# CS527 Lab 6: the complete mini-computer simulator (includes Labs 1-5)
++# CS527 mini-computer simulator (Labs 1-6)
 +# EXT e10: register dump (<program>_<pid>.regs) and per-task trace with -T (<program>_<pid>.trace)
  #   make                 build ./sim
--#   make test            build and run the regression tests (../tests/run_tests.sh)
--#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
+-#   make test            build and run the regression tests (../minicomputer/tests/run_tests.sh)
+-#   ./sim -b ../minicomputer/examples/sum_array.txt ../minicomputer/examples/sum_array_data.byte
 +#   make test            EXT e10: base regression tests on this build, then ./test.sh
 +#   ./sim -b -T ../../examples/sum_array.txt ../../examples/sum_array_data.byte   (EXT e10: path from extensions/<dir>)
  CXX      ?= g++
@@ -236,7 +237,7 @@
  	$(CXX) $(CXXFLAGS) -c $<
  
 -test: sim
--	cd ../tests && ./run_tests.sh
+-	cd ../minicomputer/tests && ./run_tests.sh
 +test: sim                       # EXT e10: run the base tests on this build, then ./test.sh
 +	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
 +	./test.sh

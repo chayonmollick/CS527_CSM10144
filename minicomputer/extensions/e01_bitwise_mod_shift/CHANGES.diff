@@ -1,4 +1,4 @@
---- ../../simulator/compiler.cpp	2026-11-11 23:23:41
+--- ../../../lab6/compiler.cpp	2026-11-11 23:23:41
 +++ compiler.cpp	2026-11-11 23:39:52
 @@ -9,6 +9,7 @@
   *   vD = vA + vB      vD = vA * 3      vD = vA * xB  (+ - *)          vectors (Lab 3)
@@ -74,7 +74,7 @@
      if (op >= OP_BRANCH && op < OP_BRANCH + NUM_CONDITIONS) {
          std::snprintf(buf, sizeof buf, "B%s %+d", COND_NAMES[op - OP_BRANCH], (int)(signed char)b);
          return buf;
---- ../../simulator/processor.cpp	2026-11-12 00:32:15
+--- ../../../lab6/processor.cpp	2026-11-12 00:32:15
 +++ processor.cpp	2026-11-12 00:32:15
 @@ -115,6 +115,14 @@
      }
@@ -125,7 +125,7 @@
      case OP_MOV:  x[dest] = x[src2]; break;
      case OP_MOVC: x[dest] = src2; break;
      case OP_LOAD:   if (load_word(x[src2], value)) x[dest] = value; break;     /* xD = [xA] */
---- ../../simulator/config.h	2026-11-11 23:19:26
+--- ../../../lab6/config.h	2026-11-11 23:19:26
 +++ config.h	2026-11-11 23:39:49
 @@ -61,7 +61,21 @@
      OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
@@ -150,13 +150,14 @@
  };
  
  /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
---- ../../simulator/Makefile	2026-11-11 23:25:43
+--- ../../../lab6/Makefile	2026-11-12 10:34:26
 +++ Makefile	2026-11-11 23:40:17
 @@ -1,7 +1,7 @@
- # CS527 mini-computer simulator (Labs 1-6)
+-# CS527 Lab 6: the complete mini-computer simulator (includes Labs 1-5)
++# CS527 mini-computer simulator (Labs 1-6)
  #   make                 build ./sim
--#   make test            build and run the regression tests (../tests/run_tests.sh)
--#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
+-#   make test            build and run the regression tests (../minicomputer/tests/run_tests.sh)
+-#   ./sim -b ../minicomputer/examples/sum_array.txt ../minicomputer/examples/sum_array_data.byte
 +#   make test            e01 tests (./test.sh), then the 33 base checks   (EXT e01)
 +#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
  CXX      ?= g++
@@ -167,7 +168,7 @@
  	$(CXX) $(CXXFLAGS) -c $<
  
 -test: sim
--	cd ../tests && ./run_tests.sh
+-	cd ../minicomputer/tests && ./run_tests.sh
 +test: sim                       # EXT e01: run from an extension folder
 +	./test.sh
 +	SIM=$(CURDIR)/sim ../../tests/run_tests.sh

@@ -1,4 +1,4 @@
---- ../../simulator/compiler.cpp	2026-11-11 23:23:41
+--- ../../../lab6/compiler.cpp	2026-11-11 23:23:41
 +++ compiler.cpp	2026-11-11 23:58:34
 @@ -9,10 +9,14 @@
   *   vD = vA + vB      vD = vA * 3      vD = vA * xB  (+ - *)          vectors (Lab 3)
@@ -135,7 +135,7 @@
      case OP_PRINT:   std::snprintf(buf, sizeof buf, "print x%d", b); break;
      case OP_VLOAD:   std::snprintf(buf, sizeof buf, "v%d = [x%d]", d, b); break;
      case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
---- ../../simulator/os.cpp	2026-11-11 23:27:51
+--- ../../../lab6/os.cpp	2026-11-11 23:27:51
 +++ os.cpp	2026-11-11 23:46:51
 @@ -123,7 +123,10 @@
          std::vector<bool> executable(pr.source.size(), false);
@@ -149,7 +149,7 @@
                  executable[pr.line_of[i]] = true;
              }
          for (size_t ln = 0; ln < pr.source.size(); ln++) {
---- ../../simulator/processor.cpp	2026-11-12 00:32:15
+--- ../../../lab6/processor.cpp	2026-11-12 00:32:15
 +++ processor.cpp	2026-11-12 00:32:15
 @@ -188,6 +188,9 @@
      }
@@ -161,7 +161,7 @@
      case OP_LOAD:   if (load_word(x[src2], value)) x[dest] = value; break;     /* xD = [xA] */
      case OP_LOADC:  if (load_word(src2, value)) x[dest] = value; break;        /* xD = [c]  */
      case OP_STORE:  store_word(x[dest], x[src2]); break;                       /* [xA] = xS */
---- ../../simulator/config.h	2026-11-11 23:19:26
+--- ../../../lab6/config.h	2026-11-11 23:19:26
 +++ config.h	2026-11-11 23:45:54
 @@ -61,7 +61,9 @@
      OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
@@ -174,13 +174,14 @@
  };
  
  /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
---- ../../simulator/Makefile	2026-11-11 23:25:43
+--- ../../../lab6/Makefile	2026-11-12 10:34:26
 +++ Makefile	2026-11-11 23:40:17
 @@ -1,7 +1,7 @@
- # CS527 mini-computer simulator (Labs 1-6)
+-# CS527 Lab 6: the complete mini-computer simulator (includes Labs 1-5)
++# CS527 mini-computer simulator (Labs 1-6)
  #   make                 build ./sim
--#   make test            build and run the regression tests (../tests/run_tests.sh)
--#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
+-#   make test            build and run the regression tests (../minicomputer/tests/run_tests.sh)
+-#   ./sim -b ../minicomputer/examples/sum_array.txt ../minicomputer/examples/sum_array_data.byte
 +#   make test            e03 tests (./test.sh), then the 33 base checks   (EXT e03)
 +#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
  CXX      ?= g++
@@ -191,7 +192,7 @@
  	$(CXX) $(CXXFLAGS) -c $<
  
 -test: sim
--	cd ../tests && ./run_tests.sh
+-	cd ../minicomputer/tests && ./run_tests.sh
 +test: sim                       # EXT e03: run from an extension folder
 +	./test.sh
 +	SIM=$(CURDIR)/sim ../../tests/run_tests.sh

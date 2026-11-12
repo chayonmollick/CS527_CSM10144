@@ -41,7 +41,7 @@ Demonstrate it by piping a command sequence into the simulator: start a long-run
 | loop.txt, loop_data.byte | — | example: endless counter, stores the count at [0] each step |
 | test.sh | — | 25 checks: 2 piped sessions |
 
-`grep -n "EXT e17" *.cpp *.h Makefile` lists every change; `CHANGES.diff` has the full diff against `simulator/`.
+`grep -n "EXT e17" *.cpp *.h Makefile` lists every change; `CHANGES.diff` has the full diff against the base simulator in `../../../lab6/`.
 
 ## Run
 ```

@@ -10,12 +10,12 @@ codebase. For anything bigger, start from the matching worked solution in
 
 ## 0. Exam-day setup (5 minutes)
 ```bash
-git clone https://github.com/chayonmollick/CS527_CSM10144.git && cd CS527_CSM10144/minicomputer
-cd simulator && make && make test          # must end with "33 passed, 0 failed"
-mkdir -p ~/exam && cp -r ../simulator ~/exam/sim && cd ~/exam/sim   # work on a copy
+git clone https://github.com/chayonmollick/CS527_CSM10144.git && cd CS527_CSM10144
+cd lab6 && make && make test               # the final simulator: must end with "33 passed, 0 failed"
+mkdir -p ~/exam && cp -r ../lab6 ~/exam/sim && cd ~/exam/sim        # work on a copy
 make clean && make                         # always rebuild a copied folder (stale .o files)
 ```
-- Find every change a worked solution made: `grep -n "EXT e13" ../extensions/e13_*/*.cpp`, or read its `CHANGES.diff`.
+- Find every change a worked solution made: `grep -n "EXT e13" <repo>/minicomputer/extensions/e13_*/*.cpp`, or read its `CHANGES.diff`.
 - Check your edited copy against all the old behaviour: `SIM=$PWD/sim <repo>/minicomputer/tests/run_tests.sh`.
 - Submit the way the last tests did: `tar -czvf <entry_no>_final.tgz <folder>`, then check it with `tar -tzvf`.
 
@@ -151,7 +151,7 @@ See `programs/README.md`; there are 35 solved programs there. Remember:
 ## 4. Debugging
 - `./sim -c prog.txt`: compile errors show `file:line: message`; the listing shows each instruction's bytes, disassembly and source line.
 - `./sim -b -t prog.txt data.byte 2> trace.txt`: every executed instruction.
-- `../tools/words.sh x_1.out`: every 32-bit word of a data or output file, with its address, in hex and decimal.
+- `<repo>/minicomputer/tools/words.sh x_1.out`: every 32-bit word of a data or output file, with its address, in hex and decimal.
 - **Wrong branch:** check the flags. Only add/sub set them, so a `mul` between the compare and the branch does not change them, but another `sub` does.
 - **Task stops "outside the logical data space":** an address went past 4095. Remember that addresses are in bytes (word i is at 4i).
 

@@ -163,10 +163,10 @@ GFLOP/s = flops / time / 1e9. Matmul's n³ work over n² data is why it scales b
 
 | Problem | File |
 |---|---|
-| Matrix add, outer vs collapse (N = 8 vs 4096) | `task4_matadd.c` |
-| Matmul ijk / collapse / ikj | `task5_matmul.c`, `practice/q13_matmul_variants.c` |
-| Transpose (out of place, in place, blocked) | `session2/task4_transpose.c`, `practice/q14_transpose_inplace.c` |
-| 3×3 convolution and kernels | `session2/task5_convolution.c`, `practice/q32_convolution_kernels.c` |
+| Matrix add, outer vs collapse (N = 8 vs 4096) | `lab7/task4_matadd.c` |
+| Matmul ijk / collapse / ikj | `lab7/task5_matmul.c`, `practice/q13_matmul_variants.c` |
+| Transpose (out of place, in place, blocked) | `lab8/task4_transpose.c`, `practice/q14_transpose_inplace.c` |
+| 3×3 convolution and kernels | `lab8/task5_convolution.c`, `practice/q32_convolution_kernels.c` |
 | Matrix–vector, Aᵀx, sparse CSR | `practice/q05_matvec.c`, `problems/p056`, `problems/p076` |
 | Row/column sums, trace, Frobenius, max with (i,j) | `practice/q10_matrix_stats.c`, `problems/p058`, `problems/p062` |
 | Equal / symmetric / identity / triangular / diagonally dominant | `practice/q11_matrix_checks.c`, `problems/p059` |

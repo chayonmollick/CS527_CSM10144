@@ -1,7 +1,7 @@
-# CS527 mini-computer simulator (Labs 1-6)
+# CS527 Lab 6: the complete mini-computer simulator (includes Labs 1-5)
 #   make                 build ./sim
-#   make test            build and run the regression tests (../tests/run_tests.sh)
-#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
+#   make test            build and run the regression tests (../minicomputer/tests/run_tests.sh)
+#   ./sim -b ../minicomputer/examples/sum_array.txt ../minicomputer/examples/sum_array_data.byte
 CXX      ?= g++
 CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
 OBJS = main.o compiler.o processor.o memory.o os.o
@@ -14,7 +14,7 @@ sim: $(OBJS)
 	$(CXX) $(CXXFLAGS) -c $<
 
 test: sim
-	cd ../tests && ./run_tests.sh
+	cd ../minicomputer/tests && ./run_tests.sh
 
 clean:
 	rm -f sim $(OBJS) program.byte *.out *.freq log.txt

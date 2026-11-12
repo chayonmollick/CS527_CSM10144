@@ -1,13 +1,17 @@
 # CS527 mini-computer simulator (Labs 1–6)
 
-One simulator that implements every mini-computer lab: the compiler for the
-course language, the processor, vector instructions, the multiprocessing OS
-with shell and loader, paging, and both Lab 6 test tasks (execution-frequency
-report, page tables stored in physical memory).
+The simulator grows lab by lab; each lab has its own complete folder at the top
+of the repo (`../lab1/` … `../lab6/`). [`../lab6/`](../lab6/) is the final
+version: it implements every mini-computer lab (the compiler for the course
+language, the processor, vector instructions, the multiprocessing OS with shell
+and loader, paging) and both Lab 6 test tasks (execution-frequency report, page
+tables stored in physical memory). This folder holds what is shared by all of
+them: examples, tests, the guide, worked extensions and the program bank.
 
 | Folder | Contents |
 |---|---|
-| [`simulator/`](simulator/) | The source: `main`, `compiler`, `processor`, `memory`, `os` (+ `config.h`), and the Makefile |
+| [`../lab6/`](../lab6/) | The final simulator source: `main`, `compiler`, `processor`, `memory`, `os` (+ `config.h`), and the Makefile |
+| [`../lab1/`](../lab1/) … [`../lab5/`](../lab5/) | The simulator as each earlier lab asked for it |
 | [`examples/`](examples/) | Programs and data files for every lab |
 | [`tests/run_tests.sh`](tests/run_tests.sh) | 33 regression checks (`make test`) |
 | [`GUIDE.md`](GUIDE.md) | **How to extend the simulator in the test**: recipes, likely questions, viva answers |
@@ -16,10 +20,10 @@ report, page tables stored in physical memory).
 
 ## Build and run
 ```bash
-cd simulator && make                 # g++ -std=c++17 -O2 -Wall -Wextra, no warnings
-make test                            # runs ../tests/run_tests.sh: 33 checks
+cd ../lab6 && make                   # g++ -std=c++17 -O2 -Wall -Wextra, no warnings
+make test                            # runs ../minicomputer/tests/run_tests.sh: 33 checks
 
-./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte      # one task, then stop
+./sim -b ../minicomputer/examples/sum_array.txt ../minicomputer/examples/sum_array_data.byte   # one task, then stop
 ./sim -b prog1.txt data1.byte prog2.txt data2.byte                      # several tasks at once
 ./sim prog1.txt data1.byte           # tasks + shell: type "<program> <data>" lines, then "exit"
 ./sim -c prog.txt                    # compile only: writes program.byte and prints a listing

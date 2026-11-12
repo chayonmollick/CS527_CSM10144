@@ -18,7 +18,7 @@
  *   The copy back is split into tasks too. Recursion stops at the cutoffs.
  *   Tasks are started from `parallel` + `single`; every task owns disjoint
  *   ranges of a and tmp -> race-free.
- * Source: Lab 9 Task 1 extension (session3/task1_mergesort.c).
+ * Source: Lab 9 Task 1 extension (lab9/task1_mergesort.c).
  * Build: gcc -O2 -Wall -Wextra -fopenmp p052_mergesort_parallel_merge.c -o p052 -lm
  * Run:   ./p052 [N]          (default N = 2e6)
  */

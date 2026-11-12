@@ -1,4 +1,4 @@
---- ../../simulator/compiler.cpp	2026-11-11 23:23:41
+--- ../../../lab6/compiler.cpp	2026-11-11 23:23:41
 +++ compiler.cpp	2026-11-12 00:03:53
 @@ -9,6 +9,7 @@
   *   vD = vA + vB      vD = vA * 3      vD = vA * xB  (+ - *)          vectors (Lab 3)
@@ -85,7 +85,7 @@
      default:         std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
      }
      return buf;
---- ../../simulator/processor.cpp	2026-11-12 00:32:15
+--- ../../../lab6/processor.cpp	2026-11-12 00:32:15
 +++ processor.cpp	2026-11-12 00:32:15
 @@ -85,6 +85,12 @@
      return true;
@@ -140,7 +140,7 @@
          for (int i = 0; i < VLEN; i++)
              if (!store_word(addr + 4 * i, VRegister[p][src2][i])) return;
          break;
---- ../../simulator/config.h	2026-11-11 23:19:26
+--- ../../../lab6/config.h	2026-11-11 23:19:26
 +++ config.h	2026-11-11 23:48:46
 @@ -61,7 +61,13 @@
      OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
@@ -157,13 +157,14 @@
  };
  
  /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
---- ../../simulator/Makefile	2026-11-11 23:25:43
+--- ../../../lab6/Makefile	2026-11-12 10:34:26
 +++ Makefile	2026-11-11 23:40:17
 @@ -1,7 +1,7 @@
- # CS527 mini-computer simulator (Labs 1-6)
+-# CS527 Lab 6: the complete mini-computer simulator (includes Labs 1-5)
++# CS527 mini-computer simulator (Labs 1-6)
  #   make                 build ./sim
--#   make test            build and run the regression tests (../tests/run_tests.sh)
--#   ./sim -b ../examples/sum_array.txt ../examples/sum_array_data.byte
+-#   make test            build and run the regression tests (../minicomputer/tests/run_tests.sh)
+-#   ./sim -b ../minicomputer/examples/sum_array.txt ../minicomputer/examples/sum_array_data.byte
 +#   make test            e04 tests (./test.sh), then the 33 base checks   (EXT e04)
 +#   ./sim -b ../../examples/sum_array.txt ../../examples/sum_array_data.byte
  CXX      ?= g++
@@ -174,7 +175,7 @@
  	$(CXX) $(CXXFLAGS) -c $<
  
 -test: sim
--	cd ../tests && ./run_tests.sh
+-	cd ../minicomputer/tests && ./run_tests.sh
 +test: sim                       # EXT e04: run from an extension folder
 +	./test.sh
 +	SIM=$(CURDIR)/sim ../../tests/run_tests.sh
