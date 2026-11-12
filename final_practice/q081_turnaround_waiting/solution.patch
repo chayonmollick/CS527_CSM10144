@@ -1,0 +1,67 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:08:23
++++ b/os.cpp	2026-11-12 11:08:23
+@@ -38,6 +38,7 @@
+     long steps = 0;
+     int page_faults = 0;
+     bool failed = false;
++    int arrival = 0, finish = 0, slices = 0;    /* Q081: rounds; slices = rounds in which it ran */
+ };
+ 
+ static std::vector<Task> tasks;             /* tasks[pid - 1] */
+@@ -46,6 +47,7 @@
+ static char freePages[NUM_PHYSICAL_PAGES];  /* 1 = allocated; frame 0 holds the page tables */
+ static int page_faults_on[NP];
+ static bool shell_open = true;
++static int rounds = 0;                      /* Q081: scheduler rounds in which some task ran */
+ static std::string shell_buffer;
+ 
+ static int pages_for(size_t bytes) { return (int)((bytes + PAGESIZE - 1) / PAGESIZE); }
+@@ -215,6 +217,7 @@
+     t.pid = (int)tasks.size() + 1;
+     t.program_path = program;
+     t.data_path = data;
++    t.arrival = rounds;                                                     /* Q081 */
+     std::string err;
+     bool is_bytecode = program.size() > 5 && program.compare(program.size() - 5, 5, ".byte") == 0;
+     bool ok = is_bytecode ? load_bytecode(program, t.prog, err) : compile_file(program, t.prog, err);
+@@ -297,6 +300,7 @@
+     int p = t.proc;
+     finalize(p, t);
+     t.state = DONE;
++    t.finish = rounds;                                 /* Q081: it ended in this round */
+     t.proc = -1;
+     proc_owner[p] = 0;
+ }
+@@ -309,11 +313,13 @@
+     for (;;) {
+         admit_waiting();
+         size_t n = ready_queue.size();
++        if (n > 0) rounds++;                           /* Q081: count only rounds that run something */
+         for (size_t i = 0; i < n; i++) {               /* one round: every ready task gets a slice */
+             int pid = ready_queue.front();
+             ready_queue.pop_front();
+             int p = map_pid_proc_id(pid);
+             process_instructions(p, TIME_SLICE);
++            tasks[pid - 1].slices++;                   /* Q081 */
+             if (end_of_simulation[p]) finish_task(pid);
+             else ready_queue.push_back(pid);
+         }
+@@ -326,6 +332,17 @@
+     }
+     for (int pid : waiting_queue)
+         std::printf("[os] pid %d never started (not enough free frames)\n", pid);
++    int count = 0, sum_turnaround = 0, sum_waiting = 0;   /* Q081: times in rounds */
++    std::printf("[os]   pid  program          arrival  finish  turnaround  waiting   (in rounds)\n");
++    for (const Task &t : tasks) {
++        if (t.state != DONE) continue;
++        int turnaround = t.finish - t.arrival;             /* arrival -> end */
++        int waiting = turnaround - t.slices;               /* rounds in the system without running */
++        std::printf("[os] %5d  %-15s  %7d  %6d  %10d  %7d\n", t.pid, t.prog.name.c_str(), t.arrival, t.finish, turnaround, waiting);
++        count++; sum_turnaround += turnaround; sum_waiting += waiting;
++    }
++    if (count) std::printf("[os] average turnaround %.2f rounds, average waiting %.2f rounds (%d tasks)\n",
++                           (double)sum_turnaround / count, (double)sum_waiting / count, count);
+     std::printf("[os] all tasks finished; print output is in %s\n", LOG_FILE);
+     if (fd_log) { std::fclose(fd_log); fd_log = nullptr; }
+ }

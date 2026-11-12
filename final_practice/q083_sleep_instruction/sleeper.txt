@@ -1,0 +1,9 @@
+% Q083 test: print 1, sleep for 2 rounds, then print 2 and store it at [0].
+% Next to counter.txt, which prints 2, 3 and 2 values in rounds 1-3, the
+% second print comes right after counter's 7th value (round 4).
+x1 = 1
+print x1
+sleep 2          % this slice ends here; rounds 2 and 3 are skipped
+x1 = 2
+print x1
+[0] = x1

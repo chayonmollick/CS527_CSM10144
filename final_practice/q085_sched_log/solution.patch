@@ -1,0 +1,35 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:08:23
++++ b/os.cpp	2026-11-12 11:08:23
+@@ -302,6 +302,9 @@
+ }
+ 
+ void scheduler() {
++    FILE *sched_log = std::fopen("sched.log", "w");    /* Q085: one line per time slice, new file every run */
++    if (sched_log) std::fprintf(sched_log, "round  pid  processor  instructions\n");
++    int round = 0;                                     /* Q085: rounds in which some task ran */
+     if (shell_open) {
+         std::printf("[shell] type '<program> <data.byte>' to start a task, 'exit' to stop accepting tasks\n");
+         prompt();
+@@ -309,11 +312,13 @@
+     for (;;) {
+         admit_waiting();
+         size_t n = ready_queue.size();
++        if (n > 0) round++;                            /* Q085 */
+         for (size_t i = 0; i < n; i++) {               /* one round: every ready task gets a slice */
+             int pid = ready_queue.front();
+             ready_queue.pop_front();
+             int p = map_pid_proc_id(pid);
+-            process_instructions(p, TIME_SLICE);
++            int ran = process_instructions(p, TIME_SLICE);
++            if (sched_log) std::fprintf(sched_log, "%5d  %3d  %9d  %12d\n", round, pid, p, ran);   /* Q085 */
+             if (end_of_simulation[p]) finish_task(pid);
+             else ready_queue.push_back(pid);
+         }
+@@ -327,5 +332,6 @@
+     for (int pid : waiting_queue)
+         std::printf("[os] pid %d never started (not enough free frames)\n", pid);
+     std::printf("[os] all tasks finished; print output is in %s\n", LOG_FILE);
++    if (sched_log) std::fclose(sched_log);             /* Q085 */
+     if (fd_log) { std::fclose(fd_log); fd_log = nullptr; }
+ }

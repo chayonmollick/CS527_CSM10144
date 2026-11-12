@@ -1,0 +1,10 @@
+% Q080 test: a long job (255 * 255 = 65025 turns of the loop) that is killed early.
+% [0] = loop turns done so far. Its first time slice is 3 + 7 instructions, so 2 turns.
+x1 = 0
+x9 = 255
+x9 = x9 * 255
+.loop
+x1 = x1 + 1
+[0] = x1
+x2 = x1 - x9
+BNE .loop

@@ -1,0 +1,10 @@
+% Q084 test: count to 5, printing each value and yielding after every print,
+% so it prints exactly once per round. The final count is stored at [0].
+x1 = 0
+.loop
+x1 = x1 + 1
+print x1
+yield            % end this time slice; continue here in the next round
+x2 = x1 - 5
+BNE .loop
+[0] = x1

@@ -1,0 +1,132 @@
+diff -ruN a/main.cpp b/main.cpp
+--- a/main.cpp	2026-11-12 11:08:22
++++ b/main.cpp	2026-11-12 11:08:23
+@@ -10,7 +10,9 @@
+  * Results: <data>_<pid>.out (final data memory), <program>_<pid>.freq (Lab 6 task 1),
+  *          log.txt (print output).
+  */
++#include <cctype>                           /* Q078: isdigit */
+ #include <cstdio>
++#include <cstdlib>                          /* Q078: atoi */
+ #include <cstring>
+ #include <string>
+ #include "compiler.h"
+@@ -18,7 +20,7 @@
+ #include "processor.h"
+ 
+ static void usage() {
+-    std::printf("usage: ./sim [-b] [-t] prog1.txt data1.byte [prog2.txt data2.byte ...]\n"
++    std::printf("usage: ./sim [-b] [-t] prog1.txt data1.byte [slice1] [prog2.txt data2.byte [slice2] ...]\n"   /* Q078 */
+                 "       ./sim -c prog.txt [out.byte]\n"
+                 "  -b  batch mode: no shell, stop when all tasks finish\n"
+                 "  -t  trace every executed instruction (stderr)\n"
+@@ -56,12 +58,15 @@
+             return std::strcmp(argv[i], "-h") == 0 ? 0 : 1;
+         }
+     }
+-    if ((argc - i) % 2 != 0) { usage(); return 1; }
+-
+     os_init(batch);
+     int bad = 0;
+-    for (; i + 1 < argc; i += 2)
+-        if (create_task(argv[i], argv[i + 1]) < 0) bad++;
++    while (i + 1 < argc) {                                    /* Q078: prog data [slice] ... */
++        int slice = TIME_SLICE, next = i + 2;
++        if (next < argc && std::isdigit((unsigned char)argv[next][0])) slice = std::atoi(argv[next++]);
++        if (create_task(argv[i], argv[i + 1], slice) < 0) bad++;
++        i = next;
++    }
++    if (i < argc) { usage(); return 1; }                      /* Q078: a program without a data file */
+     scheduler();
+     return (bad || failed_task_count()) ? 1 : 0;
+ }
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:08:22
++++ b/os.cpp	2026-11-12 11:08:23
+@@ -11,6 +11,8 @@
+  *        PTBR[p] = p * NUM_LOGICAL_PAGES, one byte (a frame number, 0 = unmapped) per page.
+  */
+ #include <algorithm>
++#include <cctype>                           /* Q078: isdigit */
++#include <cstdlib>                          /* Q078: atoi */
+ #include <cstdio>
+ #include <cstring>
+ #include <deque>
+@@ -38,6 +40,7 @@
+     long steps = 0;
+     int page_faults = 0;
+     bool failed = false;
++    int slice = TIME_SLICE;                 /* Q078: instructions per turn for this task */
+ };
+ 
+ static std::vector<Task> tasks;             /* tasks[pid - 1] */
+@@ -209,12 +212,13 @@
+     return n;
+ }
+ 
+-int create_task(const std::string &program, const std::string &data) {
++int create_task(const std::string &program, const std::string &data, int slice) {   /* Q078: + slice */
+     if (tasks.size() >= MAX_TASKS) { std::printf("[os] process table full (%d tasks)\n", MAX_TASKS); return -1; }
+     Task t;
+     t.pid = (int)tasks.size() + 1;
+     t.program_path = program;
+     t.data_path = data;
++    t.slice = slice;                                                        /* Q078 */
+     std::string err;
+     bool is_bytecode = program.size() > 5 && program.compare(program.size() - 5, 5, ".byte") == 0;
+     bool ok = is_bytecode ? load_bytecode(program, t.prog, err) : compile_file(program, t.prog, err);
+@@ -222,11 +226,13 @@
+     if (ok) ok = read_byte_file(data, t.data, err);
+     if (ok && t.data.size() > (size_t)DATA_SPACE) { err = data + " is larger than the data space (" + std::to_string(DATA_SPACE) + " bytes)"; ok = false; }
+     if (ok && pages_for(t.prog.code.size()) + pages_for(t.data.size()) > NUM_PHYSICAL_PAGES - 1) { err = "task needs more frames than physical memory has"; ok = false; }
++    if (ok && slice < 1) { err = "the time slice must be at least 1 instruction"; ok = false; }   /* Q078 */
+     if (!ok) { std::printf("[os] cannot start task: %s\n", err.c_str()); return -1; }
+ 
+     tasks.push_back(t);
+     waiting_queue.push_back(t.pid);
+-    std::printf("[os] pid %d created: %s %s (%zu instructions)\n", t.pid, program.c_str(), data.c_str(), t.prog.code.size() / 4);
++    std::printf("[os] pid %d created: %s %s (%zu instructions, time slice %d)\n", t.pid, program.c_str(), data.c_str(),
++                t.prog.code.size() / 4, t.slice);                       /* Q078: show the slice */
+     admit_waiting();
+     if (tasks.back().state == WAITING) std::printf("[os] pid %d is waiting for a free processor/frames\n", t.pid);
+     return t.pid;
+@@ -250,7 +256,9 @@
+         return;
+     }
+     if (words.size() == 2) create_task(words[0], words[1]);
+-    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   exit\n");
++    else if (words.size() == 3 && std::isdigit((unsigned char)words[2][0]))    /* Q078: prog data slice */
++        create_task(words[0], words[1], std::atoi(words[2].c_str()));
++    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte> [time slice]   or   exit\n");
+     prompt();
+ }
+ 
+@@ -313,7 +321,7 @@
+             int pid = ready_queue.front();
+             ready_queue.pop_front();
+             int p = map_pid_proc_id(pid);
+-            process_instructions(p, TIME_SLICE);
++            process_instructions(p, tasks[pid - 1].slice);   /* Q078: the task's own slice */
+             if (end_of_simulation[p]) finish_task(pid);
+             else ready_queue.push_back(pid);
+         }
+diff -ruN a/os.h b/os.h
+--- a/os.h	2026-11-12 11:08:23
++++ b/os.h	2026-11-12 11:08:23
+@@ -5,6 +5,7 @@
+ #define OS_H
+ 
+ #include <string>
++#include "config.h"                     /* Q078: TIME_SLICE */
+ 
+ /* Lab 5/6 MMU: logical -> physical address for the task on processor proc_id.
+  * isFetch = 1 for instruction fetches (instruction pages), 0 for data accesses.
+@@ -13,7 +14,7 @@
+ 
+ int  getFreePage();                     /* first free frame (marked allocated), -1 if none */
+ void os_init(bool batch);               /* batch = no shell: stop when the tasks finish */
+-int  create_task(const std::string &program, const std::string &data);   /* returns pid, -1 on error */
++int  create_task(const std::string &program, const std::string &data, int slice = TIME_SLICE);   /* Q078: + slice */
+ void scheduler();                       /* runs until the shell is closed and every task finished */
+ void shell();                           /* non-blocking: handles whatever is waiting on stdin */
+ int  map_pid_proc_id(int pid);          /* processor running pid, -1 if none */

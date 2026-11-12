@@ -1,0 +1,4 @@
+% Q079 test: a task that ends in its first time slice
+% (2 statements + the halt the compiler adds = 3 instructions). [0] = 7.
+x1 = 7
+[0] = x1

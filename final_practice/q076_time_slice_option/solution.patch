@@ -1,0 +1,66 @@
+diff -ruN a/main.cpp b/main.cpp
+--- a/main.cpp	2026-11-12 11:08:22
++++ b/main.cpp	2026-11-12 11:08:22
+@@ -11,6 +11,7 @@
+  *          log.txt (print output).
+  */
+ #include <cstdio>
++#include <cstdlib>                          /* Q076: atoi */
+ #include <cstring>
+ #include <string>
+ #include "compiler.h"
+@@ -18,10 +19,11 @@
+ #include "processor.h"
+ 
+ static void usage() {
+-    std::printf("usage: ./sim [-b] [-t] prog1.txt data1.byte [prog2.txt data2.byte ...]\n"
++    std::printf("usage: ./sim [-b] [-t] [-q N] prog1.txt data1.byte [prog2.txt data2.byte ...]\n"   /* Q076 */
+                 "       ./sim -c prog.txt [out.byte]\n"
+                 "  -b  batch mode: no shell, stop when all tasks finish\n"
+                 "  -t  trace every executed instruction (stderr)\n"
++                "  -q N  time slice: N instructions per scheduler turn (default TIME_SLICE)\n"   /* Q076 */
+                 "  -c  compile only and print the byte-code listing\n");
+ }
+ 
+@@ -48,6 +50,10 @@
+     for (; i < argc && argv[i][0] == '-'; i++) {
+         if (!std::strcmp(argv[i], "-b")) batch = true;
+         else if (!std::strcmp(argv[i], "-t")) trace = 1;
++        else if (!std::strcmp(argv[i], "-q")) {                       /* Q076: -q N sets the time slice */
++            if (i + 1 >= argc || (time_slice = std::atoi(argv[i + 1])) < 1) { usage(); return 1; }
++            i++;                                                      /* skip N */
++        }
+         else if (!std::strcmp(argv[i], "-c")) {
+             if (i + 1 >= argc) { usage(); return 1; }
+             return compile_only(argv[i + 1], i + 2 < argc ? argv[i + 2] : "program.byte");
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:08:22
++++ b/os.cpp	2026-11-12 11:08:22
+@@ -46,6 +46,7 @@
+ static char freePages[NUM_PHYSICAL_PAGES];  /* 1 = allocated; frame 0 holds the page tables */
+ static int page_faults_on[NP];
+ static bool shell_open = true;
++int time_slice = TIME_SLICE;                /* Q076: set by -q N in main() */
+ static std::string shell_buffer;
+ 
+ static int pages_for(size_t bytes) { return (int)((bytes + PAGESIZE - 1) / PAGESIZE); }
+@@ -313,7 +314,7 @@
+             int pid = ready_queue.front();
+             ready_queue.pop_front();
+             int p = map_pid_proc_id(pid);
+-            process_instructions(p, TIME_SLICE);
++            process_instructions(p, time_slice);       /* Q076: was TIME_SLICE */
+             if (end_of_simulation[p]) finish_task(pid);
+             else ready_queue.push_back(pid);
+         }
+diff -ruN a/os.h b/os.h
+--- a/os.h	2026-11-12 11:08:22
++++ b/os.h	2026-11-12 11:08:22
+@@ -15,6 +15,7 @@
+ void os_init(bool batch);               /* batch = no shell: stop when the tasks finish */
+ int  create_task(const std::string &program, const std::string &data);   /* returns pid, -1 on error */
+ void scheduler();                       /* runs until the shell is closed and every task finished */
++extern int time_slice;                  /* Q076: instructions per scheduler turn (TIME_SLICE, or -q N) */
+ void shell();                           /* non-blocking: handles whatever is waiting on stdin */
+ int  map_pid_proc_id(int pid);          /* processor running pid, -1 if none */
+ int  failed_task_count();

@@ -1,0 +1,65 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:08:23
++++ b/os.cpp	2026-11-12 11:08:23
+@@ -12,6 +12,7 @@
+  */
+ #include <algorithm>
+ #include <cstdio>
++#include <cstdlib>                          /* Q080: atoi */
+ #include <cstring>
+ #include <deque>
+ #include <sstream>
+@@ -38,6 +39,7 @@
+     long steps = 0;
+     int page_faults = 0;
+     bool failed = false;
++    bool killed = false;                    /* Q080: ended by the shell command kill */
+ };
+ 
+ static std::vector<Task> tasks;             /* tasks[pid - 1] */
+@@ -165,7 +167,7 @@
+     t.page_faults = page_faults_on[p];
+     t.failed = failed[p];
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+-                t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
++                t.pid, t.prog.name.c_str(), t.killed ? "KILLED" : t.failed ? "STOPPED WITH AN ERROR" : "finished", p,   /* Q080 */
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
+ }
+ 
+@@ -238,6 +240,8 @@
+     if (shell_open) { std::printf("$ "); std::fflush(stdout); }
+ }
+ 
++static void finish_task(int pid);           /* Q080: kill uses the normal end-of-task path */
++
+ static void run_command(const std::string &line) {
+     std::istringstream in(line);
+     std::vector<std::string> words;
+@@ -249,8 +253,26 @@
+         std::printf("[shell] exit: no new tasks; waiting for the running ones to finish\n");
+         return;
+     }
++    if (words[0] == "kill" && words.size() == 2) {                        /* Q080: kill <pid> */
++        int pid = std::atoi(words[1].c_str());
++        Task *t = (pid >= 1 && pid <= (int)tasks.size()) ? &tasks[pid - 1] : nullptr;
++        if (!t || t->state == DONE) {
++            std::printf("[shell] kill: no running or waiting task %s\n", words[1].c_str());
++        } else if (t->state == WAITING) {                                 /* no processor, no frames yet */
++            waiting_queue.erase(std::find(waiting_queue.begin(), waiting_queue.end(), pid));
++            t->state = DONE;
++            t->killed = true;
++            std::printf("[os] pid %d (%s) KILLED while waiting: it never ran\n", pid, t->prog.name.c_str());
++        } else {                                                          /* READY: it holds a processor */
++            ready_queue.erase(std::find(ready_queue.begin(), ready_queue.end(), pid));
++            t->killed = true;
++            finish_task(pid);              /* finalize(): writes its output, frees its frames; frees the processor */
++        }
++        prompt();
++        return;
++    }
+     if (words.size() == 2) create_task(words[0], words[1]);
+-    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   exit\n");
++    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   kill <pid>   or   exit\n");   /* Q080 */
+     prompt();
+ }
+ 

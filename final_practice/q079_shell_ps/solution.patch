@@ -1,0 +1,24 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:08:23
++++ b/os.cpp	2026-11-12 11:08:23
+@@ -249,8 +249,19 @@
+         std::printf("[shell] exit: no new tasks; waiting for the running ones to finish\n");
+         return;
+     }
++    if (words[0] == "ps") {                                               /* Q079: list the process table */
++        std::printf("  PID  PROGRAM          STATE    PROC  INSTRUCTIONS\n");
++        for (const Task &t : tasks) {
++            const char *state = t.state == WAITING ? "WAITING" : t.state == READY ? "READY" : t.failed ? "FAILED" : "DONE";
++            long done = t.state == READY ? steps[t.proc] : t.steps;     /* live count while it has a processor */
++            std::string proc = t.proc >= 0 ? std::to_string(t.proc) : "-";
++            std::printf("%5d  %-15s  %-7s  %4s  %12ld\n", t.pid, t.prog.name.c_str(), state, proc.c_str(), done);
++        }
++        prompt();
++        return;
++    }
+     if (words.size() == 2) create_task(words[0], words[1]);
+-    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   exit\n");
++    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   ps   or   exit\n");   /* Q079 */
+     prompt();
+ }
+ 

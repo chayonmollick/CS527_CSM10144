@@ -1,0 +1,24 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:08:23
++++ b/os.cpp	2026-11-12 11:08:23
+@@ -249,8 +249,19 @@
+         std::printf("[shell] exit: no new tasks; waiting for the running ones to finish\n");
+         return;
+     }
++    if (words[0] == "queues") {                                           /* Q082: show both queues, front first */
++        auto show = [](const char *name, const std::deque<int> &q) {
++            std::printf("[shell] %s queue:", name);
++            for (int pid : q) std::printf(" %d", pid);
++            std::printf("%s\n", q.empty() ? " (empty)" : "");
++        };
++        show("ready", ready_queue);                 /* loaded: each gets a slice in the next round, in this order */
++        show("waiting", waiting_queue);             /* not loaded: no free processor or not enough frames */
++        prompt();
++        return;
++    }
+     if (words.size() == 2) create_task(words[0], words[1]);
+-    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   exit\n");
++    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   queues   or   exit\n");   /* Q082 */
+     prompt();
+ }
+ 
