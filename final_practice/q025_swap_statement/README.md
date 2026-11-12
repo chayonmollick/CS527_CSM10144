@@ -57,3 +57,10 @@ that `sum_array` still works.
 - **What breaks if pass 1 still does `count++`?** Every label after a swap ends up 2 instructions too low. `BLE .sorted` then lands in the middle of the swap, and `BNE .fib` jumps back to `x5 = 1`, which restarts the loop forever until the endless-loop guard stops the task.
 - **Why not use a temporary register (`x255 = xA; xA = xB; xB = x255`)?** That version keeps the flags and allows `swap x1 x1`, but it silently destroys x255, which the program may be using. The add/sub version needs no spare register; the price is the flags. An XOR swap would also work, but this machine has no XOR.
 - **Why count only the first instruction in `.freq`?** All 3 instructions run exactly once each time the line runs, so any one of them gives the line's count, and the first is the natural choice. The `-c` listing still shows all 3, each with the `swap` source text.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `sum_array.txt`, `sum_array_data.byte`, `swap_sort.txt`, `swap_sort_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

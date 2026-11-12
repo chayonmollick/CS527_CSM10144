@@ -43,3 +43,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of
 - **Why not compile CMP to a `SUB` into a scratch register?** That silently destroys a register the program may be using, and nothing says which one. CMP writes none.
 - **What is C after `CMP x1 x2`?** By this machine's rule for subtraction, C = 1 when x1 > x2 as unsigned numbers. So `BHI` means unsigned greater-than, while `BGT`/`BGE`/`BLT` compare signed numbers.
 - **Can you write `CMP 5 x1`?** No: a constant can only be the second operand. Write `CMP x1 5` and reverse the condition (`BGT` becomes `BLT`).
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `cmp_max.txt`, `cmp_max_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

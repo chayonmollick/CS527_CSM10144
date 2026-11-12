@@ -1,0 +1,11 @@
+% Q053 test: run with -w 8. The loop writes [8] three times, the vector store once more.
+x1 = 0
+.loop
+x1 = x1 + 1
+x2 = x1 * 10
+[8] = x2          % watched: 7 -> 10, 10 -> 20, 20 -> 30
+x3 = x1 - 3
+BNE .loop
+[12] = x1         % another address: not reported
+v1 = [0]
+[0] = v1          % writes the 8 words 0..28; the third one is [8] (30 -> 30)

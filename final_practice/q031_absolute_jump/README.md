@@ -54,3 +54,10 @@ Finally it checks that `sum_array` still works.
 - **Why is the PC in bytes but the operand in instructions?** Instructions are 4 bytes and always aligned, so storing index = address / 4 lets one byte reach all 1024 bytes. Branch offsets also count instructions for the same reason.
 - **How would you reach more than 256 instructions?** Use the two free bytes (dest and operand 1) as well, for a 24-bit index, or add a register-indirect jump `JMP xR` (PC = xR), like `jr`/`jalr` in MIPS and RISC-V.
 - **How do you make a far conditional jump?** Invert the condition and jump over a JMP: `BNE .skip`, then `JMP .far`, then `.skip`.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `jmp_loop.txt`, `jmp_loop_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

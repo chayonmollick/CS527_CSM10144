@@ -1,0 +1,54 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:25:47
++++ b/os.cpp	2026-11-12 11:25:47
+@@ -153,6 +153,7 @@
+     std::string out_name = file_stem(t.data_path) + "_" + std::to_string(t.pid) + ".out";
+     write_byte_file(out_name, out);
+     std::string freq_name = write_frequency_file(p, t);
++    if (branch_file[p]) { std::fclose(branch_file[p]); branch_file[p] = nullptr; }   /* Q055: trace complete */
+ 
+     for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* release frames, clear the table */
+         int frame = memory[PTBR[p] + i];
+@@ -185,6 +186,7 @@
+     reset(p);
+     current_pid[p] = pid;
+     initialize(p, t);
++    branch_file[p] = std::fopen((t.prog.name + "_" + std::to_string(pid) + ".branches").c_str(), "w");   /* Q055: trace file of this task */
+     t.state = READY;
+     ready_queue.push_back(pid);
+     std::printf("[os] pid %d (%s) loaded on processor %d: %d instruction + %d data page(s), %d frame(s) left\n",
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:25:47
++++ b/processor.cpp	2026-11-12 11:25:47
+@@ -25,6 +25,7 @@
+ 
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
++FILE *branch_file[NP];                           /* Q055: opened by the loader, closed by finalize */
+ int trace = 0;
+ 
+ static int instr_pc;     /* address of the instruction being executed (PC already points past it) */
+@@ -220,7 +221,11 @@
+         break;
+     default:
+         if (opcode >= OP_BRANCH && opcode < OP_BRANCH + NUM_CONDITIONS) {   /* Lab 2 */
+-            if (condition_holds(p, opcode - OP_BRANCH))
++            bool taken = condition_holds(p, opcode - OP_BRANCH);
++            if (branch_file[p])                              /* Q055: from -> to, taken or not */
++                std::fprintf(branch_file[p], "%d -> %d %s\n", instr_pc / 4, instr_pc / 4 + (signed char)src2,
++                             taken ? "taken" : "not taken");
++            if (taken)
+                 PC[p] = instr_pc + 4 * (signed char)src2;    /* offset counts instructions */
+         } else {
+             processor_error("unknown opcode 0x%02X", opcode);
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:25:47
++++ b/processor.h	2026-11-12 11:25:47
+@@ -22,6 +22,7 @@
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */
++extern FILE *branch_file[NP];                  /* Q055: <program>_<pid>.branches of the task on p */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
+ 
+ void reset(int p);

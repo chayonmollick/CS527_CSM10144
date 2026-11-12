@@ -1,0 +1,74 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:24:20
++++ b/os.cpp	2026-11-12 11:24:20
+@@ -112,6 +112,15 @@
+     page_faults_on[p] = 0;
+ }
+ 
++/* Q051: "line 3: x2 = x1 + x5" for instruction index of the task running on processor p */
++std::string source_line(int p, int index) {
++    const Program &pr = tasks[current_pid[p] - 1].prog;
++    int ln = index < (int)pr.line_of.size() ? pr.line_of[index] : -1;
++    if (ln < 0) return "instruction " + std::to_string(index) + " (no source)";
++    const std::string &text = pr.source[ln];
++    return "line " + std::to_string(ln + 1) + ": " + text.substr(text.find_first_not_of(" \t"));
++}
++
+ /* Lab 6 task 1: <program>_<pid>.freq, one line per executable source line. */
+ static std::string write_frequency_file(int p, const Task &t) {
+     std::string name = t.prog.name + "_" + std::to_string(t.pid) + ".freq";
+diff -ruN a/os.h b/os.h
+--- a/os.h	2026-11-12 11:24:20
++++ b/os.h	2026-11-12 11:24:20
+@@ -18,5 +18,6 @@
+ void shell();                           /* non-blocking: handles whatever is waiting on stdin */
+ int  map_pid_proc_id(int pid);          /* processor running pid, -1 if none */
+ int  failed_task_count();
++std::string source_line(int p, int index); /* Q051: "line L: text" of instruction index of the task on p */
+ 
+ #endif
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:24:20
++++ b/processor.cpp	2026-11-12 11:24:20
+@@ -28,7 +28,16 @@
+ int trace = 0;
+ 
+ static int instr_pc;     /* address of the instruction being executed (PC already points past it) */
++static bool xknown[NP][NUM_XREGS];   /* Q051: x register written by the task (or already warned about) */
+ 
++/* Q051: the instruction reads x<r>: warn once if the task never wrote it */
++static void check_read(int p, int r) {
++    if (xknown[p][r]) return;
++    xknown[p][r] = true;                                 /* warn only once per register */
++    std::fprintf(stderr, "[warn] pid %d reads x%d before writing it, at %s\n", current_pid[p], r,
++                 source_line(p, instr_pc / 4).c_str());
++}
++
+ void processor_error(const char *fmt, ...) {
+     char msg[256];
+     va_list ap;
+@@ -46,6 +55,7 @@
+     std::memset(Register[p], 0, sizeof Register[p]);
+     std::memset(VRegister[p], 0, sizeof VRegister[p]);
+     std::memset(exec_count[p], 0, sizeof exec_count[p]);
++    std::memset(xknown[p], 0, sizeof xknown[p]);           /* Q051: nothing written yet */
+     PC[p] = 0;
+     FlagN[p] = FlagZ[p] = FlagC[p] = FlagV[p] = 0;
+     end_of_simulation[p] = failed[p] = 0;
+@@ -159,6 +169,16 @@
+     if (trace)
+         std::fprintf(stderr, "[pid %d p%d] %3d: %02X %02X %02X %02X   %s\n", current_pid[p], p,
+                      instr_pc / 4, opcode, dest, src1, src2, disassemble(opcode, dest, src1, src2).c_str());
++    switch (opcode) {                                    /* Q051: x registers this instruction reads */
++    case OP_ADD: case OP_SUB: case OP_MUL: case OP_DIV: check_read(p, src1); check_read(p, src2); break;
++    case OP_ADDI: case OP_SUBI: case OP_MULI: case OP_DIVI: check_read(p, src1); break;
++    case OP_STORE: check_read(p, dest); check_read(p, src2); break;      /* [xA] = xS */
++    case OP_VSTORE: check_read(p, dest); break;                          /* [xA] = vS */
++    case OP_LOAD: case OP_MOV: case OP_PRINT: case OP_STOREC: case OP_VLOAD:
++    case OP_VADDX: case OP_VSUBX: case OP_VMULX: check_read(p, src2); break;
++    }
++    if (opcode >= OP_ADD && opcode <= OP_MOVC && opcode != OP_STORE && opcode != OP_PRINT && opcode != OP_STOREC)
++        xknown[p][dest] = true;                          /* Q051: ... and the one it writes */
+ 
+     uint32_t a = (uint32_t)x[src1], b;
+     int value, addr;

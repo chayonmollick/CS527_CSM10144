@@ -58,3 +58,10 @@ two more cases:
 - **Why rounds and not seconds?** Wall-clock time depends on the machine, on `usleep` and on typing speed. Rounds are deterministic, and one round is at most `TIME_SLICE` instructions per task.
 - **Response time?** It is first run − arrival. Here it equals the waiting time, because once loaded a task runs every round.
 - **How could the average waiting time be lowered?** Admit the shortest waiting job first when a processor becomes free (SJF), which minimises the average waiting time. Only the waiting queue's order matters in lab6.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `counter.txt`, `counter_by100.txt`, `counter_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

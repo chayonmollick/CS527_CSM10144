@@ -1,0 +1,12 @@
+% Q058 test: y = 3*x + 1 for 16 numbers, 8 at a time. Each vector operation is 8 operations.
+x1 = 0            % address of the next 8 numbers
+x2 = 2            % blocks left
+x3 = 3
+.loop
+v1 = [x1]
+v1 = v1 * x3      % 8 multiplications
+v1 = v1 + 1       % 8 additions
+[x1] = v1
+x1 = x1 + 32
+x2 = x2 - 1
+BNE .loop

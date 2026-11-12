@@ -50,3 +50,10 @@ It checks:
 - **Where is MAC used?** Dot products, FIR filters, matrix multiplication and convolution: every inner loop is `sum += a * b`. DSPs have single-cycle MAC units, and CPUs and GPUs have FMA (fused multiply-add).
 - **What if MAC set the flags?** The BEQ in `dot_mac.txt` would see Z = 0 from the result 12, x7 would be cleared, and address 40 would hold 0 instead of 12.
 - **Could the constant form `x1 += x2 * 5` exist?** Yes, as a second opcode with `c` in the B byte (`8B D A c`), just as ADDI sits next to ADD.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `dot_mac.txt`, `dot_mac_data.byte`, `mac_bad.txt`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

@@ -41,3 +41,10 @@ is rewritten. `sum_array` alone gives 8 slices and 71 instructions, and still 45
 - **Why log in the scheduler, not in the processor?** The scheduler makes the decision: who runs, where and for how long. The processor only executes the instructions it is given.
 - **What can be computed from the log?** A Gantt chart per processor, each task's turnaround and waiting time (Q081), and the processor utilisation. Here 27 slices fill 27 of the 40 processor-rounds (10 rounds × 4 processors), and processors 1–3 are idle in rounds 7–10.
 - **Why `"w"` and not `"a"`?** One run gives one log, so the round numbers start at 1 and never mix with an older run.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `counter.txt`, `counter_by100.txt`, `counter_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

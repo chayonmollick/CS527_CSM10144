@@ -37,3 +37,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of
 - **Why no new opcode?** `x1++` is syntactic sugar: it is the same machine instruction as `x1 = x1 + 1`, just as `i++` in C compiles to an add. Changing only the compiler keeps the instruction set small and leaves old byte code unchanged.
 - **What does `x1--` do to the flags when x1 = 0?** The result is -1, so Z = 0, N = 1, C = 0 (0 > 1 is false as unsigned) and V = 0.
 - **How would you add `++x1`?** Check `t[0] == t[1]` (both `+` or both `-`) and parse the register from `t[2]`. In a statement (not inside an expression), pre- and post-increment do the same thing.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `inc_dec.txt`, `inc_dec_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

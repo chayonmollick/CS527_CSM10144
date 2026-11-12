@@ -59,3 +59,10 @@ print, and it runs 43 instructions in all.
 - **Why put the default in `os.h`?** Callers see only the declaration, so the default argument must be there, and only there; repeating it in the definition is a compile error. Old calls `create_task(p, d)` keep working unchanged.
 - **Is a bigger slice a priority?** It is a weight: with slices 100 and 10, task 2 gets ten times as many instructions per round. A priority would decide who runs first; here both still run every round.
 - **Why do the results not change?** Each task has its own registers and pages; the slice changes only the interleaving, so only the order of the lines in `log.txt`.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `counter.txt`, `counter_by100.txt`, `counter_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

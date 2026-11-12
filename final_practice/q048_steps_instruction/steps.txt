@@ -1,0 +1,12 @@
+% Q048 test: read the task's instruction counter before and after a loop
+x1 = steps        % the first instruction executed: 1
+x2 = 0
+.loop
+x2 = x2 + 1
+x3 = x2 - 5
+BNE .loop         % 5 iterations of 3 instructions
+x4 = steps        % 2 + 15 + 1 = 18
+x5 = x4 - x1      % 17 instructions after the first read
+[0] = x1
+[4] = x4
+[8] = x5

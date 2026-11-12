@@ -1,0 +1,76 @@
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:24:38
++++ b/config.h	2026-11-12 11:24:38
+@@ -28,6 +28,11 @@
+ #define MAX_STEPS       10000000L  /* a task that runs longer is killed (endless loop guard) */
+ #define LOG_FILE        "log.txt"  /* print output (Lab 4), opened in append mode */
+ 
++/* Q059: timing model, in cycles */
++#define CYCLES_PER_INSTRUCTION 1     /* every executed instruction */
++#define CYCLES_PER_MEM_WORD    2     /* extra per 32-bit data word read or written (a vector access = 8 words) */
++#define CYCLES_PER_PAGE_FAULT  100   /* extra per page fault */
++
+ /* ---- opcodes (first byte of every 4-byte instruction) ----
+  * Format: <opcode> <dest> <operand1> <operand2>. "c" = constant 0..255.
+  */
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:24:38
++++ b/os.cpp	2026-11-12 11:24:38
+@@ -167,6 +167,11 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    long cycles = t.steps * CYCLES_PER_INSTRUCTION + mem_words[p] * CYCLES_PER_MEM_WORD
++                + (long)t.page_faults * CYCLES_PER_PAGE_FAULT;                       /* Q059: timing model */
++    std::printf("[time] pid %d (%s): %ld cycles = %d x %ld instructions + %d x %ld memory words + %d x %d faults\n",
++                t.pid, t.prog.name.c_str(), cycles, CYCLES_PER_INSTRUCTION, t.steps,
++                CYCLES_PER_MEM_WORD, mem_words[p], CYCLES_PER_PAGE_FAULT, t.page_faults);
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:24:38
++++ b/processor.cpp	2026-11-12 11:24:38
+@@ -21,6 +21,7 @@
+ int current_pid[NP];
+ long steps[NP];
+ long exec_count[NP][MAX_INSTRUCTIONS];
++long mem_words[NP];                              /* Q059: data words read or written */
+ int data_high[NP];
+ 
+ int proc_id, opcode, dest, src1, src2;
+@@ -50,6 +51,7 @@
+     FlagN[p] = FlagZ[p] = FlagC[p] = FlagV[p] = 0;
+     end_of_simulation[p] = failed[p] = 0;
+     steps[p] = 0;
++    mem_words[p] = 0;                                      /* Q059: new task */
+     data_high[p] = 0;
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+@@ -71,6 +73,7 @@
+         v |= (unsigned int)b << (8 * k);
+     }
+     value = (int)v;
++    mem_words[proc_id]++;                       /* Q059: one word read */
+     return true;
+ }
+ 
+@@ -82,6 +85,7 @@
+         memory[pa] = (unsigned char)(v >> (8 * k));
+     }
+     if (addr + 4 > data_high[proc_id]) data_high[proc_id] = addr + 4;
++    mem_words[proc_id]++;                       /* Q059: one word written */
+     return true;
+ }
+ 
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:24:38
++++ b/processor.h	2026-11-12 11:24:38
+@@ -18,6 +18,7 @@
+ extern int current_pid[NP];                    /* task running on processor p */
+ extern long steps[NP];                         /* instructions executed by the current task */
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
++extern long mem_words[NP];                     /* Q059: 32-bit data words read or written by the task */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */

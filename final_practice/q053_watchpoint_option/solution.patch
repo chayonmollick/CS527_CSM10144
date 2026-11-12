@@ -1,0 +1,76 @@
+diff -ruN a/main.cpp b/main.cpp
+--- a/main.cpp	2026-11-12 11:24:20
++++ b/main.cpp	2026-11-12 11:24:20
+@@ -12,16 +12,18 @@
+  */
+ #include <cstdio>
+ #include <cstring>
++#include <cstdlib>                                 /* Q053: strtol */
+ #include <string>
+ #include "compiler.h"
+ #include "os.h"
+ #include "processor.h"
+ 
+ static void usage() {
+-    std::printf("usage: ./sim [-b] [-t] prog1.txt data1.byte [prog2.txt data2.byte ...]\n"
++    std::printf("usage: ./sim [-b] [-t] [-w ADDR] prog1.txt data1.byte [prog2.txt data2.byte ...]\n"   /* Q053: new option */
+                 "       ./sim -c prog.txt [out.byte]\n"
+                 "  -b  batch mode: no shell, stop when all tasks finish\n"
+                 "  -t  trace every executed instruction (stderr)\n"
++                "  -w  ADDR: print every write to data address ADDR (watchpoint)\n"   /* Q053: help line */
+                 "  -c  compile only and print the byte-code listing\n");
+ }
+ 
+@@ -48,6 +50,11 @@
+     for (; i < argc && argv[i][0] == '-'; i++) {
+         if (!std::strcmp(argv[i], "-b")) batch = true;
+         else if (!std::strcmp(argv[i], "-t")) trace = 1;
++        else if (!std::strcmp(argv[i], "-w") && i + 1 < argc) {         /* Q053: -w ADDR = watchpoint */
++            char *end;
++            watch_addr = (int)std::strtol(argv[++i], &end, 0);            /* decimal, or hex with 0x */
++            if (*end || watch_addr < 0 || watch_addr >= DATA_SPACE) { usage(); return 1; }
++        }
+         else if (!std::strcmp(argv[i], "-c")) {
+             if (i + 1 >= argc) { usage(); return 1; }
+             return compile_only(argv[i + 1], i + 2 < argc ? argv[i + 2] : "program.byte");
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:24:20
++++ b/processor.cpp	2026-11-12 11:24:20
+@@ -26,6 +26,7 @@
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+ int trace = 0;
++int watch_addr = -1;                            /* Q053: set by -w ADDR */
+ 
+ static int instr_pc;     /* address of the instruction being executed (PC already points past it) */
+ 
+@@ -76,12 +77,18 @@
+ 
+ static bool store_word(int addr, int value) {
+     unsigned int v = (unsigned int)value;
++    int old = 0;
++    bool watched = watch_addr >= 0 && addr <= watch_addr && watch_addr < addr + 4;   /* Q053: this word covers ADDR */
++    if (watched && !load_word(addr, old)) return false;                              /* Q053: value before the write */
+     for (int k = 0; k < 4; k++) {
+         int pa = getPhysicalAddress(proc_id, 0, addr + k);
+         if (pa < 0) return false;
+         memory[pa] = (unsigned char)(v >> (8 * k));
+     }
+     if (addr + 4 > data_high[proc_id]) data_high[proc_id] = addr + 4;
++    if (watched)                                                                     /* Q053: report the write */
++        std::printf("[watch] pid %d, instruction %d (%s): [%d] %d -> %d\n", current_pid[proc_id], instr_pc / 4,
++                    disassemble(opcode, dest, src1, src2).c_str(), addr, old, value);
+     return true;
+ }
+ 
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:24:20
++++ b/processor.h	2026-11-12 11:24:20
+@@ -23,6 +23,7 @@
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
++extern int watch_addr;                         /* Q053: -w ADDR: report every write to this data address (-1 = off) */
+ 
+ void reset(int p);
+ void fetch();

@@ -1,0 +1,67 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:24:20
++++ b/os.cpp	2026-11-12 11:24:20
+@@ -121,15 +121,20 @@
+     if (pr.has_source) {
+         std::vector<long> count(pr.source.size(), 0);
+         std::vector<bool> executable(pr.source.size(), false);
++        std::vector<long> taken(pr.source.size(), -1);    /* Q052: times taken; -1 = not a branch line */
+         for (size_t i = 0; i < pr.line_of.size(); i++)
+             if (pr.line_of[i] >= 0) {
+                 count[pr.line_of[i]] += exec_count[p][i];
+                 executable[pr.line_of[i]] = true;
++                int op = pr.code[4 * i];                   /* Q052: is it a branch? */
++                if (op >= OP_BRANCH && op < OP_BRANCH + NUM_CONDITIONS) taken[pr.line_of[i]] = taken_count[p][i];
+             }
+         for (size_t ln = 0; ln < pr.source.size(); ln++) {
+             std::string text = pr.source[ln];
+             while (!text.empty() && (text.back() == ' ' || text.back() == '\t')) text.pop_back();
+-            if (executable[ln]) std::fprintf(f, "%ld\t%s\n", count[ln], text.c_str());
++            if (executable[ln] && taken[ln] >= 0)          /* Q052: branch line: two more columns */
++                std::fprintf(f, "%ld\t%s\ttaken %ld\tnot taken %ld\n", count[ln], text.c_str(), taken[ln], count[ln] - taken[ln]);
++            else if (executable[ln]) std::fprintf(f, "%ld\t%s\n", count[ln], text.c_str());
+             else if (pr.is_label[ln]) std::fprintf(f, "%s\n", text.c_str());  /* label: no count */
+         }                                                  /* blank and comment-only lines are left out */
+     } else {                                               /* started from a .byte file: no source */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:24:20
++++ b/processor.cpp	2026-11-12 11:24:20
+@@ -21,6 +21,7 @@
+ int current_pid[NP];
+ long steps[NP];
+ long exec_count[NP][MAX_INSTRUCTIONS];
++long taken_count[NP][MAX_INSTRUCTIONS];          /* Q052: times each branch was taken */
+ int data_high[NP];
+ 
+ int proc_id, opcode, dest, src1, src2;
+@@ -46,6 +47,7 @@
+     std::memset(Register[p], 0, sizeof Register[p]);
+     std::memset(VRegister[p], 0, sizeof VRegister[p]);
+     std::memset(exec_count[p], 0, sizeof exec_count[p]);
++    std::memset(taken_count[p], 0, sizeof taken_count[p]);   /* Q052: new task */
+     PC[p] = 0;
+     FlagN[p] = FlagZ[p] = FlagC[p] = FlagV[p] = 0;
+     end_of_simulation[p] = failed[p] = 0;
+@@ -220,8 +222,10 @@
+         break;
+     default:
+         if (opcode >= OP_BRANCH && opcode < OP_BRANCH + NUM_CONDITIONS) {   /* Lab 2 */
+-            if (condition_holds(p, opcode - OP_BRANCH))
++            if (condition_holds(p, opcode - OP_BRANCH)) {
+                 PC[p] = instr_pc + 4 * (signed char)src2;    /* offset counts instructions */
++                taken_count[p][instr_pc / 4]++;              /* Q052: this branch was taken */
++            }
+         } else {
+             processor_error("unknown opcode 0x%02X", opcode);
+         }
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:24:20
++++ b/processor.h	2026-11-12 11:24:20
+@@ -18,6 +18,7 @@
+ extern int current_pid[NP];                    /* task running on processor p */
+ extern long steps[NP];                         /* instructions executed by the current task */
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
++extern long taken_count[NP][MAX_INSTRUCTIONS]; /* Q052: times each branch instruction was taken */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */

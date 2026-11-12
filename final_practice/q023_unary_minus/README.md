@@ -49,3 +49,10 @@ subtraction is still SUB), and that `sum_array` still works.
 - **How does the compiler tell `x1 = -x2` from `x1 = x2 - x3`?** By position. In the unary form, the token after `=` is `-` and exactly one operand follows it. In the subtraction, an operand comes first.
 - **What about `x1 = -5`?** `5` is not a register, so the compiler rejects it, because constants are only 0..255. Extension e03 shows how to build any 32-bit constant.
 - **Should NEG set the flags?** Either choice can be defended: x86 `NEG` sets them, while ARM `NEG` (without S) and RISC-V `neg` do not. One added line, `set_sub_flags(p, 0, b, 0 - b);`, makes NEG behave exactly like `0 - xA`.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `negate.txt`, `negate_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

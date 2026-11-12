@@ -46,3 +46,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of `
 - **Could `printd` reuse opcode 08?** Yes: PRINT leaves two bytes unused (`08 0 0 R`), so `08 0 1 R` could mean "decimal". Real ISAs use spare fields like this (function bits). A separate opcode keeps the decoder and the disassembler simpler.
 - **Why `fflush` the log after every line?** A file is fully buffered, and the flush makes each line visible at once (`tail -f log.txt`) even if the simulator is killed. `stdout` on a terminal is line-buffered already.
 - **With 4 tasks, what does the screen show?** Their lines interleave by time slice (two prints per slice in `counter.txt`), exactly as in `log.txt`. The pid on each line tells them apart.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `printd.txt`, `printd_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

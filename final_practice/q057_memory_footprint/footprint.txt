@@ -1,0 +1,11 @@
+% Q057 test: 5 stores to [8], one to [100], one to [4]: 3 distinct words written.
+% The highest address used is 200, by a load.
+x1 = 0
+.loop
+x1 = x1 + 1
+[8] = x1          % the same word, 5 times
+x2 = x1 - 5
+BNE .loop
+[100] = x1
+[4] = x1
+x3 = [200]        % a load counts for the highest address too

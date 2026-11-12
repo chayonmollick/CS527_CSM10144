@@ -51,3 +51,10 @@ It checks:
 - **Why a compile error and not a run-time error?** The constant is in the instruction, so the compiler already knows it is 0. Catching it there means the program never starts. A register divisor is only known at run time, so it needs a run-time check.
 - **Why do SIMD units rarely have integer divide?** Division is slow (many cycles, and not pipelined like add and mul). Compilers turn division by a constant into a multiply by a "magic" reciprocal plus a shift, which is why x86 SSE/AVX has no packed integer divide.
 - **What is `(v1 + v2) / 2` used for?** The lane-wise average, as in image blending. In `vdiv.txt`, averaging v1 with itself must give v1 back.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `sum_array.txt`, `sum_array_data.byte`, `vdiv.txt`, `vdiv_bad.txt`, `vdiv_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

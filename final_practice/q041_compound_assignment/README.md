@@ -44,3 +44,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of `
 - **Why call `encode_statement()` again instead of encoding directly?** The rewritten statement goes through all the existing checks, so `x1 += 300`, `x1 += v2` and the rest get the normal error messages, and any later fix to the normal path also covers compound statements.
 - **Is `x1 += x2 * x3` the same kind of sugar?** No. `x1 = x1 + x2 * x3` has two operators, so it needs two instructions and a temporary register, or a new multiply-accumulate instruction (Q035).
 - **What would `[x1] += 5` need?** Three instructions (load, add, store) and a free register. The compiler would then have to expand one line into several and count them in pass 1, as Q034 does.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `compound.txt`, `compound_data.byte`, `compound_long.txt`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

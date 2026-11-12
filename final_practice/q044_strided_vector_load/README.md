@@ -57,3 +57,10 @@ columns, row by row). It checks:
 - **Where is it used?** Columns of row-major matrices (matrix multiply, transpose), one field of an array of structs (stride = struct size), and every k-th sample of a signal. RISC-V V has `vlse32.v` and ARM SVE has gather loads for this.
 - **What is the next step after a stride?** A *gather*: lane i comes from `base + offset[i]`, with the offsets in another vector register. A strided load is the special case offset[i] = i·stride.
 - **What about a strided store?** `[x1], x2 = v1` would be the mirror image, with opcode A6 (VSTORE 26 + 0x80) and the same three fields.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `stride.txt`, `stride_data.byte`, `stride_far.txt`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

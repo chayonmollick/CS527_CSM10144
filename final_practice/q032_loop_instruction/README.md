@@ -44,3 +44,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of
 - **What if xR is 0 at the start?** It becomes -1, which is not 0, so the loop would run 2^32 times; here the endless-loop guard (`MAX_STEPS`) stops the task. Test for 0 first with `BEQ` (x86 has `JECXZ` for exactly this).
 - **Why decrement before testing?** With `xR = n` the body runs exactly n times (n, n-1, ..., 1), and the counter ends at 0.
 - **What do nested loops need?** A different counter for each loop (x4 inner, x3 outer), and the inner counter is set again on every outer iteration (`x4 = 4` after `.outer`).
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `loop_sum.txt`, `loop_sum_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

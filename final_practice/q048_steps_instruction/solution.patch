@@ -1,0 +1,49 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:24:20
++++ b/compiler.cpp	2026-11-12 11:24:20
+@@ -244,6 +244,13 @@
+         return true;
+     }
+ 
++    if (t.size() == 3 && t[1] == "=" && lower(t[2]) == "steps") {     /* Q048: xD = steps */
++        Operand reg;
++        size_t k = 0;
++        if (!parse_operand(t, k, reg, msg) || reg.kind != Operand::XREG) { msg = "usage: x<n> = steps"; return false; }
++        set(ins, OP_STEPS, reg.value, 0, 0);
++        return true;
++    }
+     Operand dst, a, b;                                          /* assignment: dest = a [op b] */
+     i = 0;
+     if (!parse_operand(t, i, dst, msg)) return false;
+@@ -359,6 +366,7 @@
+     case OP_MOV:     std::snprintf(buf, sizeof buf, "x%d = x%d", d, b); break;
+     case OP_MOVC:    std::snprintf(buf, sizeof buf, "x%d = %d", d, b); break;
+     case OP_PRINT:   std::snprintf(buf, sizeof buf, "print x%d", b); break;
++    case OP_STEPS:   std::snprintf(buf, sizeof buf, "x%d = steps", d); break;     /* Q048: listing and trace */
+     case OP_VLOAD:   std::snprintf(buf, sizeof buf, "v%d = [x%d]", d, b); break;
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+     case OP_VSTORE:  std::snprintf(buf, sizeof buf, "[x%d] = v%d", d, b); break;
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:24:20
++++ b/config.h	2026-11-12 11:24:20
+@@ -61,7 +61,8 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_STEPS  = 0xC0    /* Q048: xD = steps (instructions this task has run)  C0 D 0 0 */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:24:20
++++ b/processor.cpp	2026-11-12 11:24:20
+@@ -188,6 +188,7 @@
+     }
+     case OP_MOV:  x[dest] = x[src2]; break;
+     case OP_MOVC: x[dest] = src2; break;
++    case OP_STEPS: x[dest] = (int)steps[p]; break;      /* Q048: steps[p] already counts this instruction */
+     case OP_LOAD:   if (load_word(x[src2], value)) x[dest] = value; break;     /* xD = [xA] */
+     case OP_LOADC:  if (load_word(src2, value)) x[dest] = value; break;        /* xD = [c]  */
+     case OP_STORE:  store_word(x[dest], x[src2]); break;                       /* [xA] = xS */

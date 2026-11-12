@@ -1,0 +1,54 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:24:20
++++ b/os.cpp	2026-11-12 11:24:20
+@@ -167,6 +167,8 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    std::printf("[ops] pid %d (%s): %ld operations in %ld instructions = %.2f per instruction\n",   /* Q058: report */
++                t.pid, t.prog.name.c_str(), alu_ops[p], t.steps, t.steps ? (double)alu_ops[p] / t.steps : 0.0);
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:24:20
++++ b/processor.cpp	2026-11-12 11:24:20
+@@ -21,6 +21,7 @@
+ int current_pid[NP];
+ long steps[NP];
+ long exec_count[NP][MAX_INSTRUCTIONS];
++long alu_ops[NP];                                /* Q058: effective operations */
+ int data_high[NP];
+ 
+ int proc_id, opcode, dest, src1, src2;
+@@ -50,6 +51,7 @@
+     FlagN[p] = FlagZ[p] = FlagC[p] = FlagV[p] = 0;
+     end_of_simulation[p] = failed[p] = 0;
+     steps[p] = 0;
++    alu_ops[p] = 0;                                        /* Q058: new task */
+     data_high[p] = 0;
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+@@ -159,6 +161,11 @@
+     if (trace)
+         std::fprintf(stderr, "[pid %d p%d] %3d: %02X %02X %02X %02X   %s\n", current_pid[p], p,
+                      instr_pc / 4, opcode, dest, src1, src2, disassemble(opcode, dest, src1, src2).c_str());
++    if ((opcode >= OP_ADD && opcode <= OP_DIV) || (opcode >= OP_ADDI && opcode <= OP_DIVI))
++        alu_ops[p] += 1;                                 /* Q058: scalar ALU operation */
++    else if ((opcode >= OP_VADD && opcode <= OP_VMUL) || (opcode >= OP_VADDI && opcode <= OP_VMULI)
++             || (opcode >= OP_VADDX && opcode <= OP_VMULX))
++        alu_ops[p] += VLEN;                              /* Q058: vector ALU: one operation per lane */
+ 
+     uint32_t a = (uint32_t)x[src1], b;
+     int value, addr;
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:24:20
++++ b/processor.h	2026-11-12 11:24:20
+@@ -18,6 +18,7 @@
+ extern int current_pid[NP];                    /* task running on processor p */
+ extern long steps[NP];                         /* instructions executed by the current task */
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
++extern long alu_ops[NP];                       /* Q058: effective operations (scalar ALU 1, vector ALU VLEN) */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */

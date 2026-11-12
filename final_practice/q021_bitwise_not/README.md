@@ -41,3 +41,10 @@ and that `sum_array` still works.
 - **Could the compiler do it without a new opcode?** `not x = -1 - x`, so it could emit `xD = 0`, `xD = xD - 1`, `xD = xD - xA`. That is three instructions and they change the flags. They are also wrong in place: for `x5 = not x5`, the first instruction destroys x5 and the result is 0.
 - **Bitwise or logical not?** This is bitwise: `not 5 = -6`. A logical not (C's `!x`, which gives 1 if x is 0 and 0 otherwise) is a different instruction; Q028's `x1 = x2 == x0` gives it when x0 holds 0.
 - **Why is the source in operand 2?** It is the same layout as `MOV` (`07 D 0 A`) and the loads, so every one-source instruction is decoded the same way.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `not_bits.txt`, `not_bits_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

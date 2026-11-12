@@ -1,0 +1,68 @@
+diff -ruN a/main.cpp b/main.cpp
+--- a/main.cpp	2026-11-12 11:24:20
++++ b/main.cpp	2026-11-12 11:24:20
+@@ -12,16 +12,18 @@
+  */
+ #include <cstdio>
+ #include <cstring>
++#include <cstdlib>                                 /* Q049: strtol */
+ #include <string>
+ #include "compiler.h"
+ #include "os.h"
+ #include "processor.h"
+ 
+ static void usage() {
+-    std::printf("usage: ./sim [-b] [-t] prog1.txt data1.byte [prog2.txt data2.byte ...]\n"
++    std::printf("usage: ./sim [-b] [-t] [-m N] prog1.txt data1.byte [prog2.txt data2.byte ...]\n"   /* Q049: new option */
+                 "       ./sim -c prog.txt [out.byte]\n"
+                 "  -b  batch mode: no shell, stop when all tasks finish\n"
+                 "  -t  trace every executed instruction (stderr)\n"
++                "  -m  N: stop a task after N instructions (default 10000000)\n"   /* Q049: help line */
+                 "  -c  compile only and print the byte-code listing\n");
+ }
+ 
+@@ -48,6 +50,11 @@
+     for (; i < argc && argv[i][0] == '-'; i++) {
+         if (!std::strcmp(argv[i], "-b")) batch = true;
+         else if (!std::strcmp(argv[i], "-t")) trace = 1;
++        else if (!std::strcmp(argv[i], "-m") && i + 1 < argc) {         /* Q049: -m N = instruction limit */
++            char *end;
++            max_steps = std::strtol(argv[++i], &end, 10);
++            if (*end || max_steps <= 0) { usage(); return 1; }
++        }
+         else if (!std::strcmp(argv[i], "-c")) {
+             if (i + 1 >= argc) { usage(); return 1; }
+             return compile_only(argv[i + 1], i + 2 < argc ? argv[i + 2] : "program.byte");
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:24:20
++++ b/processor.cpp	2026-11-12 11:24:20
+@@ -26,6 +26,7 @@
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+ int trace = 0;
++long max_steps = MAX_STEPS;                     /* Q049: changed by -m N */
+ 
+ static int instr_pc;     /* address of the instruction being executed (PC already points past it) */
+ 
+@@ -238,8 +239,8 @@
+         decode();
+         execute();
+         done++;
+-        if (!end_of_simulation[p] && steps[p] >= MAX_STEPS) {
+-            processor_error("%ld instructions executed without halting: endless loop?", MAX_STEPS);
++        if (!end_of_simulation[p] && steps[p] >= max_steps) {        /* Q049: limit set at run time */
++            processor_error("%ld instructions executed without halting: endless loop?", max_steps);
+             break;
+         }
+     }
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:24:20
++++ b/processor.h	2026-11-12 11:24:20
+@@ -23,6 +23,7 @@
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
++extern long max_steps;                         /* Q049: instruction limit per task (-m N), default MAX_STEPS */
+ 
+ void reset(int p);
+ void fetch();

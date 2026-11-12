@@ -1,0 +1,79 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:24:20
++++ b/os.cpp	2026-11-12 11:24:20
+@@ -141,6 +141,29 @@
+     return name;
+ }
+ 
++/* Q046: name of each opcode (index = opcode), for the table below */
++static const char *OP_NAME[0x34] = {
++    "halt", "add", "sub", "mul", "div", "load", "store", "mov",          /* 00-07 */
++    "print", "addi", "subi", "muli", "divi", "loadc", "storec", "movc",  /* 08-0F */
++    "beq", "bne", "bcs", "bcc", "bmi", "bpl", "bvs", "bvc",              /* 10-17 */
++    "bhi", "bls", "bge", "blt", "bgt", "ble", "bal", "",                 /* 18-1F */
++    "", "vadd", "vsub", "vmul", "", "vload", "vstore", "",               /* 20-27 */
++    "", "vaddi", "vsubi", "vmuli", "vloadc", "", "vstorec", "",          /* 28-2F */
++    "", "vaddx", "vsubx", "vmulx"};                                      /* 30-33 */
++
++/* Q046: table of the instructions the task executed, per opcode (printed when it ends) */
++static void print_opcode_table(int p, const Task &t) {
++    std::printf("[opcodes] pid %d (%s): executed instructions per opcode\n", t.pid, t.prog.name.c_str());
++    std::printf("    opcode  name      count\n");
++    long total = 0;
++    for (int op = 0; op < 256; op++) {
++        if (op_count[p][op] == 0) continue;
++        std::printf("    %02X      %-8s %6ld\n", op, op < 0x34 && OP_NAME[op][0] ? OP_NAME[op] : "?", op_count[p][op]);
++        total += op_count[p][op];
++    }
++    std::printf("    total            %6ld\n", total);
++}
++
+ /* finalize(): write the data back, write the frequency report, free the frames. */
+ static void finalize(int p, Task &t) {
+     size_t size = std::max(t.data.size(), (size_t)data_high[p]);
+@@ -167,6 +190,7 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    print_opcode_table(p, t);                              /* Q046: per-opcode table */
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:24:20
++++ b/processor.cpp	2026-11-12 11:24:20
+@@ -21,6 +21,7 @@
+ int current_pid[NP];
+ long steps[NP];
+ long exec_count[NP][MAX_INSTRUCTIONS];
++long op_count[NP][256];                         /* Q046: executed instructions per opcode */
+ int data_high[NP];
+ 
+ int proc_id, opcode, dest, src1, src2;
+@@ -46,6 +47,7 @@
+     std::memset(Register[p], 0, sizeof Register[p]);
+     std::memset(VRegister[p], 0, sizeof VRegister[p]);
+     std::memset(exec_count[p], 0, sizeof exec_count[p]);
++    std::memset(op_count[p], 0, sizeof op_count[p]);       /* Q046: a new task starts from 0 */
+     PC[p] = 0;
+     FlagN[p] = FlagZ[p] = FlagC[p] = FlagV[p] = 0;
+     end_of_simulation[p] = failed[p] = 0;
+@@ -155,6 +157,7 @@
+     int p = proc_id;
+     int *x = Register[p];
+     exec_count[p][instr_pc / 4]++;                       /* Lab 6 task 1 */
++    op_count[p][opcode]++;                               /* Q046: one more of this opcode */
+     steps[p]++;
+     if (trace)
+         std::fprintf(stderr, "[pid %d p%d] %3d: %02X %02X %02X %02X   %s\n", current_pid[p], p,
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:24:20
++++ b/processor.h	2026-11-12 11:24:20
+@@ -18,6 +18,7 @@
+ extern int current_pid[NP];                    /* task running on processor p */
+ extern long steps[NP];                         /* instructions executed by the current task */
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
++extern long op_count[NP][256];                 /* Q046: executed instructions per opcode */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */

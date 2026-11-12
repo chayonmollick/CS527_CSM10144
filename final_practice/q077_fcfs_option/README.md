@@ -55,3 +55,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of `
 - **Convoy effect:** under FCFS the two short counters wait behind the long job and finish in rounds 11 and 16 instead of 5 and 5. The average turnaround is (6 + 11 + 16) / 3 = 11 rounds, against (6 + 5 + 5) / 3 = 5.33 with round robin.
 - **Is FCFS preemptive?** No. The running task keeps the processor until it halts, so an endless loop blocks every task behind it; here only the `MAX_STEPS` guard would stop it.
 - **Why leave processors 1–3 idle?** The question asks for one task at a time. Letting 4 tasks run to completion at once is FCFS per processor, which is just lab6 unchanged.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `counter.txt`, `counter_by100.txt`, `counter_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

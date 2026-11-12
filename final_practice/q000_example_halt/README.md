@@ -25,3 +25,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of
 ## Viva
 - **Why no new opcode?** The processor already stops on `00`; `halt` is the same instruction placed by the programmer instead of by the compiler.
 - **What is the difference from the end of the program?** The compiler always appends `00 00 00 00`; `halt` puts one in the middle, so the listing shows two.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `early_stop.txt`, `early_stop_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

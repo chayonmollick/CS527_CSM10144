@@ -1,0 +1,64 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:24:20
++++ b/os.cpp	2026-11-12 11:24:20
+@@ -167,6 +167,8 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    std::printf("[footprint] pid %d (%s): highest data address %d, %d distinct word(s) written\n",   /* Q057: report */
++                t.pid, t.prog.name.c_str(), data_top[p], words_written[p]);
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:24:20
++++ b/processor.cpp	2026-11-12 11:24:20
+@@ -22,6 +22,9 @@
+ long steps[NP];
+ long exec_count[NP][MAX_INSTRUCTIONS];
+ int data_high[NP];
++int data_top[NP];                                /* Q057: highest data address used */
++int words_written[NP];                           /* Q057: distinct words stored to */
++static bool written_at[NP][DATA_SPACE];          /* Q057: a word was stored at this address */
+ 
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+@@ -51,6 +54,9 @@
+     end_of_simulation[p] = failed[p] = 0;
+     steps[p] = 0;
+     data_high[p] = 0;
++    data_top[p] = -1;                                       /* Q057: new task, nothing used yet */
++    words_written[p] = 0;
++    std::memset(written_at[p], 0, sizeof written_at[p]);
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+ 
+@@ -71,6 +77,7 @@
+         v |= (unsigned int)b << (8 * k);
+     }
+     value = (int)v;
++    if (addr > data_top[proc_id]) data_top[proc_id] = addr;       /* Q057: highest address */
+     return true;
+ }
+ 
+@@ -82,6 +89,8 @@
+         memory[pa] = (unsigned char)(v >> (8 * k));
+     }
+     if (addr + 4 > data_high[proc_id]) data_high[proc_id] = addr + 4;
++    if (addr > data_top[proc_id]) data_top[proc_id] = addr;       /* Q057: highest address */
++    if (!written_at[proc_id][addr]) { written_at[proc_id][addr] = true; words_written[proc_id]++; }   /* Q057: new word */
+     return true;
+ }
+ 
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:24:20
++++ b/processor.h	2026-11-12 11:24:20
+@@ -19,6 +19,8 @@
+ extern long steps[NP];                         /* instructions executed by the current task */
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
++extern int data_top[NP];                       /* Q057: highest data address loaded or stored (-1 = none) */
++extern int words_written[NP];                  /* Q057: distinct word addresses stored to */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */

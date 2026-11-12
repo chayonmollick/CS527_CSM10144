@@ -44,3 +44,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of
 - **Signed or unsigned?** Signed, because `x[]` is `int`. An unsigned version (`minu`) would compare `(uint32_t)` values and would return 1 for min(-3, 1).
 - **Why is branch-free better?** With no branch there is nothing to mispredict and no pipeline flush (see e07/e08), and the loop body is straight-line code.
 - **How would you add `x1 = max x2 0` (ReLU, clamping)?** Add a constant form `OP_MAXI` with `c` in operand 2, the way `ADDI` goes with `ADD`.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `min_max.txt`, `min_max_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

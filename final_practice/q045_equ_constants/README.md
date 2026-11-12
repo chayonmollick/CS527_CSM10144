@@ -52,3 +52,10 @@ FIRST and stores at RESULT (0x40). It checks:
 - **Why forbid register names?** After `.equ x1 5`, every `x1` in the program would become the number 5, so `x1 = x1 + 1` would stop compiling.
 - **What is the difference between `.equ` and a register that holds the value?** `.equ` costs nothing at run time, because it becomes the constant byte of the instruction. It must fit in 0..255, though, and it cannot change. A register can hold any 32-bit value and can change, but it costs an instruction to set and it uses up a register.
 - **Where else is this used?** GNU `as` (`.equ`, `.set`), NASM (`EQU`) and C's `#define`. All of them are handled by the assembler or the preprocessor, never by the CPU.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `equ.txt`, `equ_bad_name.txt`, `equ_bad_value.txt`, `equ_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

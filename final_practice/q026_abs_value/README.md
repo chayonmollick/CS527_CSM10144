@@ -43,3 +43,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of
 - **Can abs(x) ever be negative?** Only for -2147483648 (0x80000000), whose negation does not fit in 32 bits. In C, `abs(INT_MIN)` is undefined; here it is defined as wrap-around.
 - **How can abs be done without a branch, given the shifts and XOR of e01?** Compute `m = x >> 31` (arithmetic shift, so m is 0 or -1), then `abs = (x ^ m) - m`.
 - **Why is the source in operand 2?** It is the same layout as `MOV`, so every one-source instruction is decoded the same way.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `abs_sum.txt`, `abs_sum_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

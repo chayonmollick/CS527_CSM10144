@@ -50,3 +50,10 @@ runs 1 + 10 × 4 + 2 = 43 instructions.
 - **Why a variable and not the `#define`?** The preprocessor replaces a macro at compile time, so its value is fixed in the binary. A value chosen at run time needs a variable; the macro remains its default.
 - **Small or large slice?** A small slice gives a better response time, because every task gets its turn sooner, but more overhead per instruction: here a `usleep` and a shell check per slice, on a real machine context switches and cache/TLB misses. A very large slice turns round robin into FCFS, as `-q 100` shows.
 - **Why do the results not change?** Each task has its own registers and pages and nothing is shared, so only the order of the lines in `log.txt` depends on the slice.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `counter.txt`, `counter_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

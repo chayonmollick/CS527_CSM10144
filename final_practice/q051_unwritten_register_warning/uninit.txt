@@ -1,0 +1,11 @@
+% Q051 test: x5, x7 and x9 are read before the program writes them (they start at 0)
+x1 = 3
+x2 = x1 + x5      % x5 never written: warning
+x3 = x5 * 2       % x5 again: no second warning
+.loop
+x7 = x7 + 1       % x7 not written yet: one warning, although the loop runs 3 times
+x8 = x7 - x1
+BNE .loop
+x2 = x2 * 10      % 30
+[x9] = x2         % x9 (the address) never written: warning; stores 30 at address 0
+[4] = x7          % 3

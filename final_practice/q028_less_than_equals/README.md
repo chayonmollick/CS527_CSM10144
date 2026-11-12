@@ -51,3 +51,10 @@ tokenizer.
 - **Why is `==` a problem for the tokenizer?** `=` is already the assignment token. Splitting every `=` turns `x1 = x2 == x3` into 6 tokens. Looking one character ahead makes `==` a single token, and a lone `=` still means assignment.
 - **How do you get `>`, `<=` and `!=`?** `a > b` is `b < a`, so the compiler can swap the operands and needs no new opcode. `<=` and `!=` are the opposites of `>` and `==`: either add one opcode each, or compute `1 - result` using a register that holds 1.
 - **Signed or unsigned `<`?** Signed, like RISC-V `slt`. An unsigned version (`sltu`) compares `(uint32_t)` values, so -2 < 5 would give 0.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `count_cmp.txt`, `count_cmp_data.byte`, `fir.txt`, `fir_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

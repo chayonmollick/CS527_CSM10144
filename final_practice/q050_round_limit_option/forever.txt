@@ -1,0 +1,6 @@
+% Q050 test: an endless loop; only the round limit (-r) stops it
+x1 = 0
+.forever
+x1 = x1 + 1
+[0] = x1          % the counter so far
+BAL .forever

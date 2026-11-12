@@ -44,3 +44,10 @@ gives 45.
 - **Why is pid 5 not loaded as soon as pid 1 finishes?** Admission happens in `admit_waiting()`, which runs at the start of each round and on task creation, not in `finish_task()`. Calling it in `finish_task()` too would start pid 5 one round earlier.
 - **Is the waiting queue strictly FIFO?** No. `admit_waiting()` skips a task that needs more frames than are free and may load a smaller one behind it. That uses memory well, but a big task can starve.
 - **Where would a blocked task go?** A task waiting for I/O or a semaphore belongs in a third, blocked queue, not in the ready queue, so that it gets no slices until it is woken.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `counter.txt`, `counter_by100.txt`, `counter_data.byte`, `sum_array.txt`, `sum_array_data.byte`, `tiny.txt`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

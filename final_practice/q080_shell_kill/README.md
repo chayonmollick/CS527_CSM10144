@@ -54,3 +54,10 @@ after round 1: `kill 1`, `kill 5`, `kill 1`, `kill 9`, `exit`.
 - **Why reuse `finish_task()`?** Every way out of a task frees the frames and the processor in the same code, so a kill cannot leak memory. The partial `.out` is also useful for debugging.
 - **When does the kill take effect?** Between two slices, because the shell only runs between rounds. A real OS also acts on a signal only when the process next enters the kernel or is scheduled.
 - **What else would a real kill release?** Open files, locks and child processes, then a parent's `wait` would collect the exit status. Here a task holds only frames and a processor.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `counter.txt`, `counter_by100.txt`, `counter_data.byte`, `long_job.txt`, `long_job_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

@@ -44,3 +44,10 @@ of them between the compare and `BNE`; x0 keeps the value 7. The test also check
 - **What is a nop for?** Filling a slot without any effect: a branch delay slot (MIPS), aligning or padding code, timing loops, and patching an instruction out of a binary without moving the others, so every branch offset stays valid.
 - **Does a nop cost time here?** Yes. It is fetched and executed, it counts in the instruction total and in the `.freq` report, and it uses one of the task's 10 instructions per time slice.
 - **Why x0?** Any `xR = xR` would do. Fixing it to x0 gives one known encoding, `07 00 00 00`, which the disassembler can recognise and print as `nop`.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `nop_loop.txt`, `nop_loop_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

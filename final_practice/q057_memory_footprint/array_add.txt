@@ -1,0 +1,21 @@
+% Lab 3: C = A + B with vector instructions (8 elements per instruction)
+% data: N at 0 (multiple of 8), A at 4, B at 4 + 4N, C written at 4 + 8N
+x1 = [0]          % N
+x2 = 4            % address of A[i]
+x3 = x1 * 4       % bytes per array
+x4 = x2 + x3      % address of B[i]
+x5 = x4 + x3      % address of C[i]
+x6 = 0            % i
+.loop
+x7 = x6 - x1
+BGE .done         % i >= N
+v1 = [x2]         % A[i..i+7]
+v2 = [x4]         % B[i..i+7]
+v3 = v1 + v2
+[x5] = v3         % C[i..i+7]
+x2 = x2 + 32
+x4 = x4 + 32
+x5 = x5 + 32
+x6 = x6 + 8
+BAL .loop
+.done

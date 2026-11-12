@@ -1,0 +1,95 @@
+diff -ruN a/main.cpp b/main.cpp
+--- a/main.cpp	2026-11-12 11:24:20
++++ b/main.cpp	2026-11-12 11:24:20
+@@ -12,16 +12,18 @@
+  */
+ #include <cstdio>
+ #include <cstring>
++#include <cstdlib>                                 /* Q054: strtol */
+ #include <string>
+ #include "compiler.h"
+ #include "os.h"
+ #include "processor.h"
+ 
+ static void usage() {
+-    std::printf("usage: ./sim [-b] [-t] prog1.txt data1.byte [prog2.txt data2.byte ...]\n"
++    std::printf("usage: ./sim [-b] [-t] [-k N] prog1.txt data1.byte [prog2.txt data2.byte ...]\n"   /* Q054: new option */
+                 "       ./sim -c prog.txt [out.byte]\n"
+                 "  -b  batch mode: no shell, stop when all tasks finish\n"
+                 "  -t  trace every executed instruction (stderr)\n"
++                "  -k  N: breakpoint: the first time instruction N runs, print the non-zero registers\n"   /* Q054: help line */
+                 "  -c  compile only and print the byte-code listing\n");
+ }
+ 
+@@ -48,6 +50,11 @@
+     for (; i < argc && argv[i][0] == '-'; i++) {
+         if (!std::strcmp(argv[i], "-b")) batch = true;
+         else if (!std::strcmp(argv[i], "-t")) trace = 1;
++        else if (!std::strcmp(argv[i], "-k") && i + 1 < argc) {         /* Q054: -k N = breakpoint */
++            char *end;
++            break_at = (int)std::strtol(argv[++i], &end, 10);
++            if (*end || break_at < 0 || break_at >= MAX_INSTRUCTIONS) { usage(); return 1; }
++        }
+         else if (!std::strcmp(argv[i], "-c")) {
+             if (i + 1 >= argc) { usage(); return 1; }
+             return compile_only(argv[i + 1], i + 2 < argc ? argv[i + 2] : "program.byte");
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:24:20
++++ b/processor.cpp	2026-11-12 11:24:20
+@@ -26,9 +26,29 @@
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+ int trace = 0;
++int break_at = -1;                              /* Q054: set by -k N */
+ 
+ static int instr_pc;     /* address of the instruction being executed (PC already points past it) */
++static bool break_done[NP];   /* Q054: breakpoint already reported for the task on p */
+ 
++/* Q054: first time instruction break_at runs in a task: show its non-zero registers (before it executes) */
++static void breakpoint(int p) {
++    break_done[p] = true;
++    std::printf("[break] pid %d, instruction %d (%s), registers before it runs:", current_pid[p], instr_pc / 4,
++                disassemble(opcode, dest, src1, src2).c_str());
++    for (int r = 0; r < NUM_XREGS; r++)
++        if (Register[p][r] != 0) std::printf(" x%d=%d", r, Register[p][r]);
++    for (int r = 0; r < NUM_VREGS; r++) {
++        bool nonzero = false;
++        for (int i = 0; i < VLEN; i++) if (VRegister[p][r][i] != 0) nonzero = true;
++        if (!nonzero) continue;
++        std::printf(" v%d=[", r);
++        for (int i = 0; i < VLEN; i++) std::printf("%s%d", i ? " " : "", VRegister[p][r][i]);
++        std::printf("]");
++    }
++    std::printf("\n");
++}
++
+ void processor_error(const char *fmt, ...) {
+     char msg[256];
+     va_list ap;
+@@ -50,6 +70,7 @@
+     FlagN[p] = FlagZ[p] = FlagC[p] = FlagV[p] = 0;
+     end_of_simulation[p] = failed[p] = 0;
+     steps[p] = 0;
++    break_done[p] = false;                                 /* Q054: new task, not reached yet */
+     data_high[p] = 0;
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+@@ -156,6 +177,7 @@
+     int *x = Register[p];
+     exec_count[p][instr_pc / 4]++;                       /* Lab 6 task 1 */
+     steps[p]++;
++    if (instr_pc / 4 == break_at && !break_done[p]) breakpoint(p);   /* Q054: before it executes */
+     if (trace)
+         std::fprintf(stderr, "[pid %d p%d] %3d: %02X %02X %02X %02X   %s\n", current_pid[p], p,
+                      instr_pc / 4, opcode, dest, src1, src2, disassemble(opcode, dest, src1, src2).c_str());
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:24:20
++++ b/processor.h	2026-11-12 11:24:20
+@@ -23,6 +23,7 @@
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
++extern int break_at;                           /* Q054: -k N: instruction index to break at (-1 = off) */
+ 
+ void reset(int p);
+ void fetch();

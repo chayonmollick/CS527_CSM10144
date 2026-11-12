@@ -1,0 +1,16 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:24:20
++++ b/os.cpp	2026-11-12 11:24:20
+@@ -152,6 +152,12 @@
+     }
+     std::string out_name = file_stem(t.data_path) + "_" + std::to_string(t.pid) + ".out";
+     write_byte_file(out_name, out);
++    std::string dump_name = t.prog.name + "_" + std::to_string(t.pid) + ".dump";   /* Q056: the same words in decimal */
++    FILE *dump = std::fopen(dump_name.c_str(), "w");
++    if (dump) {
++        for (size_t a = 0; a < size; a += 4) std::fprintf(dump, "[%zu] = %d\n", a, get_word(out, (int)a));
++        std::fclose(dump);
++    }
+     std::string freq_name = write_frequency_file(p, t);
+ 
+     for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* release frames, clear the table */

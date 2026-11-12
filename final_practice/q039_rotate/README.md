@@ -53,3 +53,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of `
 - **Why mod 32?** Rotating by 32 is a full turn, so only the amount mod 32 matters. x86 `ROL` also masks the count to 5 bits. In `rotate.txt`, rotating by 36 equals rotating by 4.
 - **Where are rotates used?** Hash functions and ciphers (SHA-256 is built from rotations), CRCs and checksums. Here, `rol 8` also builds a 32-bit constant from bytes while the top byte is still 0.
 - **Why no `rol` for vectors?** It could be added lane-wise (like `vector_op()`), with opcodes in the same range. The question only asks for scalars.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `rotate.txt`, `rotate_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

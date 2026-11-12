@@ -1,0 +1,34 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:24:20
++++ b/os.cpp	2026-11-12 11:24:20
+@@ -141,6 +141,22 @@
+     return name;
+ }
+ 
++/* Q060: the most executed instruction of the task (the first one if several tie) */
++static void print_hottest(int p, const Task &t) {
++    const Program &pr = t.prog;
++    int best = 0;
++    for (int i = 1; i < (int)pr.code.size() / 4; i++)
++        if (exec_count[p][i] > exec_count[p][best]) best = i;
++    const unsigned char *c = &pr.code[4 * best];
++    std::string where = "no source line";
++    if (pr.line_of[best] >= 0) {
++        const std::string &text = pr.source[pr.line_of[best]];
++        where = "line " + std::to_string(pr.line_of[best] + 1) + ": " + text.substr(text.find_first_not_of(" \t"));
++    }
++    std::printf("[hot] pid %d (%s): instruction %d (%s) executed %ld times, %s\n", t.pid, pr.name.c_str(), best,
++                disassemble(c[0], c[1], c[2], c[3]).c_str(), exec_count[p][best], where.c_str());
++}
++
+ /* finalize(): write the data back, write the frequency report, free the frames. */
+ static void finalize(int p, Task &t) {
+     size_t size = std::max(t.data.size(), (size_t)data_high[p]);
+@@ -167,6 +183,7 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    print_hottest(p, t);                                   /* Q060: most executed instruction */
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */

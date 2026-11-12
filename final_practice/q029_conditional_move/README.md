@@ -43,3 +43,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of
 - **Why does xD keep its old value when the condition is 0?** That is the definition: the processor simply skips the write. In hardware, the old value of xD is read as a third input and written back unchanged.
 - **Conditional move or branch?** A hard-to-predict branch costs a pipeline flush every time it is mispredicted, while a CMOV always costs exactly one instruction. When the condition is predictable, a branch can be faster, because it skips work.
 - **Why the word `if` as an operator?** `x1 = x3 if x2` has the same shape as `x1 = x3 + x2`, so the existing parser hands it to `encode_arith` with no other change.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `cmov.txt`, `cmov_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

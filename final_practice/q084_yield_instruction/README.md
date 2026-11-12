@@ -49,3 +49,10 @@ loop turn is add, print, yield, sub, BNE.
 - **What is yield for?** A task with nothing useful to do, for example one polling a flag, gives its slice away instead of spinning. That is cooperative multitasking, like `sched_yield()` in POSIX.
 - **Does anyone gain from it in lab6?** Not directly. Each task has its own processor, so the given-up instructions go to nobody, and the processor idles until the next round. Yield pays off when tasks share a processor (context switching, extension e18).
 - **`yield`, `sleep 0` and `halt`:** `halt` ends the task, `yield` ends only the slice, and `sleep n` (Q083) ends the slice and also skips the next n rounds.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `counter.txt`, `counter_data.byte`, `polite.txt`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

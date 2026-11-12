@@ -51,3 +51,10 @@ The shell input `ps`, `exit` comes from a file, so the shell reads it right afte
 - **Why is there no RUNNING state?** In lab6 a loaded task owns its processor until it ends and runs every round, so between rounds READY means "on a processor". With more tasks than processors (context switching, extension e18) READY and RUNNING would differ.
 - **Why read `steps[p]` for a READY task?** The processor arrays hold the live state, like hardware registers. `t.steps` is the copy kept in the process table once the task ends, like a PCB field.
 - **Why is pid 5 still WAITING with a free processor?** `admit_waiting()` runs at the start of each round and when a task is created, not when one finishes.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `counter.txt`, `counter_by100.txt`, `counter_data.byte`, `sum_array.txt`, `sum_array_data.byte`, `tiny.txt`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

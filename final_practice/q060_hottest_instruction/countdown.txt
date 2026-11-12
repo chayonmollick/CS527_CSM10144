@@ -1,0 +1,11 @@
+% Q060 test: count down from 5. The branch at .loop runs 6 times, every other instruction at most 5.
+x1 = 5
+x9 = x1 - 0       % sets the flags for the first test (5 is not 0)
+x2 = 0
+.loop
+BEQ .done
+x2 = x2 + x1      % 5 + 4 + 3 + 2 + 1
+x1 = x1 - 1       % Z = 1 when x1 reaches 0
+BAL .loop
+.done
+[0] = x2

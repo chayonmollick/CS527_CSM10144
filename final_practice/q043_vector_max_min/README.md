@@ -46,3 +46,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of `
 - **How do you do a long array fast?** Keep the work vertical inside the loop (a lane-wise max of each new block into an accumulator vector) and reduce horizontally only once at the end. A lane-wise `vmax` would need another opcode; this question adds only the reductions.
 - **Why put the result in an x register?** Because it is used as a scalar: stored, compared, or used to branch. Branches only look at the flags, which a scalar SUB sets.
 - **How would you get the index of the maximum?** You need another instruction (an "argmax" that returns the lane number, 0..7), or a compare of each lane with the maximum.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `maxmin.txt`, `maxmin_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

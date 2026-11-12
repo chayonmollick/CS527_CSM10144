@@ -53,3 +53,10 @@ The expected numbers were computed separately with the same formula.
 - **Why not one global generator?** pid 1's numbers would then depend on how many numbers the other tasks drew in their time slices, so they would change with NP, the time slice or the task mix. Per-task state makes every task reproducible on its own.
 - **Why return the high bits?** In an LCG modulo 2³², bit k repeats with period 2^(k+1), so bit 0 just alternates. The upper bits are far better. With c odd and a − 1 divisible by 4, the state goes through all 2³² values before it repeats.
 - **How do you get a dice roll 1..6?** There is no `mod`, so compute r − (r / 6)·6 + 1: `x4 = x3 / 6`, `x4 = x4 * 6`, `x4 = x3 - x4`, `x4 = x4 + 1`.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `rnd.txt`, `rnd_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

@@ -52,3 +52,10 @@ The exact code is in [`solution.patch`](solution.patch). Apply it to a copy of `
 - **What breaks if pass 1 still counts one per line?** In `negconst.txt`, `.loop` would be instruction 11 instead of 12, so the offset would be `BNE -5`. The branch would land on `x5 = 0`, which clears the sum on every pass, and address 16 would hold −2 instead of −6.
 - **Are the flags the same as adding −5?** The result is the same 32 bits, so Z, N and V match. C follows the subtraction rule (x2 > 5, unsigned). Note that `x1 = -7` changes the flags, because it ends with a SUBI, but `x1 = 7` (MOVC) does not.
 - **Why count only the first instruction in `.freq`?** The report counts executions of a *source line*. Each run of the line executes both instructions once, so summing them would double the count.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `negconst.txt`, `negconst_bad.txt`, `negconst_data.byte`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

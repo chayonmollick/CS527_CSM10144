@@ -61,3 +61,10 @@ slices of 10, counter prints 2, 3, 2 and 3 values in rounds 1–4:
 - **Why not a loop that waits?** That is busy waiting and burns every slice. A sleeping task executes nothing.
 - **Why keep the counter per processor?** In lab6 a task owns its processor until it ends, so `p` identifies the task, exactly as for its registers. With context switching (extension e18) it would move into the PCB.
 - **How does a real OS do it?** The task goes to a sleep queue and gives its processor to another task. A timer interrupt wakes it after a wall-clock time. Here the round counter is the clock, and the processor stays idle.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `counter.txt`, `counter_data.byte`, `sleeper.txt`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.

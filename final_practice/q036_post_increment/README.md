@@ -54,3 +54,10 @@ It checks:
 - **Why add 4 and not 1?** Addresses are in bytes, and every load and store moves a 32-bit word. A vector version (`v1 = [x2]+`) would add 32.
 - **Why increment only when the access worked?** The instruction then either completes or has no effect on the register, which is what a precise fault needs: after fixing the page the instruction can simply run again.
 - **How would you add pre-decrement, `[-x2] = x1` (a push)?** Subtract 4 first, then store. With `x1 = [x2]+` as the pop, that gives a full-descending stack.
+
+## Files
+- `solution/`: the complete simulator with this answer applied (lab6 + `solution.patch`).
+  Build and run it directly: `cd solution && make`, then `./sim -b ../<program>.txt ../<data>.byte`.
+- `solution.patch`: only the changed lines, to apply to your own copy: `patch -p1 < solution.patch`.
+- Inputs (programs and data): `copy_sum.txt`, `copy_sum_data.byte`, `postinc_bad.txt`, `sum_array.txt`, `sum_array_data.byte`.
+- `test.sh`: applies the answer to a fresh copy of lab6, builds it and checks the results.
