@@ -1,0 +1,66 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:07:51
++++ b/compiler.cpp	2026-11-12 11:07:51
+@@ -51,8 +51,10 @@
+ /* "x1=[x2]+3" -> {"x1", "=", "[", "x2", "]", "+", "3"} */
+ static std::vector<std::string> tokenize(const std::string &s) {
+     std::string spaced;
+-    for (char c : s) {
+-        if (std::strchr("=+-*/[]", c)) { spaced += ' '; spaced += c; spaced += ' '; }
++    for (size_t k = 0; k < s.size(); k++) {                    /* Q028: by index, to see the next char */
++        char c = s[k];
++        if (c == '=' && k + 1 < s.size() && s[k + 1] == '=') { spaced += " == "; k++; }   /* Q028: == */
++        else if (std::strchr("=+-*/[]<", c)) { spaced += ' '; spaced += c; spaced += ' '; }   /* Q028: < */
+         else if (c == ',') spaced += ' ';
+         else spaced += c;
+     }
+@@ -183,6 +185,14 @@
+ /* dest = a <op> b */
+ static bool encode_arith(const Operand &dst, const Operand &a, const std::string &op, const Operand &b,
+                          unsigned char ins[4], std::string &msg) {
++    if (op == "<" || op == "==") {                              /* Q028: xD = xA < xB, xD = xA == xB */
++        if (dst.kind != Operand::XREG || a.kind != Operand::XREG || b.kind != Operand::XREG) {
++            msg = "usage: xD = xA < xB  or  xD = xA == xB (x registers)";
++            return false;
++        }
++        set(ins, op == "<" ? OP_SLT : OP_SEQ, dst.value, a.value, b.value);
++        return true;
++    }
+     size_t k = std::string("+-*/").find(op);
+     if (op.size() != 1 || k == std::string::npos) { msg = "unknown operator '" + op + "'"; return false; }
+     if (dst.kind == Operand::XREG) {
+@@ -358,6 +368,8 @@
+     case OP_STOREC:  std::snprintf(buf, sizeof buf, "[%d] = x%d", d, b); break;
+     case OP_MOV:     std::snprintf(buf, sizeof buf, "x%d = x%d", d, b); break;
+     case OP_MOVC:    std::snprintf(buf, sizeof buf, "x%d = %d", d, b); break;
++    case OP_SLT:     std::snprintf(buf, sizeof buf, "x%d = x%d < x%d", d, a, b); break;    /* Q028 */
++    case OP_SEQ:     std::snprintf(buf, sizeof buf, "x%d = x%d == x%d", d, a, b); break;   /* Q028 */
+     case OP_PRINT:   std::snprintf(buf, sizeof buf, "print x%d", b); break;
+     case OP_VLOAD:   std::snprintf(buf, sizeof buf, "v%d = [x%d]", d, b); break;
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:07:51
++++ b/config.h	2026-11-12 11:07:51
+@@ -61,7 +61,9 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_SLT    = 0x66,   /* Q028: xD = xA < xB   (1 or 0, signed)    66 D A B */
++    OP_SEQ    = 0x67    /* Q028: xD = xA == xB  (1 or 0)            67 D A B */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:07:51
++++ b/processor.cpp	2026-11-12 11:07:51
+@@ -188,6 +188,8 @@
+     }
+     case OP_MOV:  x[dest] = x[src2]; break;
+     case OP_MOVC: x[dest] = src2; break;
++    case OP_SLT:  x[dest] = x[src1] < x[src2]; break;     /* Q028: int compare = signed; 1 or 0 */
++    case OP_SEQ:  x[dest] = x[src1] == x[src2]; break;    /* Q028: flags unchanged */
+     case OP_LOAD:   if (load_word(x[src2], value)) x[dest] = value; break;     /* xD = [xA] */
+     case OP_LOADC:  if (load_word(src2, value)) x[dest] = value; break;        /* xD = [c]  */
+     case OP_STORE:  store_word(x[dest], x[src2]); break;                       /* [xA] = xS */

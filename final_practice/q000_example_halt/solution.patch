@@ -1,0 +1,14 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 10:51:19
++++ b/compiler.cpp	2026-11-12 10:51:19
+@@ -233,6 +233,10 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (head == "halt" && t.size() == 1) {                      /* Q000: end the program here */
++        set(ins, OP_HALT, 0, 0, 0);
++        return true;
++    }
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }

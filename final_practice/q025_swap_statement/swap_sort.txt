@@ -1,0 +1,24 @@
+% Q025 test: swap xA xB = 3 instructions (add, sub, sub); labels after it must stay right
+x1 = [0]           % 9
+x2 = [4]           % 4
+x3 = x1 - x2       % put the pair in order: swap only if x1 > x2
+BLE .sorted        % jumps over all 3 instructions of the swap
+swap x1 x2
+.sorted
+[8] = x1           % 4
+[12] = x2          % 9
+x4 = 0             % Fibonacci: (a, b) -> (b, a + b), 10 times
+x5 = 1
+x6 = 10
+.fib
+x4 = x4 + x5
+swap x4 x5
+x6 = x6 - 1
+BNE .fib
+[16] = x4          % F(10) = 55
+[20] = x5          % F(11) = 89
+x7 = [24]          % 2147483647: x7 + x8 overflows, but the swap still works (mod 2^32)
+x8 = [28]          % 100
+swap x7 x8
+[32] = x7          % 100
+[36] = x8          % 2147483647

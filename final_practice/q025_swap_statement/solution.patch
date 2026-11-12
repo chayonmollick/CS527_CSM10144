@@ -1,0 +1,77 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:07:51
++++ b/compiler.cpp	2026-11-12 11:07:51
+@@ -257,6 +257,26 @@
+     return encode_arith(dst, a, op, b, ins, msg);
+ }
+ 
++/* Q025: how many instructions a line compiles to (pass 1 needs it: labels count instructions) */
++static int line_size(const std::vector<std::string> &t) {
++    return (!t.empty() && lower(t[0]) == "swap") ? 3 : 1;
++}
++
++/* Q025: swap xA xB -> xA = xA + xB; xB = xA - xB; xA = xA - xB  (no spare register; sets the flags) */
++static bool encode_swap(const std::vector<std::string> &t, unsigned char ins[3][4], std::string &msg) {
++    Operand a, b;
++    size_t i = 1;
++    if (t.size() != 3 || !parse_operand(t, i, a, msg) || !parse_operand(t, i, b, msg)
++        || a.kind != Operand::XREG || b.kind != Operand::XREG || a.value == b.value) {
++        msg = "usage: swap xA xB (two different x registers)";
++        return false;
++    }
++    set(ins[0], OP_ADD, a.value, a.value, b.value);             /* xA = a + b */
++    set(ins[1], OP_SUB, b.value, a.value, b.value);             /* xB = (a + b) - b = a */
++    set(ins[2], OP_SUB, a.value, a.value, b.value);             /* xA = (a + b) - a = b */
++    return true;
++}
++
+ /* ---------------- public functions ---------------- */
+ 
+ std::string file_stem(const std::string &path) {
+@@ -294,7 +314,7 @@
+             labels[s] = count;
+             prog.is_label[ln] = true;
+         } else {
+-            count++;
++            count += line_size(tokenize(s));             /* Q025: a swap line is 3 instructions */
+         }
+     }
+     if (count + 1 > MAX_INSTRUCTIONS) {
+@@ -307,15 +327,19 @@
+     for (size_t ln = 0; ln < prog.source.size(); ln++) {
+         std::string s = clean_line(prog.source[ln]);
+         if (s.empty() || s[0] == '.') continue;
+-        unsigned char ins[4];
++        unsigned char ins[3][4];                         /* Q025: up to 3 instructions per line */
+         std::string msg;
+-        if (!encode_statement(tokenize(s), index, labels, ins, msg)) {
++        std::vector<std::string> t = tokenize(s);
++        int n = line_size(t);
++        if (!(n == 3 ? encode_swap(t, ins, msg) : encode_statement(t, index, labels, ins[0], msg))) {
+             err = src_path + ":" + std::to_string(ln + 1) + ": " + msg + "\n    " + trim(prog.source[ln]);
+             return false;
+         }
+-        prog.code.insert(prog.code.end(), ins, ins + 4);
+-        prog.line_of.push_back((int)ln);
+-        index++;
++        for (int k = 0; k < n; k++) {                    /* Q025: all n belong to source line ln */
++            prog.code.insert(prog.code.end(), ins[k], ins[k] + 4);
++            prog.line_of.push_back((int)ln);
++            index++;
++        }
+     }
+     prog.code.insert(prog.code.end(), {OP_HALT, 0, 0, 0});   /* end of program */
+     prog.line_of.push_back(-1);
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:07:51
++++ b/os.cpp	2026-11-12 11:07:51
+@@ -123,7 +123,8 @@
+         std::vector<bool> executable(pr.source.size(), false);
+         for (size_t i = 0; i < pr.line_of.size(); i++)
+             if (pr.line_of[i] >= 0) {
+-                count[pr.line_of[i]] += exec_count[p][i];
++                if (i == 0 || pr.line_of[i - 1] != pr.line_of[i])   /* Q025: count a line once (its first instruction) */
++                    count[pr.line_of[i]] += exec_count[p][i];
+                 executable[pr.line_of[i]] = true;
+             }
+         for (size_t ln = 0; ln < pr.source.size(); ln++) {

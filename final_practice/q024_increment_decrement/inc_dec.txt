@@ -1,0 +1,20 @@
+% Q024 test: x1++ and x1-- compile to x1 = x1 + 1 and x1 = x1 - 1, so they set the flags
+x1 = [0]           % n = 10
+x2 = 0             % sum
+x3 = 0             % iterations
+.loop
+x2 = x2 + x1
+x3++
+x1--               % Z = 1 when x1 reaches 0
+BNE .loop          % no compare needed: x1-- set the flags
+[4] = x2           % 10 + 9 + ... + 1 = 55
+[8] = x3           % 10
+[12] = x1          % 0
+x4 = 0
+x5 = 1
+x4--               % 0 - 1 = -1: sets N = 1
+BMI .negative
+x5 = 2
+.negative
+[16] = x4          % -1
+[20] = x5          % 1: the branch saw N from x4--

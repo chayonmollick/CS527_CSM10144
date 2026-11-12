@@ -1,0 +1,15 @@
+% Q022 test: nop takes an instruction slot and changes nothing, not even the flags
+x0 = 7             % nop is "x0 = x0": x0 keeps its value
+x1 = 0
+x2 = 0
+.loop
+nop
+x1 = x1 + 1
+x2 = x2 + x1
+x3 = x1 - 10       % compare: Z = 1 when x1 reaches 10
+nop                % between the compare and the branch: the flags must survive
+nop
+BNE .loop
+[0] = x2           % 1 + 2 + ... + 10 = 55
+[4] = x1           % 10
+[8] = x0           % 7

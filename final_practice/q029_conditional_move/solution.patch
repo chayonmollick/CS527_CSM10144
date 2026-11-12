@@ -1,0 +1,50 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:07:51
++++ b/compiler.cpp	2026-11-12 11:07:51
+@@ -183,6 +183,14 @@
+ /* dest = a <op> b */
+ static bool encode_arith(const Operand &dst, const Operand &a, const std::string &op, const Operand &b,
+                          unsigned char ins[4], std::string &msg) {
++    if (lower(op) == "if") {                                    /* Q029: xD = xA if xB */
++        if (dst.kind != Operand::XREG || a.kind != Operand::XREG || b.kind != Operand::XREG) {
++            msg = "usage: xD = xA if xB (x registers)";
++            return false;
++        }
++        set(ins, OP_CMOV, dst.value, a.value, b.value);
++        return true;
++    }
+     size_t k = std::string("+-*/").find(op);
+     if (op.size() != 1 || k == std::string::npos) { msg = "unknown operator '" + op + "'"; return false; }
+     if (dst.kind == Operand::XREG) {
+@@ -358,6 +366,7 @@
+     case OP_STOREC:  std::snprintf(buf, sizeof buf, "[%d] = x%d", d, b); break;
+     case OP_MOV:     std::snprintf(buf, sizeof buf, "x%d = x%d", d, b); break;
+     case OP_MOVC:    std::snprintf(buf, sizeof buf, "x%d = %d", d, b); break;
++    case OP_CMOV:    std::snprintf(buf, sizeof buf, "x%d = x%d if x%d", d, a, b); break;   /* Q029 */
+     case OP_PRINT:   std::snprintf(buf, sizeof buf, "print x%d", b); break;
+     case OP_VLOAD:   std::snprintf(buf, sizeof buf, "v%d = [x%d]", d, b); break;
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:07:51
++++ b/config.h	2026-11-12 11:07:51
+@@ -61,7 +61,8 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_CMOV   = 0x68    /* Q029: xD = xA if xB  (copy if xB != 0)  68 D A B */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:07:51
++++ b/processor.cpp	2026-11-12 11:07:51
+@@ -188,6 +188,7 @@
+     }
+     case OP_MOV:  x[dest] = x[src2]; break;
+     case OP_MOVC: x[dest] = src2; break;
++    case OP_CMOV: if (x[src2] != 0) x[dest] = x[src1]; break;   /* Q029: no branch; flags unchanged */
+     case OP_LOAD:   if (load_word(x[src2], value)) x[dest] = value; break;     /* xD = [xA] */
+     case OP_LOADC:  if (load_word(src2, value)) x[dest] = value; break;        /* xD = [c]  */
+     case OP_STORE:  store_word(x[dest], x[src2]); break;                       /* [xA] = xS */

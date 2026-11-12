@@ -1,0 +1,17 @@
+% Q032 test: loop xR .label = (xR = xR - 1, then branch to .label while xR != 0)
+x1 = [0]           % n = 10
+x2 = 0             % sum
+.again
+x2 = x2 + x1
+loop x1 .again     % one instruction instead of x1 = x1 - 1 and BNE
+[4] = x2           % 10 + 9 + ... + 1 = 55
+[8] = x1           % 0 when the loop ends
+x3 = 3             % nested loops: 3 x 4 = 12 iterations
+x5 = 0
+.outer
+x4 = 4
+.inner
+x5 = x5 + 1
+loop x4 .inner
+loop x3 .outer
+[12] = x5          % 12

@@ -1,0 +1,19 @@
+% Q023 test: xD = -xA (unary minus, two's complement)
+x1 = [0]           % 25
+x2 = -x1
+[12] = x2          % -25
+x3 = [4]           % -7
+x3 = -x3           % in place
+[16] = x3          % 7
+x4 = [8]           % -2147483648: the one value with no positive partner
+x5 = -x4
+[20] = x5          % -2147483648 again (it wraps)
+x6 = x1 - x2       % binary minus still works: 25 - (-25) = 50
+[24] = x6
+x7 = x1 - x1       % 0: sets Z = 1
+x8 = -x1           % unary minus leaves the flags alone (only add/sub set them)
+x9 = 1
+BEQ .flags_kept
+x9 = 2
+.flags_kept
+[28] = x9          % 1

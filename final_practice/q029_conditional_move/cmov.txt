@@ -1,0 +1,19 @@
+% Q029 test: xD = xA if xB copies xA into xD only when xB is not 0 (no branch)
+x1 = [0]           % n = 6
+x2 = 4             % address of a[0]
+x3 = 0             % last non-zero element
+x4 = 0             % how many are non-zero
+.loop
+x5 = [x2]
+x3 = x5 if x5      % keep a[i] only when a[i] != 0
+x6 = x4 + 1
+x4 = x6 if x5      % count it only when a[i] != 0
+x2 = x2 + 4
+x1 = x1 - 1
+BNE .loop
+[28] = x3          % -3 (a negative value counts as true)
+[32] = x4          % 3
+x7 = 77
+x8 = 5
+x7 = x8 if x0      % x0 = 0, so false: x7 keeps 77
+[36] = x7

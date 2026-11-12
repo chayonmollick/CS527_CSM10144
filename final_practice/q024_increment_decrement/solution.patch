@@ -1,0 +1,16 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:07:51
++++ b/compiler.cpp	2026-11-12 11:07:51
+@@ -233,6 +233,12 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (t.size() == 3 && (t[1] == "+" || t[1] == "-") && t[2] == t[1]) {   /* Q024: xR++ and xR-- */
++        Operand reg;
++        if (!parse_simple(t[0], reg, msg) || reg.kind != Operand::XREG) { msg = "usage: x<n>++ or x<n>--"; return false; }
++        set(ins, t[1] == "+" ? OP_ADDI : OP_SUBI, reg.value, reg.value, 1);   /* = xR = xR + 1 / - 1: sets the flags */
++        return true;
++    }
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }

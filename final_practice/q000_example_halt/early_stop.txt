@@ -1,0 +1,13 @@
+% Q000 test: stop as soon as the counter reaches 5, even though the loop says 10
+x1 = 0
+.loop
+x1 = x1 + 1
+x2 = x1 - 5
+BNE .skip
+[0] = x1
+halt
+.skip
+x3 = x1 - 10
+BNE .loop
+x9 = 99
+[4] = x9          % never reached: halt stopped the program at 5

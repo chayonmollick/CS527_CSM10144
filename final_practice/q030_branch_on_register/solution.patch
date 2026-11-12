@@ -1,0 +1,58 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:07:51
++++ b/compiler.cpp	2026-11-12 11:07:51
+@@ -233,6 +233,19 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (head == "bz" || head == "bnz") {                        /* Q030: BZ xR .label / BNZ xR .label */
++        Operand reg;
++        if (t.size() != 3 || !parse_operand(t, i, reg, msg) || reg.kind != Operand::XREG || t[2][0] != '.') {
++            msg = "usage: " + t[0] + " x<n> .label";
++            return false;
++        }
++        auto it = labels.find(t[2]);
++        if (it == labels.end()) { msg = "unknown label " + t[2]; return false; }
++        int offset = it->second - index;                        /* relative, like B<cond> */
++        if (offset < -128 || offset > 127) { msg = "branch to " + t[2] + " is too far (offset must fit in -128..127)"; return false; }
++        set(ins, head == "bz" ? OP_BZ : OP_BNZ, reg.value, 0, offset & 0xFF);   /* register in the dest byte */
++        return true;
++    }
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }
+@@ -358,6 +371,8 @@
+     case OP_STOREC:  std::snprintf(buf, sizeof buf, "[%d] = x%d", d, b); break;
+     case OP_MOV:     std::snprintf(buf, sizeof buf, "x%d = x%d", d, b); break;
+     case OP_MOVC:    std::snprintf(buf, sizeof buf, "x%d = %d", d, b); break;
++    case OP_BZ:      std::snprintf(buf, sizeof buf, "BZ x%d %+d", d, (int)(signed char)b); break;    /* Q030 */
++    case OP_BNZ:     std::snprintf(buf, sizeof buf, "BNZ x%d %+d", d, (int)(signed char)b); break;   /* Q030 */
+     case OP_PRINT:   std::snprintf(buf, sizeof buf, "print x%d", b); break;
+     case OP_VLOAD:   std::snprintf(buf, sizeof buf, "v%d = [x%d]", d, b); break;
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:07:51
++++ b/config.h	2026-11-12 11:07:51
+@@ -61,7 +61,9 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_BZ     = 0x69,   /* Q030: BZ xR .label  (if xR == 0)  69 R 0 offset */
++    OP_BNZ    = 0x6A    /* Q030: BNZ xR .label (if xR != 0)  6A R 0 offset */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:07:51
++++ b/processor.cpp	2026-11-12 11:07:51
+@@ -188,6 +188,8 @@
+     }
+     case OP_MOV:  x[dest] = x[src2]; break;
+     case OP_MOVC: x[dest] = src2; break;
++    case OP_BZ:   if (x[dest] == 0) PC[p] = instr_pc + 4 * (signed char)src2; break;   /* Q030: test the */
++    case OP_BNZ:  if (x[dest] != 0) PC[p] = instr_pc + 4 * (signed char)src2; break;   /* register, not the flags */
+     case OP_LOAD:   if (load_word(x[src2], value)) x[dest] = value; break;     /* xD = [xA] */
+     case OP_LOADC:  if (load_word(src2, value)) x[dest] = value; break;        /* xD = [c]  */
+     case OP_STORE:  store_word(x[dest], x[src2]); break;                       /* [xA] = xS */

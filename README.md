@@ -6,6 +6,8 @@ solved practice questions for the lab test sit alongside the labs.
 
 **Final lab test: start with [`FINAL_LAB_TEST.md`](FINAL_LAB_TEST.md).**
 
+**100 practice questions with tested answers and a guide: [`final_practice/`](final_practice/).**
+
 ## The labs
 | Lab | Folder | Topic |
 |---|---|---|

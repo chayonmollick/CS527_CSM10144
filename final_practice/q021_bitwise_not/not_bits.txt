@@ -1,0 +1,19 @@
+% Q021 test: xD = not xA flips every bit (~ in C); like mul, it leaves the flags alone
+x1 = [0]           % 0
+x2 = not x1        % ~0 = -1 (FF FF FF FF)
+[12] = x2
+x3 = [4]           % 5
+x4 = not x3        % ~5 = -6, because not x = -x - 1
+[16] = x4
+x5 = [8]           % 0x0F0F0F0F
+x5 = not x5        % in place: 0xF0F0F0F0
+[20] = x5
+x6 = not x4        % not (not 5) = 5
+[24] = x6
+x7 = x3 - x3       % 0: sets Z = 1
+x8 = not x7        % must not change Z
+x9 = 1
+BEQ .flags_kept    % taken because not left Z = 1
+x9 = 2
+.flags_kept
+[28] = x9          % 1

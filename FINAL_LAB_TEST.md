@@ -59,6 +59,10 @@ Then download the problem PDF, and open this file and the two guides in the IDE.
 
 ## Example questions you may get, and their worked answers
 
+**100 more practice questions** in the same style, each with a tested answer (a small
+patch against `lab6/` or a program) and a guide on how to use them:
+[`final_practice/`](final_practice/) ([`GUIDE.md`](final_practice/GUIDE.md)).
+
 **Simulator (Labs 1–6):**
 1. Add `mod`, `&`, `|`, `^`, `<<`, `>>` to the language and processor → `e01_bitwise_mod_shift`
 2. Add subroutines: `call .label`, `ret`, `push`, `pop` with a stack in data memory → `e02_call_ret_stack`

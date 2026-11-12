@@ -1,0 +1,13 @@
+% Q031 test: JMP .label jumps to an absolute instruction index (not an offset)
+x1 = [0]           % n = 10
+x2 = 0             % sum
+.loop
+x2 = x2 + x1
+x1 = x1 - 1
+BEQ .done          % relative: offset +2 from here
+JMP .loop          % absolute: 6B 00 00 02, the index of .loop
+.done
+[4] = x2           % 55
+JMP .end           % to the halt the compiler adds (index 9)
+[8] = x2           % never runs
+.end

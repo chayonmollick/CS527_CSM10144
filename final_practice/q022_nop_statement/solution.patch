@@ -1,0 +1,22 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:07:51
++++ b/compiler.cpp	2026-11-12 11:07:51
+@@ -233,6 +233,10 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (head == "nop" && t.size() == 1) {                       /* Q022: nop = "x0 = x0" = 07 00 00 00 */
++        set(ins, OP_MOV, 0, 0, 0);                              /* MOV never sets the flags */
++        return true;
++    }
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }
+@@ -351,6 +355,7 @@
+         std::snprintf(buf, sizeof buf, "B%s %+d", COND_NAMES[op - OP_BRANCH], (int)(signed char)b);
+         return buf;
+     }
++    if (op == OP_MOV && d == 0 && b == 0) return "nop";         /* Q022: list x0 = x0 as nop */
+     switch (op) {
+     case OP_LOAD:    std::snprintf(buf, sizeof buf, "x%d = [x%d]", d, b); break;
+     case OP_LOADC:   std::snprintf(buf, sizeof buf, "x%d = [%d]", d, b); break;
