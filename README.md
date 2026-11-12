@@ -8,6 +8,8 @@ solved practice questions for the lab test sit alongside the labs.
 
 **100 practice questions with tested answers and a guide: [`final_practice/`](final_practice/).**
 
+**Parallel program examples** (one per OpenMP construct, and jobs split across the simulator's processors): [`parallel_examples/`](parallel_examples/).
+
 ## The labs
 | Lab (problems) | Folder |
 |---|---|

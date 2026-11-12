@@ -1,0 +1,36 @@
+% search_part.txt - one task's share of a PARALLEL SEARCH: first index of a key, or -1
+% Task:   The array is split into chunks; each task searches its own chunk and reports
+%         the GLOBAL index of the first match in it, or -1. The answer for the whole
+%         array is the smallest result that is not -1 (combine.sh search).
+% Data:   N at 0; the result word at 4; the key at 8; start = the global index of this
+%         chunk's first element at 12; the chunk at 16 .. 4N + 12
+%         search1..search4.byte: 32 elements in 4 chunks of 8, key 42 at indices 13 and 27
+% Result: at 4, the global index of the first match in this chunk, or -1 (also printed)
+%         -> -1, 13, -1, 27; first match in the whole array: 13
+% Method: counted loop with an early exit (BEQ). A task cannot tell the others that it
+%         found the key - they have no shared memory - so every task searches its whole
+%         chunk unless the key is in it.
+% Regs:   x1 N, x2 i (then the result), x3 &a[i], x4 a[i], x5 key, x7 start, x9 compare
+x1 = [0]          % N
+x5 = [8]          % key
+x7 = [12]         % start
+x2 = 0            % i
+x3 = 16           % &a[0]
+.loop
+x9 = x2 - x1
+BGE .notfound     % i >= N: the whole chunk searched
+x4 = [x3]
+x9 = x4 - x5
+BEQ .found        % a[i] == key
+x3 = x3 + 4
+x2 = x2 + 1
+BAL .loop
+.notfound
+x2 = 0
+x2 = x2 - 1       % -1 (constants are 0..255, so -1 is 0 - 1)
+BAL .store
+.found
+x2 = x2 + x7      % global index = start + i
+.store
+[4] = x2
+print x2

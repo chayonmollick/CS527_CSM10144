@@ -1,0 +1,28 @@
+% sum_part.txt - one task's share of a PARALLEL ARRAY SUM
+% Task:   The array is split into chunks, one data file per chunk. The same program runs
+%         as one task per chunk, and the OS runs the tasks at the same time on its 4
+%         processors. Each task leaves its partial sum at [4]; the partial sums are
+%         added afterwards (combine.sh sum, or this program again as a final task).
+% Data:   N (elements in this chunk) at 0; the result word at 4; the chunk at 8 .. 4N + 4
+%         sum1..sum4.byte: the 32-element array in 4 chunks of 8 (sum5.byte: 8 more)
+%         sum_all.byte:    all 32 elements in one file (the serial run, for comparison)
+% Result: the partial sum at 4. "print" logs the running sum after every element, so
+%         log.txt shows how the scheduler interleaves the tasks.
+%         sum1..sum4 -> 119, -273, 42, -350 (total -462); sum5 -> -35; sum_all -> -462
+% Method: plain counted loop, 8 instructions per element; 8N + 8 instructions in total.
+% Regs:   x1 N, x2 i, x3 sum, x4 &a[i], x5 compare, x6 a[i]
+x1 = [0]          % N
+x2 = 0            % i
+x3 = 0            % sum
+x4 = 8            % &a[0]
+.loop
+x5 = x2 - x1
+BGE .done         % i >= N
+x6 = [x4]
+x3 = x3 + x6
+print x3          % running sum -> log.txt
+x4 = x4 + 4
+x2 = x2 + 1
+BAL .loop
+.done
+[4] = x3          % partial sum at 4

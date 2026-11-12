@@ -1,0 +1,31 @@
+% dot_part.txt - one task's share of a PARALLEL DOT PRODUCT  A[0]*B[0] + ... + A[31]*B[31]
+% Task:   A and B are split into 4 chunks of 8; task k gets A's chunk k and B's chunk k
+%         in its own data file, computes their dot product and leaves it at [4]. The
+%         dot product of the whole vectors is the sum of the 4 partial results.
+% Data:   N at 0; the result word at 4; A's chunk at 8 .. 4N + 4; B's chunk right after
+%         it, at 4N + 8 .. 8N + 4.   dot1..dot4.byte: N = 8 each
+% Result: the partial dot product at 4 (also printed to log.txt)
+%         dot1..dot4 -> 164, 61, -22, -56; A.B = their sum = 147
+% Method: scalar counted loop with two pointers that move together (as in
+%         ../../minicomputer/programs/dot_product.txt).
+% Regs:   x1 N, x2 i, x3 &A[i], x4 &B[i], x5 A[i] (then the product), x6 B[i], x10 sum
+x1 = [0]          % N
+x2 = 0            % i
+x3 = 8            % &A[0]
+x4 = x1 * 4
+x4 = x4 + 8       % &B[0] = 8 + 4N
+x10 = 0           % partial dot product
+.loop
+x9 = x2 - x1
+BGE .done         % i >= N
+x5 = [x3]         % A[i]
+x6 = [x4]         % B[i]
+x5 = x5 * x6
+x10 = x10 + x5
+x3 = x3 + 4
+x4 = x4 + 4
+x2 = x2 + 1
+BAL .loop
+.done
+[4] = x10         % partial result at 4
+print x10
