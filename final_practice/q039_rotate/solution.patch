@@ -1,0 +1,63 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:09:40
++++ b/compiler.cpp	2026-11-12 11:09:40
+@@ -183,6 +183,14 @@
+ /* dest = a <op> b */
+ static bool encode_arith(const Operand &dst, const Operand &a, const std::string &op, const Operand &b,
+                          unsigned char ins[4], std::string &msg) {
++    if (lower(op) == "rol" || lower(op) == "ror") {             /* Q039: rotate left / right */
++        bool left = lower(op) == "rol";
++        if (dst.kind != Operand::XREG || a.kind != Operand::XREG) { msg = "rol and ror work on x registers"; return false; }
++        if (b.kind == Operand::XREG)  { set(ins, left ? OP_ROL : OP_ROR, dst.value, a.value, b.value); return true; }
++        if (b.kind == Operand::CONST) { set(ins, left ? OP_ROLI : OP_RORI, dst.value, a.value, b.value); return true; }
++        msg = "the rotate amount must be an x register or a constant";
++        return false;
++    }
+     size_t k = std::string("+-*/").find(op);
+     if (op.size() != 1 || k == std::string::npos) { msg = "unknown operator '" + op + "'"; return false; }
+     if (dst.kind == Operand::XREG) {
+@@ -342,6 +350,12 @@
+     char buf[64];
+     static const char OPS[] = "+-*/";
+     if (op == OP_HALT) return "halt";
++    if (op == OP_ROL || op == OP_ROR || op == OP_ROLI || op == OP_RORI) {   /* Q039 */
++        const char *name = (op == OP_ROL || op == OP_ROLI) ? "rol" : "ror";
++        if (op == OP_ROL || op == OP_ROR) std::snprintf(buf, sizeof buf, "x%d = x%d %s x%d", d, a, name, b);
++        else                              std::snprintf(buf, sizeof buf, "x%d = x%d %s %d", d, a, name, b);
++        return buf;
++    }
+     if (op >= OP_ADD && op <= OP_DIV)   { std::snprintf(buf, sizeof buf, "x%d = x%d %c x%d", d, a, OPS[op - OP_ADD], b); return buf; }
+     if (op >= OP_ADDI && op <= OP_DIVI) { std::snprintf(buf, sizeof buf, "x%d = x%d %c %d", d, a, OPS[op - OP_ADDI], b); return buf; }
+     if (op >= OP_VADD && op <= OP_VMUL) { std::snprintf(buf, sizeof buf, "v%d = v%d %c v%d", d, a, OPS[op - OP_VADD], b); return buf; }
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:09:40
++++ b/config.h	2026-11-12 11:09:40
+@@ -61,7 +61,11 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_ROL    = 0x90,   /* Q039: xD = xA rol xB  (rotate left, amount mod 32)   90 D A B */
++    OP_ROR    = 0x91,   /* Q039: xD = xA ror xB  (rotate right)                 91 D A B */
++    OP_ROLI   = 0x98,   /* Q039: xD = xA rol c                                  98 D A c */
++    OP_RORI   = 0x99    /* Q039: xD = xA ror c                                  99 D A c */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:09:40
++++ b/processor.cpp	2026-11-12 11:09:40
+@@ -186,6 +186,12 @@
+         x[dest] = (x[src1] == INT_MIN && divisor == -1) ? INT_MIN : x[src1] / divisor;
+         break;
+     }
++    case OP_ROL: case OP_ROR: case OP_ROLI: case OP_RORI: {   /* Q039: rotate a = xA; flags unchanged */
++        int n = ((opcode == OP_ROL || opcode == OP_ROR) ? x[src2] : src2) & 31;   /* amount mod 32 */
++        if (opcode == OP_ROR || opcode == OP_RORI) n = (32 - n) & 31;          /* right n = left 32 - n */
++        x[dest] = (int)(n == 0 ? a : (a << n) | (a >> (32 - n)));              /* (a >> 32) would be undefined */
++        break;
++    }
+     case OP_MOV:  x[dest] = x[src2]; break;
+     case OP_MOVC: x[dest] = src2; break;
+     case OP_LOAD:   if (load_word(x[src2], value)) x[dest] = value; break;     /* xD = [xA] */

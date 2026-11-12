@@ -1,0 +1,25 @@
+% Q039 test: rotate left / right (the bits that leave one end come back at the other)
+x1 = 1
+x1 = x1 ror 1       % bit 0 wraps round to bit 31: 0x80000000
+x1 = x1 + 1         % 0x80000001
+x2 = x1 rol 3       % bit 31 comes back as bit 2: 0x0000000C = 12
+[0] = x2
+x3 = 0xAB
+x4 = x3 ror 4       % 0xB000000A (negative)
+[4] = x4
+x5 = 0x12           % build 0x12345678: "rol 8" shifts left 8 while the top byte is 0
+x5 = x5 rol 8
+x5 = x5 + 0x34
+x5 = x5 rol 8
+x5 = x5 + 0x56
+x5 = x5 rol 8
+x5 = x5 + 0x78      % 0x12345678
+x6 = 8
+x7 = x5 ror x6      % amount in a register: 0x78123456
+[8] = x7
+x6 = 36
+x7 = x5 rol x6      % 36 mod 32 = 4: 0x23456781
+[12] = x7
+x6 = 32
+x7 = x5 ror x6      % a full turn leaves it unchanged: 0x12345678
+[16] = x7

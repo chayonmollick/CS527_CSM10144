@@ -1,0 +1,27 @@
+% Q044 test: strided vector loads on an 8 x 3 matrix stored row by row
+% M[r][c] = 10r + c is the word at 4*(3r + c), addresses 0..95
+x2 = 12             % stride: one row = 3 words = 12 bytes
+x1 = 0
+v1 = [x1], x2       % column 0: 0 10 20 ... 70
+x1 = 4
+v2 = [x1], x2       % column 1: 1 11 21 ... 71
+x1 = 8
+v3 = [x1], x2       % column 2: 2 12 22 ... 72
+[96] = v1           % the 3 x 8 transpose, at 96, 128, 160
+[128] = v2
+[160] = v3
+x3 = 0
+x1 = 40             % &M[3][1] = 4*(3*3 + 1)
+v4 = [x1], x3       % stride 0: every lane = M[3][1] = 31
+[192] = v4
+x4 = 0
+x4 = x4 - 12        % stride -12: walk up column 2
+x1 = 92             % &M[7][2]
+v5 = [x1], x4       % 72 62 52 ... 2
+[224] = v5
+x5 = 4
+x1 = 0
+v6 = [x1], x5       % stride 4 is the ordinary vector load: 0 1 2 10 11 12 20 21
+x6 = 128
+x6 = x6 * 2
+[x6] = v6           % at 256

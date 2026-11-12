@@ -1,0 +1,10 @@
+% Q037 test: print (hex, as before) and printd (decimal); both lines also appear on the screen
+x1 = 200
+x2 = x1 - 207       % -7
+x3 = 255
+x3 = x3 * 255       % 65025
+print x1            % x1 : 000000C8
+printd x1           % x1 : 200
+printd x2           % x2 : -7
+printd x3           % x3 : 65025
+print x2            % x2 : FFFFFFF9

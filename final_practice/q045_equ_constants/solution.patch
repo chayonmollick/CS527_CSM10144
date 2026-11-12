@@ -1,0 +1,55 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:18:28
++++ b/compiler.cpp	2026-11-12 11:18:28
+@@ -257,6 +257,13 @@
+     return encode_arith(dst, a, op, b, ins, msg);
+ }
+ 
++/* Q045: a constant's name starts with a letter and is not a register name such as x5 or v2. */
++static bool is_name(const std::string &w) {
++    if (w.empty() || !std::isalpha((unsigned char)w[0])) return false;
++    char c0 = (char)std::tolower((unsigned char)w[0]);
++    return !((c0 == 'x' || c0 == 'v') && all_digits(w.substr(1)));
++}
++
+ /* ---------------- public functions ---------------- */
+ 
+ std::string file_stem(const std::string &path) {
+@@ -281,10 +288,21 @@
+ 
+     /* pass 1: label -> instruction index */
+     std::map<std::string, int> labels;
++    std::map<std::string, std::string> equ;                     /* Q045: NAME -> value (decimal text) */
+     int count = 0;
+     for (size_t ln = 0; ln < prog.source.size(); ln++) {
+         std::string s = clean_line(prog.source[ln]);
+         if (s.empty()) continue;
++        std::vector<std::string> t = tokenize(s);
++        if (!t.empty() && lower(t[0]) == ".equ") {              /* Q045: before the label check (it starts with '.') */
++            std::string at = src_path + ":" + std::to_string(ln + 1) + ": ";
++            long v;
++            if (t.size() != 3 || !is_name(t[1])) { err = at + "usage: .equ NAME value (NAME starts with a letter, not a register)"; return false; }
++            if (equ.count(t[1])) { err = at + t[1] + " defined twice"; return false; }
++            if (!parse_number(t[2], v) || v > 255) { err = at + "the value of " + t[1] + " must be a constant 0..255"; return false; }
++            equ[t[1]] = std::to_string(v);
++            continue;                                           /* no instruction, not a label */
++        }
+         if (s[0] == '.') {
+             bool ok = s.size() > 1;
+             for (size_t k = 1; k < s.size(); k++)
+@@ -306,10 +324,13 @@
+     int index = 0;
+     for (size_t ln = 0; ln < prog.source.size(); ln++) {
+         std::string s = clean_line(prog.source[ln]);
+-        if (s.empty() || s[0] == '.') continue;
++        if (s.empty() || s[0] == '.') continue;                 /* labels and (Q045) .equ lines */
++        std::vector<std::string> t = tokenize(s);
++        for (std::string &w : t)
++            if (equ.count(w)) w = equ[w];                       /* Q045: a name becomes its value */
+         unsigned char ins[4];
+         std::string msg;
+-        if (!encode_statement(tokenize(s), index, labels, ins, msg)) {
++        if (!encode_statement(t, index, labels, ins, msg)) {
+             err = src_path + ":" + std::to_string(ln + 1) + ": " + msg + "\n    " + trim(prog.source[ln]);
+             return false;
+         }

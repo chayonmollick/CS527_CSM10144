@@ -1,0 +1,18 @@
+% Q034 test: negative constants (the compiler swaps + and -, or emits two instructions)
+x2 = 20
+x1 = x2 + -5        % compiled as x1 = x2 - 5  -> 15
+[0] = x1
+x1 = x2 - -3        % compiled as x1 = x2 + 3  -> 23
+[4] = x1
+x1 = -7             % x1 = 0, then x1 = x1 - 7  -> -7
+[8] = x1
+x3 = x1 + -1        % -8
+[12] = x3
+x4 = 3              % loop 3 times: x5 = 3 * (-2)
+x5 = 0
+.loop
+x6 = -2             % 2 instructions, run 3 times: the .freq file must say 3, not 6
+x5 = x5 + x6
+x4 = x4 + -1        % a subtraction, so it sets Z for BNE
+BNE .loop           % offset -4: back over 1 + 1 + 2 instructions
+[16] = x5           % -6

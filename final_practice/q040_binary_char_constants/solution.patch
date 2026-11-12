@@ -1,0 +1,39 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:11:10
++++ b/compiler.cpp	2026-11-12 11:11:10
+@@ -40,7 +40,15 @@
+ 
+ /* Remove the comment (% ...), trailing ';' and surrounding blanks. */
+ static std::string clean_line(const std::string &raw) {
+-    std::string s = raw;
++    std::string s;
++    for (size_t k = 0; k < raw.size(); k++) {                  /* Q040: 'A' -> 65, before % and , are special */
++        if (raw[k] == '\'' && k + 2 < raw.size() && raw[k + 2] == '\'') {
++            s += std::to_string((unsigned char)raw[k + 1]);
++            k += 2;
++        } else {
++            s += raw[k];
++        }
++    }
+     size_t pct = s.find('%');
+     if (pct != std::string::npos) s = s.substr(0, pct);
+     s = trim(s);
+@@ -69,12 +77,17 @@
+     return true;
+ }
+ 
+-/* Decimal "200" or hex "0xC8". */
++/* Decimal "200", hex "0xC8" or (Q040) binary "0b11001000". */
+ static bool parse_number(const std::string &t, long &v) {
+     if (t.size() > 2 && t[0] == '0' && (t[1] == 'x' || t[1] == 'X')) {
+         char *end = nullptr;
+         v = std::strtol(t.c_str() + 2, &end, 16);
+         return *end == '\0' && t.size() <= 10;
++    }
++    if (t.size() > 2 && t[0] == '0' && (t[1] == 'b' || t[1] == 'B')) {     /* Q040: binary */
++        if (t.size() > 34 || t.find_first_not_of("01", 2) != std::string::npos) return false;
++        v = std::strtol(t.c_str() + 2, nullptr, 2);
++        return true;
+     }
+     if (!all_digits(t) || t.size() > 9) return false;
+     v = std::strtol(t.c_str(), nullptr, 10);

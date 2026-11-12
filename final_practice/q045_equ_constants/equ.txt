@@ -1,0 +1,19 @@
+% Q045 test: named constants with .equ (no instructions; each name is replaced by its value)
+.equ N 5             % number of elements
+.equ FIRST 4         % address of a[0]
+.equ STEP 4          % bytes per word
+.equ RESULT 0x40     % hex value: 64
+x1 = N
+x2 = 0               % sum
+x3 = FIRST
+.loop                % a real label still works next to the .equ lines
+x4 = [x3]
+x2 = x2 + x4
+x3 = x3 + STEP
+x1 = x1 - 1
+BNE .loop
+[RESULT] = x2        % 3 + 5 + 7 + 9 + 11 = 35, at 64
+x5 = [FIRST]         % a name inside [ ]: a[0] = 3
+x5 = x5 * N          % 15
+Write x5 SLOT        % the legacy Lab 1 syntax takes a constant too: 15 at 68
+.equ SLOT 68         % defined after its use: pass 1 collects every name first

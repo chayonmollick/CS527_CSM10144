@@ -1,0 +1,54 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:03:39
++++ b/compiler.cpp	2026-11-12 11:03:39
+@@ -233,6 +233,16 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (t.size() == 6 && t[1] == "+" && t[2] == "=" && t[4] == "*") {   /* Q035: xD += xA * xB */
++        Operand d, a, b;
++        if (!parse_simple(t[0], d, msg) || !parse_simple(t[3], a, msg) || !parse_simple(t[5], b, msg)) return false;
++        if (d.kind != Operand::XREG || a.kind != Operand::XREG || b.kind != Operand::XREG) {
++            msg = "usage: xD += xA * xB (three x registers)";
++            return false;
++        }
++        set(ins, OP_MAC, d.value, a.value, b.value);
++        return true;
++    }
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }
+@@ -342,6 +352,7 @@
+     char buf[64];
+     static const char OPS[] = "+-*/";
+     if (op == OP_HALT) return "halt";
++    if (op == OP_MAC) { std::snprintf(buf, sizeof buf, "x%d += x%d * x%d", d, a, b); return buf; }   /* Q035 */
+     if (op >= OP_ADD && op <= OP_DIV)   { std::snprintf(buf, sizeof buf, "x%d = x%d %c x%d", d, a, OPS[op - OP_ADD], b); return buf; }
+     if (op >= OP_ADDI && op <= OP_DIVI) { std::snprintf(buf, sizeof buf, "x%d = x%d %c %d", d, a, OPS[op - OP_ADDI], b); return buf; }
+     if (op >= OP_VADD && op <= OP_VMUL) { std::snprintf(buf, sizeof buf, "v%d = v%d %c v%d", d, a, OPS[op - OP_VADD], b); return buf; }
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:03:39
++++ b/config.h	2026-11-12 11:03:39
+@@ -61,7 +61,8 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_MAC    = 0x83    /* Q035: xD = xD + xA * xB  (multiply-accumulate)   83 D A B */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:03:39
++++ b/processor.cpp	2026-11-12 11:03:39
+@@ -186,6 +186,9 @@
+         x[dest] = (x[src1] == INT_MIN && divisor == -1) ? INT_MIN : x[src1] / divisor;
+         break;
+     }
++    case OP_MAC:                                         /* Q035: xD += xA * xB; xD is read first; no flags */
++        x[dest] = (int)((uint32_t)x[dest] + (uint32_t)x[src1] * (uint32_t)x[src2]);
++        break;
+     case OP_MOV:  x[dest] = x[src2]; break;
+     case OP_MOVC: x[dest] = src2; break;
+     case OP_LOAD:   if (load_word(x[src2], value)) x[dest] = value; break;     /* xD = [xA] */

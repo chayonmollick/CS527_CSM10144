@@ -1,0 +1,3 @@
+% Q045: the value must fit in the instruction's constant byte
+.equ BIG 300
+x1 = BIG

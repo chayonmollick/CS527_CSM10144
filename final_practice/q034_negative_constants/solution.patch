@@ -1,0 +1,80 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:02:03
++++ b/compiler.cpp	2026-11-12 11:02:03
+@@ -251,12 +251,28 @@
+     i++;
+     if (!parse_operand(t, i, a, msg)) return false;
+     if (i == t.size()) return encode_move(dst, a, ins, msg);
++    if (i + 3 == t.size() && t[i + 1] == "-") {                 /* Q034: a + -c -> a - c,  a - -c -> a + c */
++        if (t[i] != "+" && t[i] != "-") { msg = "a negative constant works only with + and -"; return false; }
++        std::vector<std::string> u(t.begin(), t.begin() + (long)i);
++        u.push_back(t[i] == "+" ? "-" : "+");                  /* opposite operation, sign dropped */
++        u.push_back(t[i + 2]);
++        return encode_statement(u, index, labels, ins, msg);
++    }
+     if (i + 2 != t.size()) { msg = "expected <dest> = <operand> <op> <operand>"; return false; }
+     std::string op = t[i++];
+     if (!parse_operand(t, i, b, msg)) return false;
+     return encode_arith(dst, a, op, b, ins, msg);
+ }
+ 
++/* Q034: "xD = -c" has no single instruction, so it becomes two statements: "xD = 0", "xD = xD - c".
++ * Every other statement stays one. Pass 1 and pass 2 both use this, so labels stay right. */
++static std::vector<std::vector<std::string>> expand(const std::vector<std::string> &t) {
++    long v;
++    if (t.size() == 4 && t[1] == "=" && t[2] == "-" && parse_number(t[3], v))
++        return {{t[0], "=", "0"}, {t[0], "=", t[0], "-", t[3]}};
++    return {t};
++}
++
+ /* ---------------- public functions ---------------- */
+ 
+ std::string file_stem(const std::string &path) {
+@@ -294,7 +310,7 @@
+             labels[s] = count;
+             prog.is_label[ln] = true;
+         } else {
+-            count++;
++            count += (int)expand(tokenize(s)).size();           /* Q034: xD = -c is 2 instructions */
+         }
+     }
+     if (count + 1 > MAX_INSTRUCTIONS) {
+@@ -307,15 +323,17 @@
+     for (size_t ln = 0; ln < prog.source.size(); ln++) {
+         std::string s = clean_line(prog.source[ln]);
+         if (s.empty() || s[0] == '.') continue;
+-        unsigned char ins[4];
+-        std::string msg;
+-        if (!encode_statement(tokenize(s), index, labels, ins, msg)) {
+-            err = src_path + ":" + std::to_string(ln + 1) + ": " + msg + "\n    " + trim(prog.source[ln]);
+-            return false;
++        for (const std::vector<std::string> &part : expand(tokenize(s))) {   /* Q034: 1 or 2 instructions */
++            unsigned char ins[4];
++            std::string msg;
++            if (!encode_statement(part, index, labels, ins, msg)) {
++                err = src_path + ":" + std::to_string(ln + 1) + ": " + msg + "\n    " + trim(prog.source[ln]);
++                return false;
++            }
++            prog.code.insert(prog.code.end(), ins, ins + 4);
++            prog.line_of.push_back((int)ln);                    /* both parts point at the same line */
++            index++;
+         }
+-        prog.code.insert(prog.code.end(), ins, ins + 4);
+-        prog.line_of.push_back((int)ln);
+-        index++;
+     }
+     prog.code.insert(prog.code.end(), {OP_HALT, 0, 0, 0});   /* end of program */
+     prog.line_of.push_back(-1);
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:02:03
++++ b/os.cpp	2026-11-12 11:02:03
+@@ -123,7 +123,8 @@
+         std::vector<bool> executable(pr.source.size(), false);
+         for (size_t i = 0; i < pr.line_of.size(); i++)
+             if (pr.line_of[i] >= 0) {
+-                count[pr.line_of[i]] += exec_count[p][i];
++                if (i == 0 || pr.line_of[i - 1] != pr.line_of[i])   /* Q034: count the first instruction of a line */
++                    count[pr.line_of[i]] += exec_count[p][i];
+                 executable[pr.line_of[i]] = true;
+             }
+         for (size_t ln = 0; ln < pr.source.size(); ln++) {

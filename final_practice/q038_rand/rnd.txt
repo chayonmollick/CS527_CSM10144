@@ -1,0 +1,10 @@
+% Q038 test: 6 pseudo-random numbers (0..32767) stored at 0, 4, ..., 20
+% 33 instructions = 4 time slices, so tasks running together interleave their draws
+x1 = 0            % address
+x2 = 6            % how many
+.loop
+x3 = rand
+[x1] = x3
+x1 = x1 + 4
+x2 = x2 - 1
+BNE .loop

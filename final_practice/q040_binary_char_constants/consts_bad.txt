@@ -1,0 +1,2 @@
+% Q040: a binary constant is still limited to 0..255
+x1 = 0b100000000

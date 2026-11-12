@@ -1,0 +1,18 @@
+% Q040 test: binary, hex and character constants (all still 0..255)
+x1 = 0b1010          % 10
+[0] = x1
+x2 = 0xFF            % 255 (hex already worked in lab6)
+[4] = x2
+x3 = 'A'             % 65
+[8] = x3
+x4 = x3 + 0b11       % 'A' + 3 = 'D' = 68
+[12] = x4
+x5 = '7'
+x5 = x5 - '0'        % digit character to number: 7
+[16] = x5
+x6 = '%'             % 37: a % between quotes does not start a comment
+x6 = x6 + ','        % 37 + 44 = 81: a ',' between quotes is not a separator
+[20] = x6
+x7 = ' '             % 32: a space between quotes
+x7 = x7 + 0B1        % 33 (capital B works too)
+[24] = x7

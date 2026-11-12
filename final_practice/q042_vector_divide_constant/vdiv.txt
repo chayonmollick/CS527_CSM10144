@@ -1,0 +1,9 @@
+% Q042 test: vector division by a constant (signed, each lane on its own)
+v1 = [0]            % 100 -100 7 -7 0 1000 -1 255
+v2 = v1 / 3         % 33 -33 2 -2 0 333 0 85: rounds toward zero
+[32] = v2
+v3 = v1 + v1
+v3 = v3 / 2         % the average of v1 and v1 = v1 again
+[64] = v3
+v1 = v1 / 255       % in place: 0 0 0 0 0 3 0 1
+[96] = v1

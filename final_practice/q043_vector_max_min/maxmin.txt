@@ -1,0 +1,25 @@
+% Q043 test: maximum and minimum of a 16-element array, 8 lanes at a time
+% data: 16 words at 0; results at 64 (max), 68 (min), 72, 76 (first half), 80
+v1 = [0]            % a[0..7]  =  5 -3 12  0 -20  7  12  1
+v2 = [32]           % a[8..15] =  9 -8 30  2  -1  4 -25  6
+x1 = vmax v1        % 12 (signed: -3 = 0xFFFFFFFD is not the biggest)
+x2 = vmax v2        % 30
+x9 = x1 - x2        % compare the two halves
+BGE .max_done       % keep x1 if x1 >= x2
+x1 = x2
+.max_done
+[64] = x1           % 30
+x3 = vmin v1        % -20
+x4 = vmin v2        % -25
+x9 = x3 - x4
+BLE .min_done       % keep x3 if x3 <= x4
+x3 = x4
+.min_done
+[68] = x3           % -25
+x5 = vmax v1
+[72] = x5           % 12
+x6 = vmin v1
+[76] = x6           % -20
+v3 = v2 - 100       % every lane negative
+x7 = vmax v3        % -70: the maximum starts from lane 0, not from 0
+[80] = x7

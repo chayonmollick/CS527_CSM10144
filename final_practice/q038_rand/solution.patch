@@ -1,0 +1,82 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:07:55
++++ b/compiler.cpp	2026-11-12 11:07:55
+@@ -233,6 +233,13 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (t.size() == 3 && t[1] == "=" && lower(t[2]) == "rand") {   /* Q038: xD = rand */
++        Operand d;
++        if (!parse_simple(t[0], d, msg)) return false;
++        if (d.kind != Operand::XREG) { msg = "usage: xD = rand"; return false; }
++        set(ins, OP_RAND, d.value, 0, 0);
++        return true;
++    }
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }
+@@ -358,6 +365,7 @@
+     case OP_STOREC:  std::snprintf(buf, sizeof buf, "[%d] = x%d", d, b); break;
+     case OP_MOV:     std::snprintf(buf, sizeof buf, "x%d = x%d", d, b); break;
+     case OP_MOVC:    std::snprintf(buf, sizeof buf, "x%d = %d", d, b); break;
++    case OP_RAND:    std::snprintf(buf, sizeof buf, "x%d = rand", d); break;      /* Q038 */
+     case OP_PRINT:   std::snprintf(buf, sizeof buf, "print x%d", b); break;
+     case OP_VLOAD:   std::snprintf(buf, sizeof buf, "v%d = [x%d]", d, b); break;
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:07:55
++++ b/config.h	2026-11-12 11:07:55
+@@ -61,7 +61,8 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_RAND   = 0x8F    /* Q038: xD = rand  (next pseudo-random 0..32767)  8F D 0 0 */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:07:55
++++ b/os.cpp	2026-11-12 11:07:55
+@@ -184,6 +184,7 @@
+     t.proc = p;
+     reset(p);
+     current_pid[p] = pid;
++    rand_state[p] = (unsigned)pid;                         /* Q038: a new task restarts the generator from its pid */
+     initialize(p, t);
+     t.state = READY;
+     ready_queue.push_back(pid);
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:07:55
++++ b/processor.cpp	2026-11-12 11:07:55
+@@ -22,6 +22,7 @@
+ long steps[NP];
+ long exec_count[NP][MAX_INSTRUCTIONS];
+ int data_high[NP];
++unsigned rand_state[NP];         /* Q038: seeded with the pid by the loader (os.cpp) */
+ 
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+@@ -188,6 +189,10 @@
+     }
+     case OP_MOV:  x[dest] = x[src2]; break;
+     case OP_MOVC: x[dest] = src2; break;
++    case OP_RAND:                                        /* Q038: LCG of the C standard's example rand() */
++        rand_state[p] = rand_state[p] * 1103515245u + 12345u;     /* wraps mod 2^32 */
++        x[dest] = (int)((rand_state[p] >> 16) & 0x7FFF);         /* bits 30..16: 0..32767 */
++        break;
+     case OP_LOAD:   if (load_word(x[src2], value)) x[dest] = value; break;     /* xD = [xA] */
+     case OP_LOADC:  if (load_word(src2, value)) x[dest] = value; break;        /* xD = [c]  */
+     case OP_STORE:  store_word(x[dest], x[src2]); break;                       /* [xA] = xS */
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:07:55
++++ b/processor.h	2026-11-12 11:07:55
+@@ -19,6 +19,7 @@
+ extern long steps[NP];                         /* instructions executed by the current task */
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
++extern unsigned rand_state[NP];                /* Q038: generator state of the task on processor p */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */

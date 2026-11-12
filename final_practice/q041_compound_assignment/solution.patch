@@ -1,0 +1,12 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:12:20
++++ b/compiler.cpp	2026-11-12 11:12:20
+@@ -233,6 +233,8 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (t.size() == 4 && t[2] == "=" && (t[1] == "+" || t[1] == "-" || t[1] == "*" || t[1] == "/"))
++        return encode_statement({t[0], "=", t[0], t[1], t[3]}, index, labels, ins, msg);   /* Q041: a op= b -> a = a op b */
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }

@@ -1,0 +1,5 @@
+% Q044: every lane's address is checked; lane 6 of this load is at 6 * 765 = 4590 > 4095
+x2 = 255
+x2 = x2 * 3         % stride 765
+x1 = 0
+v1 = [x1], x2

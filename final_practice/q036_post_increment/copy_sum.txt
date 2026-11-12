@@ -1,0 +1,16 @@
+% Q036 test: copy an array and sum it with post-increment loads and stores
+% data: N at 0, A[0..N-1] at 4; the copy goes to 64, followed by the sum and two pointers
+x1 = [0]          % N
+x3 = 4            % source pointer
+x4 = 64           % destination pointer
+x2 = 0            % sum
+.loop
+x6 = [x3]+        % x6 = A[i], then x3 += 4
+[x4]+ = x6        % B[i] = x6, then x4 += 4
+x2 = x2 + x6
+x1 = x1 - 1
+BNE .loop
+[x4]+ = x2        % the sum, at 64 + 4N = 84
+[x4]+ = x3        % the final source pointer 4 + 4N = 24, at 88
+[x4]+ = x4        % stores x4 before its increment: 92 at 92
+[x4] = x4         % x4 is 96 now: 96 at 96

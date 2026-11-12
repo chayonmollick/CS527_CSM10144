@@ -1,0 +1,3 @@
+% Q035: multiply-accumulate takes three x registers, not a constant
+x1 = 2
+x1 += x1 * 3

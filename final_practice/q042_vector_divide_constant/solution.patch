@@ -1,0 +1,53 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:13:41
++++ b/compiler.cpp	2026-11-12 11:13:41
+@@ -194,7 +194,12 @@
+     }
+     if (dst.kind == Operand::VREG) {
+         if (a.kind != Operand::VREG) { msg = "the first operand of a vector operation must be a vector"; return false; }
+-        if (op == "/") { msg = "vector division is not supported (+ - * only)"; return false; }
++        if (op == "/") {                                        /* Q042: only by a constant 1..255 */
++            if (b.kind != Operand::CONST) { msg = "a vector can only be divided by a constant"; return false; }
++            if (b.value == 0) { msg = "vector division by 0"; return false; }
++            set(ins, OP_VDIVI, dst.value, a.value, b.value);
++            return true;
++        }
+         if (b.kind == Operand::VREG)  { set(ins, OP_VADD + (int)k, dst.value, a.value, b.value); return true; }
+         if (b.kind == Operand::CONST) { set(ins, OP_VADDI + (int)k, dst.value, a.value, b.value); return true; }
+         if (b.kind == Operand::XREG)  { set(ins, OP_VADDX + (int)k, dst.value, a.value, b.value); return true; }
+@@ -345,6 +350,7 @@
+     if (op >= OP_ADD && op <= OP_DIV)   { std::snprintf(buf, sizeof buf, "x%d = x%d %c x%d", d, a, OPS[op - OP_ADD], b); return buf; }
+     if (op >= OP_ADDI && op <= OP_DIVI) { std::snprintf(buf, sizeof buf, "x%d = x%d %c %d", d, a, OPS[op - OP_ADDI], b); return buf; }
+     if (op >= OP_VADD && op <= OP_VMUL) { std::snprintf(buf, sizeof buf, "v%d = v%d %c v%d", d, a, OPS[op - OP_VADD], b); return buf; }
++    if (op == OP_VDIVI) { std::snprintf(buf, sizeof buf, "v%d = v%d / %d", d, a, b); return buf; }   /* Q042 */
+     if (op >= OP_VADDI && op <= OP_VMULI) { std::snprintf(buf, sizeof buf, "v%d = v%d %c %d", d, a, OPS[op - OP_VADDI], b); return buf; }
+     if (op >= OP_VADDX && op <= OP_VMULX) { std::snprintf(buf, sizeof buf, "v%d = v%d %c x%d", d, a, OPS[op - OP_VADDX], b); return buf; }
+     if (op >= OP_BRANCH && op < OP_BRANCH + NUM_CONDITIONS) {
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:13:41
++++ b/config.h	2026-11-12 11:13:41
+@@ -61,7 +61,8 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_VDIVI  = 0xAC    /* Q042: vD = vA / c  (signed, per lane, c = 1..255)   AC D A c */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:13:41
++++ b/processor.cpp	2026-11-12 11:13:41
+@@ -203,6 +203,11 @@
+     case OP_VADDX: case OP_VSUBX: case OP_VMULX:
+         vector_op();
+         break;
++    case OP_VDIVI:                                       /* Q042: vD = vA / c, signed, lane by lane */
++        if (bad_vreg(dest) || bad_vreg(src1)) break;
++        if (src2 == 0) { processor_error("vector division by zero"); break; }   /* hand-written byte code */
++        for (int i = 0; i < VLEN; i++) VRegister[p][dest][i] = VRegister[p][src1][i] / src2;
++        break;
+     case OP_VLOAD: case OP_VLOADC: {                     /* vD = [xA] or [c]: 8 consecutive words */
+         if (bad_vreg(dest)) break;
+         addr = opcode == OP_VLOAD ? x[src2] : src2;

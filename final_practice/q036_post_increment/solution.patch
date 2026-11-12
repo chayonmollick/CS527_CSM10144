@@ -1,0 +1,64 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:05:06
++++ b/compiler.cpp	2026-11-12 11:05:06
+@@ -233,6 +233,21 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (t.size() == 6 && t[1] == "=" && t[2] == "[" && t[4] == "]" && t[5] == "+") {   /* Q036: xD = [xA]+ */
++        Operand d, a;
++        if (!parse_simple(t[0], d, msg) || !parse_simple(t[3], a, msg)) return false;
++        if (d.kind != Operand::XREG || a.kind != Operand::XREG) { msg = "usage: xD = [xA]+"; return false; }
++        if (d.value == a.value) { msg = "xD = [xD]+ would load and increment the same register"; return false; }
++        set(ins, OP_LOADPI, d.value, 0, a.value);
++        return true;
++    }
++    if (t.size() == 6 && t[0] == "[" && t[2] == "]" && t[3] == "+" && t[4] == "=") {   /* Q036: [xA]+ = xS */
++        Operand a, s;
++        if (!parse_simple(t[1], a, msg) || !parse_simple(t[5], s, msg)) return false;
++        if (a.kind != Operand::XREG || s.kind != Operand::XREG) { msg = "usage: [xA]+ = xS"; return false; }
++        set(ins, OP_STOREPI, a.value, 0, s.value);
++        return true;
++    }
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }
+@@ -363,6 +378,8 @@
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+     case OP_VSTORE:  std::snprintf(buf, sizeof buf, "[x%d] = v%d", d, b); break;
+     case OP_VSTOREC: std::snprintf(buf, sizeof buf, "[%d] = v%d", d, b); break;
++    case OP_LOADPI:  std::snprintf(buf, sizeof buf, "x%d = [x%d]+", d, b); break;    /* Q036 */
++    case OP_STOREPI: std::snprintf(buf, sizeof buf, "[x%d]+ = x%d", d, b); break;    /* Q036 */
+     default:         std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
+     }
+     return buf;
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:05:06
++++ b/config.h	2026-11-12 11:05:06
+@@ -61,7 +61,9 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_LOADPI = 0x85,   /* Q036: xD = [xA]+  (load, then xA += 4)      85 D 0 A */
++    OP_STOREPI= 0x86    /* Q036: [xA]+ = xS  (store, then xA += 4)     86 A 0 S */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:05:06
++++ b/processor.cpp	2026-11-12 11:05:06
+@@ -192,6 +192,12 @@
+     case OP_LOADC:  if (load_word(src2, value)) x[dest] = value; break;        /* xD = [c]  */
+     case OP_STORE:  store_word(x[dest], x[src2]); break;                       /* [xA] = xS */
+     case OP_STOREC: store_word(dest, x[src2]); break;                          /* [c] = xS  */
++    case OP_LOADPI:                                      /* Q036: xD = [xA], then xA += 4 (no flags) */
++        if (load_word(x[src2], value)) { x[src2] += 4; x[dest] = value; }
++        break;
++    case OP_STOREPI:                                     /* Q036: [xA] = xS, then xA += 4 */
++        if (store_word(x[dest], x[src2])) x[dest] += 4;
++        break;
+     case OP_PRINT:
+         if (fd_log) {
+             std::fprintf(fd_log, "Process id: %d   x%d : %08X\n", current_pid[p], src2, (unsigned)x[src2]);

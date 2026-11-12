@@ -1,0 +1,60 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:14:48
++++ b/compiler.cpp	2026-11-12 11:14:48
+@@ -233,6 +233,13 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (t.size() == 4 && t[1] == "=" && (lower(t[2]) == "vmax" || lower(t[2]) == "vmin")) {   /* Q043 */
++        Operand d, v;
++        if (!parse_simple(t[0], d, msg) || !parse_simple(t[3], v, msg)) return false;
++        if (d.kind != Operand::XREG || v.kind != Operand::VREG) { msg = "usage: xD = " + lower(t[2]) + " vA"; return false; }
++        set(ins, lower(t[2]) == "vmax" ? OP_VMAXH : OP_VMINH, d.value, 0, v.value);
++        return true;
++    }
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }
+@@ -363,6 +370,8 @@
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+     case OP_VSTORE:  std::snprintf(buf, sizeof buf, "[x%d] = v%d", d, b); break;
+     case OP_VSTOREC: std::snprintf(buf, sizeof buf, "[%d] = v%d", d, b); break;
++    case OP_VMAXH:   std::snprintf(buf, sizeof buf, "x%d = vmax v%d", d, b); break;   /* Q043 */
++    case OP_VMINH:   std::snprintf(buf, sizeof buf, "x%d = vmin v%d", d, b); break;   /* Q043 */
+     default:         std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
+     }
+     return buf;
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:14:48
++++ b/config.h	2026-11-12 11:14:48
+@@ -61,7 +61,9 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_VMAXH  = 0xB0,   /* Q043: xD = vmax vA  (largest of the 8 lanes, signed)   B0 D 0 A */
++    OP_VMINH  = 0xB1    /* Q043: xD = vmin vA  (smallest of the 8 lanes)          B1 D 0 A */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:14:48
++++ b/processor.cpp	2026-11-12 11:14:48
+@@ -203,6 +203,16 @@
+     case OP_VADDX: case OP_VSUBX: case OP_VMULX:
+         vector_op();
+         break;
++    case OP_VMAXH: case OP_VMINH: {                      /* Q043: xD = max / min of the 8 lanes of vA */
++        if (bad_vreg(src2)) break;
++        int m = VRegister[p][src2][0];                   /* start from lane 0, not from 0 */
++        for (int i = 1; i < VLEN; i++) {
++            int v = VRegister[p][src2][i];               /* signed compare: -3 < 12 */
++            if (opcode == OP_VMAXH ? v > m : v < m) m = v;
++        }
++        x[dest] = m;
++        break;
++    }
+     case OP_VLOAD: case OP_VLOADC: {                     /* vD = [xA] or [c]: 8 consecutive words */
+         if (bad_vreg(dest)) break;
+         addr = opcode == OP_VLOAD ? x[src2] : src2;
