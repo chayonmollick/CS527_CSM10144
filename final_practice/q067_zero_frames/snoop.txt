@@ -1,0 +1,6 @@
+% Q067 test, later task: read data page 1 without ever writing it, and save what it
+% contains at 0. A fresh page must read 0; 9999 means the previous task's data leaked.
+x2 = 128
+x2 = x2 * 4       % 512 = start of data page 1 (demand-mapped)
+x1 = [x2]
+[0] = x1

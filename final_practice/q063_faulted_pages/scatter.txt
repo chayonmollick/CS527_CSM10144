@@ -1,0 +1,24 @@
+% Q063 test: touch data pages 5, 2 and 6 (in that order), then store one word that
+% crosses from page 3 into page 4. Only data page 0 comes from the data file.
+x1 = 128
+x2 = x1 * 20      % 2560 = start of data page 5
+x3 = x1 * 8       % 1024 = start of data page 2
+x4 = x1 * 24      % 3072 = start of data page 6
+x5 = x1 * 16      % 2048 = start of data page 4
+x5 = x5 - 2       % 2046: bytes 2046-2047 are in page 3, bytes 2048-2049 in page 4
+x6 = 1
+[x2] = x6         % page fault: page 5
+x6 = x6 + 1
+[x3] = x6         % page fault: page 2
+x6 = x6 + 1
+[x4] = x6         % page fault: page 6
+x6 = x6 + 1
+[x5] = x6         % two page faults in one store: page 3, then page 4
+x7 = [x2]         % every page is mapped now: no more faults
+x8 = [x3]
+x7 = x7 + x8
+x8 = [x4]
+x7 = x7 + x8
+x8 = [x5]
+x7 = x7 + x8      % 1 + 2 + 3 + 4 = 10
+[0] = x7

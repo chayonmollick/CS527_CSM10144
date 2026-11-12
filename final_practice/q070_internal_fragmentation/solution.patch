@@ -1,0 +1,14 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:19:01
++++ b/os.cpp	2026-11-12 11:19:01
+@@ -189,6 +189,10 @@
+     ready_queue.push_back(pid);
+     std::printf("[os] pid %d (%s) loaded on processor %d: %d instruction + %d data page(s), %d frame(s) left\n",
+                 pid, t.prog.name.c_str(), p, pages_for(t.prog.code.size()), pages_for(t.data.size()), free_page_count());
++    int code_waste = pages_for(t.prog.code.size()) * PAGESIZE - (int)t.prog.code.size();   /* Q070: unused tail */
++    int data_waste = pages_for(t.data.size()) * PAGESIZE - (int)t.data.size();             /* of the last page */
++    std::printf("[os] pid %d internal fragmentation: %d byte(s) unused in the last instruction page + %d in the last data page = %d\n",
++                pid, code_waste, data_waste, code_waste + data_waste);
+     return true;
+ }
+ 

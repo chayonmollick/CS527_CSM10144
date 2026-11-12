@@ -1,0 +1,70 @@
+diff -ruN a/Makefile b/Makefile
+--- a/Makefile	2026-11-12 11:23:06
++++ b/Makefile	2026-11-12 11:23:06
+@@ -7,11 +7,28 @@
+ OBJS = main.o compiler.o processor.o memory.o os.o
+ HDRS = config.h compiler.h memory.h os.h processor.h
+ 
++# Q097: OpenMP flags (OMPFLAGS to compile, OMPLIBS to link, used below), found as in e22:
++# g++ -fopenmp on Linux; Apple's clang++ has none, so Homebrew g++-<N>, else clang++ + libomp.
++OMP_NATIVE := $(shell printf 'int main(){return 0;}' | $(CXX) -fopenmp -x c++ - -o /dev/null >/dev/null 2>&1 && echo 1)
++BREW_GXX   := $(shell ls /opt/homebrew/bin/g++-[0-9]* /usr/local/bin/g++-[0-9]* 2>/dev/null | head -1)
++ifeq ($(OMP_NATIVE),1)
++  OMPFLAGS := -fopenmp
++  OMPLIBS  := -fopenmp
++else ifneq ($(BREW_GXX),)
++  CXX      := $(BREW_GXX)
++  OMPFLAGS := -fopenmp
++  OMPLIBS  := -fopenmp
++else
++  LIBOMP   := $(shell brew --prefix libomp 2>/dev/null)
++  OMPFLAGS := -Xpreprocessor -fopenmp -I$(LIBOMP)/include
++  OMPLIBS  := -L$(LIBOMP)/lib -lomp
++endif
++
+ sim: $(OBJS)
+-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
++	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(OMPLIBS)
+ 
+ %.o: %.cpp $(HDRS)
+-	$(CXX) $(CXXFLAGS) -c $<
++	$(CXX) $(CXXFLAGS) $(OMPFLAGS) -c $<
+ 
+ test: sim
+ 	cd ../minicomputer/tests && ./run_tests.sh
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:23:06
++++ b/processor.cpp	2026-11-12 11:23:06
+@@ -140,13 +140,26 @@
+     int base = opcode >= OP_VADDX ? OP_VADDX : opcode >= OP_VADDI ? OP_VADDI : OP_VADD;
+     int kind = opcode - base;                            /* 0 add, 1 sub, 2 mul */
+     if (bad_vreg(dest) || bad_vreg(src1) || (base == OP_VADD && bad_vreg(src2))) return;
++    /* Q097: first the second operand of each lane: a vector register, or one value (constant
++     * or x register) copied into all 8 lanes. Then every lane does the same thing, with no
++     * branch and no global inside the loop, which is what SIMD needs. */
++    int b[VLEN];
++    if (base == OP_VADD) std::memcpy(b, VRegister[p][src2], sizeof b);
++    else {
++        int s = base == OP_VADDI ? src2 : Register[p][src2];
++        for (int i = 0; i < VLEN; i++) b[i] = s;
++    }
++    const int *va = VRegister[p][src1];
++    int *vd = VRegister[p][dest];
++#ifdef Q097_LANE_THREADS
++    #pragma omp parallel for        /* Q097 experiment only (-DQ097_LANE_THREADS): threads per lane */
++#else
++    #pragma omp simd                /* Q097: the 8 lanes are independent: one SIMD instruction does several */
++#endif
+     for (int i = 0; i < VLEN; i++) {
+-        uint32_t a = (uint32_t)VRegister[p][src1][i];
+-        uint32_t b = base == OP_VADD  ? (uint32_t)VRegister[p][src2][i]
+-                   : base == OP_VADDI ? (uint32_t)src2
+-                                      : (uint32_t)Register[p][src2];
+-        uint32_t r = kind == 0 ? a + b : kind == 1 ? a - b : a * b;
+-        VRegister[p][dest][i] = (int)r;
++        uint32_t a = (uint32_t)va[i], c = (uint32_t)b[i];
++        uint32_t r = kind == 0 ? a + c : kind == 1 ? a - c : a * c;
++        vd[i] = (int)r;
+     }
+ }
+ 

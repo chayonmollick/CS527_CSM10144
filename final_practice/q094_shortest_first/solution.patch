@@ -1,0 +1,13 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:22:28
++++ b/os.cpp	2026-11-12 11:22:28
+@@ -193,6 +193,9 @@
+ }
+ 
+ static void admit_waiting() {
++    std::stable_sort(waiting_queue.begin(), waiting_queue.end(), [](int a, int b) {   /* Q094: shortest program */
++        return tasks[a - 1].prog.code.size() < tasks[b - 1].prog.code.size();          /* first; ties keep arrival order */
++    });
+     for (size_t i = 0; i < waiting_queue.size();) {
+         if (loader(waiting_queue[i])) waiting_queue.erase(waiting_queue.begin() + (long)i);
+         else i++;

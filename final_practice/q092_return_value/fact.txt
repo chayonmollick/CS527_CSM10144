@@ -1,0 +1,7 @@
+% Q092: x1 = 5! = 120, the value this task returns when it halts
+x1 = 1
+x2 = 5
+.loop
+x1 = x1 * x2
+x2 = x2 - 1
+BNE .loop

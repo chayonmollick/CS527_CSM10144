@@ -1,0 +1,16 @@
+% Q087 writer: put 10, 20, 30 in the shared page (data addresses 3584..), then set the flag word.
+x10 = 224
+x10 = x10 * 16        % 3584 = first byte of data page 7, the shared page
+x1 = 10
+[x10] = x1            % shared word 0 = 10
+x11 = x10 + 4
+x1 = 20
+[x11] = x1            % shared word 1 = 20
+x11 = x10 + 8
+x1 = 30
+[x11] = x1            % shared word 2 = 30
+x12 = x10 + 12
+x1 = 1
+[x12] = x1            % flag = 1: the data is ready
+x1 = 7
+[0] = x1              % a private word: the reader's word 0 is in another frame

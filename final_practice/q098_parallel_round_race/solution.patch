@@ -1,0 +1,101 @@
+diff -ruN a/Makefile b/Makefile
+--- a/Makefile	2026-11-12 11:23:09
++++ b/Makefile	2026-11-12 11:23:09
+@@ -7,11 +7,28 @@
+ OBJS = main.o compiler.o processor.o memory.o os.o
+ HDRS = config.h compiler.h memory.h os.h processor.h
+ 
++# Q098: OpenMP flags (OMPFLAGS to compile, OMPLIBS to link, used below), found as in e22:
++# g++ -fopenmp on Linux; Apple's clang++ has none, so Homebrew g++-<N>, else clang++ + libomp.
++OMP_NATIVE := $(shell printf 'int main(){return 0;}' | $(CXX) -fopenmp -x c++ - -o /dev/null >/dev/null 2>&1 && echo 1)
++BREW_GXX   := $(shell ls /opt/homebrew/bin/g++-[0-9]* /usr/local/bin/g++-[0-9]* 2>/dev/null | head -1)
++ifeq ($(OMP_NATIVE),1)
++  OMPFLAGS := -fopenmp
++  OMPLIBS  := -fopenmp
++else ifneq ($(BREW_GXX),)
++  CXX      := $(BREW_GXX)
++  OMPFLAGS := -fopenmp
++  OMPLIBS  := -fopenmp
++else
++  LIBOMP   := $(shell brew --prefix libomp 2>/dev/null)
++  OMPFLAGS := -Xpreprocessor -fopenmp -I$(LIBOMP)/include
++  OMPLIBS  := -L$(LIBOMP)/lib -lomp
++endif
++
+ sim: $(OBJS)
+-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
++	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(OMPLIBS)
+ 
+ %.o: %.cpp $(HDRS)
+-	$(CXX) $(CXXFLAGS) -c $<
++	$(CXX) $(CXXFLAGS) $(OMPFLAGS) -c $<
+ 
+ test: sim
+ 	cd ../minicomputer/tests && ./run_tests.sh
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:23:09
++++ b/os.cpp	2026-11-12 11:23:09
+@@ -79,6 +79,9 @@
+             processor_error("fetch from unmapped instruction page %d (jumped past the end of the program?)", index);
+             return -1;
+         }
++        /* Q098: processors can page-fault at the same moment and freePages[] is shared, so
++         * finding + marking a free frame is done by one thread at a time. */
++        #pragma omp critical(frames)
+         frame = getFreePage();              /* first touch of a data page: give it a zeroed frame */
+         if (frame < 0) {
+             processor_error("ERROR: no free physical frame for data page %d", index - NUM_INSTR_PAGES);
+@@ -308,12 +311,16 @@
+     }
+     for (;;) {
+         admit_waiting();
+-        size_t n = ready_queue.size();
+-        for (size_t i = 0; i < n; i++) {               /* one round: every ready task gets a slice */
+-            int pid = ready_queue.front();
+-            ready_queue.pop_front();
++        /* Q098: one round = one slice for every ready task. Each task has its own processor
++         * (registers, PC, flags are [NP] arrays) and its own frames, so the slices run at
++         * the same time, one thread each. Finishing and re-queueing stay serial, in order. */
++        std::vector<int> round(ready_queue.begin(), ready_queue.end());
++        ready_queue.clear();
++        #pragma omp parallel for
++        for (size_t i = 0; i < round.size(); i++)
++            process_instructions(map_pid_proc_id(round[i]), TIME_SLICE);
++        for (int pid : round) {
+             int p = map_pid_proc_id(pid);
+-            process_instructions(p, TIME_SLICE);
+             if (end_of_simulation[p]) finish_task(pid);
+             else ready_queue.push_back(pid);
+         }
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:23:09
++++ b/processor.cpp	2026-11-12 11:23:09
+@@ -28,6 +28,7 @@
+ int trace = 0;
+ 
+ static int instr_pc;     /* address of the instruction being executed (PC already points past it) */
++#pragma omp threadprivate(instr_pc)     /* Q098: one per thread, like proc_id */
+ 
+ void processor_error(const char *fmt, ...) {
+     char msg[256];
+@@ -193,6 +194,7 @@
+     case OP_STORE:  store_word(x[dest], x[src2]); break;                       /* [xA] = xS */
+     case OP_STOREC: store_word(dest, x[src2]); break;                          /* [c] = xS  */
+     case OP_PRINT:
++        #pragma omp critical(log_file)   /* Q098: one log file, several processors print */
+         if (fd_log) {
+             std::fprintf(fd_log, "Process id: %d   x%d : %08X\n", current_pid[p], src2, (unsigned)x[src2]);
+             std::fflush(fd_log);
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:23:09
++++ b/processor.h	2026-11-12 11:23:09
+@@ -21,6 +21,9 @@
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
++/* Q098: several OpenMP threads run different processors at the same time, so the
++ * instruction being executed needs one copy per thread (the rest is [NP] arrays). */
++#pragma omp threadprivate(proc_id, opcode, dest, src1, src2)
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
+ 

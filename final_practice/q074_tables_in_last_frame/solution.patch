@@ -1,0 +1,95 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:25:59
++++ b/os.cpp	2026-11-12 11:25:59
+@@ -25,6 +25,8 @@
+ 
+ static_assert(NP * NUM_LOGICAL_PAGES <= PAGESIZE, "all page tables must fit in frame 0");
+ static_assert(NUM_PHYSICAL_PAGES <= 256, "a page-table entry is one byte");
++#define PT_FRAME   (NUM_PHYSICAL_PAGES - 1)  /* Q074: the page tables live in the last frame */
++#define NOT_MAPPED PT_FRAME                  /* Q074: 0 is a real frame now; the table frame is never given out */
+ 
+ enum TaskState { WAITING, READY, DONE };
+ 
+@@ -43,7 +45,7 @@
+ static std::vector<Task> tasks;             /* tasks[pid - 1] */
+ static std::deque<int> ready_queue, waiting_queue;
+ static int proc_owner[NP];                  /* pid running on processor p, 0 = free */
+-static char freePages[NUM_PHYSICAL_PAGES];  /* 1 = allocated; frame 0 holds the page tables */
++static char freePages[NUM_PHYSICAL_PAGES];  /* 1 = allocated; Q074: frame PT_FRAME holds the page tables */
+ static int page_faults_on[NP];
+ static bool shell_open = true;
+ static std::string shell_buffer;
+@@ -52,14 +54,14 @@
+ 
+ static int free_page_count() {
+     int n = 0;
+-    for (int f = 1; f < NUM_PHYSICAL_PAGES; f++) n += !freePages[f];
++    for (int f = 0; f < NUM_PHYSICAL_PAGES; f++) n += !freePages[f];      /* Q074: from frame 0 */
+     return n;
+ }
+ 
+ /* ---------------- memory management unit ---------------- */
+ 
+ int getFreePage() {
+-    for (int f = 1; f < NUM_PHYSICAL_PAGES; f++)
++    for (int f = 0; f < NUM_PHYSICAL_PAGES; f++)          /* Q074: frame 0 can be given out */
+         if (!freePages[f]) { freePages[f] = 1; return f; }
+     return -1;
+ }
+@@ -72,9 +74,9 @@
+         return -1;
+     }
+     int index = isFetch ? address / PAGESIZE : address / PAGESIZE + INSTR_SPACE / PAGESIZE;
+-    int pte = PTBR[p] + index;              /* page-table entry, in physical frame 0 */
++    int pte = PTBR[p] + index;              /* Q074: page-table entry, in frame PT_FRAME */
+     int frame = memory[pte];
+-    if (frame == 0) {                       /* page not mapped */
++    if (frame == NOT_MAPPED) {              /* Q074: page not mapped */
+         if (isFetch) {
+             processor_error("fetch from unmapped instruction page %d (jumped past the end of the program?)", index);
+             return -1;
+@@ -105,11 +107,13 @@
+ 
+ /* initialize(): load the task's program and data into physical memory, page by page. */
+ static void initialize(int p, Task &t) {
+-    PTBR[p] = p * NUM_LOGICAL_PAGES;                       /* this processor's table in frame 0 */
+-    std::memset(&memory[PTBR[p]], 0, NUM_LOGICAL_PAGES);   /* all pages unmapped */
++    PTBR[p] = PT_FRAME * PAGESIZE + p * NUM_LOGICAL_PAGES;          /* Q074: this processor's table, last frame */
++    std::memset(&memory[PTBR[p]], NOT_MAPPED, NUM_LOGICAL_PAGES);   /* Q074: all pages unmapped */
+     copy_in(p, 0, t.prog.code);                            /* instruction pages 0, 1 */
+     copy_in(p, NUM_INSTR_PAGES, t.data);                   /* data pages 2..9 */
+     page_faults_on[p] = 0;
++    std::printf("[os] pid %d on processor %d: page table at PTBR %d (frame %d), instruction page 0 in frame %d\n",
++                t.pid, p, PTBR[p], PT_FRAME, memory[PTBR[p]]);   /* Q074: show the new layout */
+ }
+ 
+ /* Lab 6 task 1: <program>_<pid>.freq, one line per executable source line. */
+@@ -148,7 +152,7 @@
+     std::vector<unsigned char> out(size, 0);
+     for (size_t a = 0; a < size; a++) {
+         int frame = memory[PTBR[p] + NUM_INSTR_PAGES + a / PAGESIZE];
+-        if (frame) out[a] = memory[frame * PAGESIZE + a % PAGESIZE];
++        if (frame != NOT_MAPPED) out[a] = memory[frame * PAGESIZE + a % PAGESIZE];   /* Q074 */
+     }
+     std::string out_name = file_stem(t.data_path) + "_" + std::to_string(t.pid) + ".out";
+     write_byte_file(out_name, out);
+@@ -156,8 +160,8 @@
+ 
+     for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* release frames, clear the table */
+         int frame = memory[PTBR[p] + i];
+-        if (frame) freePages[frame] = 0;
+-        memory[PTBR[p] + i] = 0;
++        if (frame != NOT_MAPPED) freePages[frame] = 0;      /* Q074 */
++        memory[PTBR[p] + i] = NOT_MAPPED;
+     }
+     PTBR[p] = -1;
+ 
+@@ -287,7 +291,7 @@
+ void os_init(bool batch) {
+     std::memset(memory, 0, sizeof memory);
+     std::memset(freePages, 0, sizeof freePages);
+-    freePages[0] = 1;                                  /* frame 0: page tables, never allocated */
++    freePages[PT_FRAME] = 1;                           /* Q074: the last frame: page tables, never allocated */
+     for (int p = 0; p < NP; p++) { PTBR[p] = -1; proc_owner[p] = 0; }
+     shell_open = !batch;
+ }

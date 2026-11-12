@@ -1,0 +1,9 @@
+% Q090: print 1, 2, 3 and store 3 (15 instructions = 2 time slices).
+% Start several copies with the shell command:  run ticker.txt ticker_data.byte 6
+x1 = 0
+.loop
+x1 = x1 + 1
+print x1
+x2 = x1 - 3
+BNE .loop
+[0] = x1

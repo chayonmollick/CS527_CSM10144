@@ -1,0 +1,152 @@
+diff -ruN a/Makefile b/Makefile
+--- a/Makefile	2026-11-12 11:23:03
++++ b/Makefile	2026-11-12 11:23:03
+@@ -7,11 +7,28 @@
+ OBJS = main.o compiler.o processor.o memory.o os.o
+ HDRS = config.h compiler.h memory.h os.h processor.h
+ 
++# Q096: OpenMP flags (OMPFLAGS to compile, OMPLIBS to link, used below), found as in e22:
++# g++ -fopenmp on Linux; Apple's clang++ has none, so Homebrew g++-<N>, else clang++ + libomp.
++OMP_NATIVE := $(shell printf 'int main(){return 0;}' | $(CXX) -fopenmp -x c++ - -o /dev/null >/dev/null 2>&1 && echo 1)
++BREW_GXX   := $(shell ls /opt/homebrew/bin/g++-[0-9]* /usr/local/bin/g++-[0-9]* 2>/dev/null | head -1)
++ifeq ($(OMP_NATIVE),1)
++  OMPFLAGS := -fopenmp
++  OMPLIBS  := -fopenmp
++else ifneq ($(BREW_GXX),)
++  CXX      := $(BREW_GXX)
++  OMPFLAGS := -fopenmp
++  OMPLIBS  := -fopenmp
++else
++  LIBOMP   := $(shell brew --prefix libomp 2>/dev/null)
++  OMPFLAGS := -Xpreprocessor -fopenmp -I$(LIBOMP)/include
++  OMPLIBS  := -L$(LIBOMP)/lib -lomp
++endif
++
+ sim: $(OBJS)
+-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
++	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(OMPLIBS)
+ 
+ %.o: %.cpp $(HDRS)
+-	$(CXX) $(CXXFLAGS) -c $<
++	$(CXX) $(CXXFLAGS) $(OMPFLAGS) -c $<
+ 
+ test: sim
+ 	cd ../minicomputer/tests && ./run_tests.sh
+diff -ruN a/main.cpp b/main.cpp
+--- a/main.cpp	2026-11-12 11:23:03
++++ b/main.cpp	2026-11-12 11:23:03
+@@ -59,9 +59,7 @@
+     if ((argc - i) % 2 != 0) { usage(); return 1; }
+ 
+     os_init(batch);
+-    int bad = 0;
+-    for (; i + 1 < argc; i += 2)
+-        if (create_task(argv[i], argv[i + 1]) < 0) bad++;
++    int bad = create_tasks(std::vector<std::string>(argv + i, argv + argc));   /* Q096: compiled in parallel */
+     scheduler();
+     return (bad || failed_task_count()) ? 1 : 0;
+ }
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:23:03
++++ b/os.cpp	2026-11-12 11:23:03
+@@ -18,6 +18,7 @@
+ #include <vector>
+ #include <sys/select.h>
+ #include <unistd.h>
++#include <omp.h>                        /* Q096: omp_get_wtime */
+ #include "compiler.h"
+ #include "memory.h"
+ #include "os.h"
+@@ -209,27 +210,64 @@
+     return n;
+ }
+ 
+-int create_task(const std::string &program, const std::string &data) {
+-    if (tasks.size() >= MAX_TASKS) { std::printf("[os] process table full (%d tasks)\n", MAX_TASKS); return -1; }
++/* Q096: a task before it gets a pid. prepare() reads its own two files and writes only its
++ * own Prepared, so several prepare() calls can run at the same time. */
++struct Prepared {
+     Task t;
+-    t.pid = (int)tasks.size() + 1;
++    bool compiled = false;                  /* compiled from source: program.byte to write */
++    bool ok = false;
++    std::string err;
++};
++
++static void prepare(const std::string &program, const std::string &data, Prepared &pr) {
++    Task &t = pr.t;
++    std::string &err = pr.err;
+     t.program_path = program;
+     t.data_path = data;
+-    std::string err;
+     bool is_bytecode = program.size() > 5 && program.compare(program.size() - 5, 5, ".byte") == 0;
+     bool ok = is_bytecode ? load_bytecode(program, t.prog, err) : compile_file(program, t.prog, err);
+-    if (ok && !is_bytecode) write_program_byte("program.byte", t.prog);     /* compiled code, as in Lab 1 */
++    pr.compiled = ok && !is_bytecode;       /* Q096: program.byte is written later, in commit() */
+     if (ok) ok = read_byte_file(data, t.data, err);
+     if (ok && t.data.size() > (size_t)DATA_SPACE) { err = data + " is larger than the data space (" + std::to_string(DATA_SPACE) + " bytes)"; ok = false; }
+     if (ok && pages_for(t.prog.code.size()) + pages_for(t.data.size()) > NUM_PHYSICAL_PAGES - 1) { err = "task needs more frames than physical memory has"; ok = false; }
+-    if (!ok) { std::printf("[os] cannot start task: %s\n", err.c_str()); return -1; }
++    pr.ok = ok;
++}
+ 
++/* Q096: the part that touches shared state, so it runs serially in command-line order: the
++ * pid, program.byte (one file for everyone), the messages, the process table, the loader. */
++static int commit(Prepared &pr) {
++    if (tasks.size() >= MAX_TASKS) { std::printf("[os] process table full (%d tasks)\n", MAX_TASKS); return -1; }
++    Task &t = pr.t;
++    if (pr.compiled) write_program_byte("program.byte", t.prog);     /* compiled code, as in Lab 1 */
++    if (!pr.ok) { std::printf("[os] cannot start task: %s\n", pr.err.c_str()); return -1; }
++    t.pid = (int)tasks.size() + 1;
+     tasks.push_back(t);
+     waiting_queue.push_back(t.pid);
+-    std::printf("[os] pid %d created: %s %s (%zu instructions)\n", t.pid, program.c_str(), data.c_str(), t.prog.code.size() / 4);
++    std::printf("[os] pid %d created: %s %s (%zu instructions)\n", t.pid, t.program_path.c_str(), t.data_path.c_str(), t.prog.code.size() / 4);
+     admit_waiting();
+     if (tasks.back().state == WAITING) std::printf("[os] pid %d is waiting for a free processor/frames\n", t.pid);
+     return t.pid;
++}
++
++int create_task(const std::string &program, const std::string &data) {   /* Q096: the shell, one task */
++    Prepared pr;
++    prepare(program, data, pr);
++    return commit(pr);
++}
++
++int create_tasks(const std::vector<std::string> &args) {
++    std::vector<Prepared> list(args.size() / 2);      /* Q096: one slot per task */
++    double start = omp_get_wtime();
++    #pragma omp parallel for schedule(dynamic, 1)     /* Q096: programs differ in size */
++    for (size_t k = 0; k < list.size(); k++)
++        prepare(args[2 * k], args[2 * k + 1], list[k]);
++    if (!list.empty())
++        std::fprintf(stderr, "[os] %zu program(s) compiled in %.3f ms with %d thread(s)\n",
++                     list.size(), (omp_get_wtime() - start) * 1e3, omp_get_max_threads());
++    int bad = 0;
++    for (Prepared &pr : list)                         /* Q096: serial, in command-line order */
++        if (commit(pr) < 0) bad++;
++    return bad;
+ }
+ 
+ /* ---------------- shell ---------------- */
+diff -ruN a/os.h b/os.h
+--- a/os.h	2026-11-12 11:23:03
++++ b/os.h	2026-11-12 11:23:03
+@@ -5,6 +5,7 @@
+ #define OS_H
+ 
+ #include <string>
++#include <vector>                       /* Q096: for create_tasks() */
+ 
+ /* Lab 5/6 MMU: logical -> physical address for the task on processor proc_id.
+  * isFetch = 1 for instruction fetches (instruction pages), 0 for data accesses.
+@@ -14,6 +15,9 @@
+ int  getFreePage();                     /* first free frame (marked allocated), -1 if none */
+ void os_init(bool batch);               /* batch = no shell: stop when the tasks finish */
+ int  create_task(const std::string &program, const std::string &data);   /* returns pid, -1 on error */
++/* Q096: create the tasks for args = {prog1, data1, prog2, data2, ...}, compiling all the
++ * programs at the same time; returns how many could not be created. */
++int  create_tasks(const std::vector<std::string> &args);
+ void scheduler();                       /* runs until the shell is closed and every task finished */
+ void shell();                           /* non-blocking: handles whatever is waiting on stdin */
+ int  map_pid_proc_id(int pid);          /* processor running pid, -1 if none */

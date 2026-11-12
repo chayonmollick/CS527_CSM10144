@@ -1,0 +1,11 @@
+% Q072 test: the three constants at bytes 0..11 are read-only; results go after them.
+% data: 10, 20, 30, then two words for results (12 and 16)
+.readonly 0 11
+x1 = [0]          % reading the constants is allowed
+x2 = [4]
+x3 = [8]
+x4 = x1 + x2
+x4 = x4 + x3      % 60
+[12] = x4         % allowed: 12..15 is outside the range
+[8] = x4          % protection fault: the task stops here
+[16] = x4         % never runs

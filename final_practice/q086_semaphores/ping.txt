@@ -1,0 +1,12 @@
+% Q086 demo, task 1: prints 1..5, one number per turn.
+% Semaphore 0 = "ping may print" (default 1), semaphore 1 = "pong may print".
+sem 1 0           % pong must wait for the first ping
+x1 = 0
+.loop
+wait 0
+x1 = x1 + 1
+print x1
+signal 1          % pong's turn
+x2 = x1 - 5
+BNE .loop
+[0] = x1          % 5

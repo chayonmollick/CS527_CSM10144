@@ -1,0 +1,26 @@
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:23:12
++++ b/config.h	2026-11-12 11:23:12
+@@ -20,6 +20,7 @@
+ #define NUM_LOGICAL_PAGES  (NUM_INSTR_PAGES + NUM_DATA_PAGES)     /* 10 entries per page table */
+ #define NUM_PHYSICAL_PAGES (MEMSIZE / PAGESIZE)                   /* 16 frames, frame 0 reserved */
+ #define MAX_INSTRUCTIONS   (INSTR_SPACE / 4)                      /* 256 */
++#define EXTRA_DATA_PAGES 1      /* Q073: data pages a task may touch beyond the pages of its data file */
+ 
+ /* ---- operating system (Lab 4) ---- */
+ #define MAX_TASKS       64      /* process-table size */
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:23:12
++++ b/os.cpp	2026-11-12 11:23:12
+@@ -79,6 +79,11 @@
+             processor_error("fetch from unmapped instruction page %d (jumped past the end of the program?)", index);
+             return -1;
+         }
++        if (page_faults_on[p] >= EXTRA_DATA_PAGES) {       /* Q073: every fault maps one page beyond the file */
++            processor_error("segmentation fault: data page %d is not in the data file and the %d extra page(s) are used",
++                            index - NUM_INSTR_PAGES, EXTRA_DATA_PAGES);
++            return -1;
++        }
+         frame = getFreePage();              /* first touch of a data page: give it a zeroed frame */
+         if (frame < 0) {
+             processor_error("ERROR: no free physical frame for data page %d", index - NUM_INSTR_PAGES);

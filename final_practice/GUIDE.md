@@ -9,17 +9,19 @@ simulator), so each one shows precisely which lines to write and where.
 ## The questions
 | Range | Kind of question | Answer is |
 |---|---|---|
-| Q001–Q020 | Write a program in the course language | `solution.txt` |
-| Q021–Q045 | Add an instruction or new syntax (compiler + processor) | `solution.patch` |
-| Q046–Q060 | Instrumentation: counters, traces, reports, options | `solution.patch` |
-| Q061–Q075 | Memory: paging, frames, page tables, protection, TLB | `solution.patch` |
-| Q076–Q095 | OS: scheduling, shell commands, processes, synchronisation | `solution.patch` |
-| Q096–Q100 | OpenMP inside the simulator (both halves of the course) | `solution.patch` |
+| Q001–Q020 | Write a program in the course language | `solution.txt` + `reference.cpp` |
+| Q021–Q045 | Add an instruction or new syntax (compiler + processor) | `solution/` + `solution.patch` |
+| Q046–Q060 | Instrumentation: counters, traces, reports, options | `solution/` + `solution.patch` |
+| Q061–Q075 | Memory: paging, frames, page tables, protection, TLB | `solution/` + `solution.patch` |
+| Q076–Q095 | OS: scheduling, shell commands, processes, synchronisation | `solution/` + `solution.patch` |
+| Q096–Q100 | OpenMP inside the simulator (both halves of the course) | `solution/` + `solution.patch` |
 
 [`README.md`](README.md) lists all 100 with their titles. Every question folder has:
 - `README.md`: the question as it could appear in the test, the answer explained, a table of changes (file, function, change), what the test checks, and viva points;
-- `solution.patch` or `solution.txt`: the answer;
-- test programs and data;
+- the answer:
+  - **simulator questions:** `solution/` is the complete C++ source with the answer applied (`cd solution && make`). `solution.patch` shows only the changed lines.
+  - **program questions:** `solution.txt` is the program in the course language. `reference.cpp` solves the same task in C++ and prints the expected result words for any data file.
+- the input files: the test programs (`.txt`) and data files (`.byte`) it uses;
 - `test.sh`: applies the answer to a fresh copy of `lab6`, builds it, runs the programs and checks the results.
 
 ## How to practise
@@ -36,6 +38,9 @@ simulator), so each one shows precisely which lines to write and where.
 To check everything at once: `./run_all.sh` (all 100), or `./run_all.sh q02` (Q020–Q029).
 
 ## Using an answer in the exam
+- **Run an answer as it is:** `cd qNNN_name/solution && make && ./sim -b ../prog.txt ../prog_data.byte`.
+- **Use a whole answer:** copy its `solution/` folder, or only the changed `.cpp`/`.h` files (the patch's `+++` lines name them), over your copy.
+- **Check your own program on new data:** `g++ -std=c++17 reference.cpp -o reference && ./reference my_data.byte`, then compare with your `.out` file (`../minicomputer/tools/words.sh`).
 - **Apply a patch to your copy of the simulator:**
   - `cd ~/exam/sim && patch -p1 < <repo>/final_practice/qNNN_name/solution.patch`
   - Without `patch`, use `git apply -p1 <file>`.

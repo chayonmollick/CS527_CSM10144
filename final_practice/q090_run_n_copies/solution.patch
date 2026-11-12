@@ -1,0 +1,30 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:15:57
++++ b/os.cpp	2026-11-12 11:15:57
+@@ -12,6 +12,7 @@
+  */
+ #include <algorithm>
+ #include <cstdio>
++#include <cstdlib>                                     /* Q090: std::atoi */
+ #include <cstring>
+ #include <deque>
+ #include <sstream>
+@@ -249,8 +250,17 @@
+         std::printf("[shell] exit: no new tasks; waiting for the running ones to finish\n");
+         return;
+     }
++    if (words[0] == "run") {                           /* Q090: run <program> <data> <n> = n copies */
++        int n = words.size() == 4 ? std::atoi(words[3].c_str()) : 0;
++        if (n < 1 || n > MAX_TASKS) std::printf("[shell] usage: run <program> <data.byte> <n>   (n = 1..%d)\n", MAX_TASKS);
++        else
++            for (int k = 0; k < n; k++)
++                if (create_task(words[1], words[2]) < 0) break;   /* bad file or full table: one message */
++        prompt();
++        return;
++    }
+     if (words.size() == 2) create_task(words[0], words[1]);
+-    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   exit\n");
++    else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   run <program> <data.byte> <n>   or   exit\n");   /* Q090 */
+     prompt();
+ }
+ 

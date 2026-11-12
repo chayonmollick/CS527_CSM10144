@@ -1,0 +1,11 @@
+% Q086: print 1, 2, 3 inside a critical section guarded by semaphore 0 (default value 1).
+% With 3 copies running, each copy's three lines come out together in log.txt.
+x1 = 0
+wait 0            % enter: only one copy at a time
+.loop
+x1 = x1 + 1
+print x1
+x2 = x1 - 3
+BNE .loop
+signal 0          % leave: wake the next copy
+[0] = x1

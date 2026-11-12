@@ -1,0 +1,134 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:29:36
++++ b/compiler.cpp	2026-11-12 11:29:36
+@@ -233,6 +233,25 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (head == "wait" || head == "signal") {                   /* Q086: wait s / signal s */
++        Operand s;
++        if (t.size() != 2 || !parse_operand(t, i, s, msg) || s.kind != Operand::CONST || s.value >= NUM_SEMS) {
++            msg = "usage: " + head + " s   (semaphore s = 0.." + std::to_string(NUM_SEMS - 1) + ")";
++            return false;
++        }
++        set(ins, head == "wait" ? OP_WAIT : OP_SIGNAL, s.value, 0, 0);
++        return true;
++    }
++    if (head == "sem") {                                        /* Q086: sem s n sets semaphore s to n */
++        Operand s, n;
++        if (t.size() != 3 || !parse_operand(t, i, s, msg) || !parse_operand(t, i, n, msg)
++            || s.kind != Operand::CONST || s.value >= NUM_SEMS || n.kind != Operand::CONST) {
++            msg = "usage: sem s n   (semaphore s = 0.." + std::to_string(NUM_SEMS - 1) + ", value n = 0..255)";
++            return false;
++        }
++        set(ins, OP_SEMSET, s.value, 0, n.value);
++        return true;
++    }
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }
+@@ -363,6 +382,9 @@
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+     case OP_VSTORE:  std::snprintf(buf, sizeof buf, "[x%d] = v%d", d, b); break;
+     case OP_VSTOREC: std::snprintf(buf, sizeof buf, "[%d] = v%d", d, b); break;
++    case OP_WAIT:    std::snprintf(buf, sizeof buf, "wait %d", d); break;          /* Q086 */
++    case OP_SIGNAL:  std::snprintf(buf, sizeof buf, "signal %d", d); break;        /* Q086 */
++    case OP_SEMSET:  std::snprintf(buf, sizeof buf, "sem %d %d", d, b); break;     /* Q086 */
+     default:         std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
+     }
+     return buf;
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:29:36
++++ b/config.h	2026-11-12 11:29:36
+@@ -27,6 +27,7 @@
+ #define SLEEP_US        10      /* pause after every time slice, to watch execution */
+ #define MAX_STEPS       10000000L  /* a task that runs longer is killed (endless loop guard) */
+ #define LOG_FILE        "log.txt"  /* print output (Lab 4), opened in append mode */
++#define NUM_SEMS        8       /* Q086: global semaphores 0..7, each starts at 1 */
+ 
+ /* ---- opcodes (first byte of every 4-byte instruction) ----
+  * Format: <opcode> <dest> <operand1> <operand2>. "c" = constant 0..255.
+@@ -61,7 +62,10 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_WAIT   = 0xE8,   /* Q086: wait s   (s > 0 ? s-- : sleep)      E8 s 0 0 */
++    OP_SIGNAL = 0xE9,   /* Q086: signal s (wake a sleeper, else s++) E9 s 0 0 */
++    OP_SEMSET = 0xEA    /* Q086: sem s n  (s = n)                    EA s 0 n */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:29:36
++++ b/processor.cpp	2026-11-12 11:29:36
+@@ -5,6 +5,7 @@
+ #include <cstdarg>
+ #include <cstdint>
+ #include <cstring>
++#include <deque>                 /* Q086: sem_queue */
+ #include <unistd.h>
+ #include "compiler.h"
+ #include "memory.h"
+@@ -29,6 +30,10 @@
+ 
+ static int instr_pc;     /* address of the instruction being executed (PC already points past it) */
+ 
++static int sem_value[NUM_SEMS] = {1, 1, 1, 1, 1, 1, 1, 1};   /* Q086: global semaphores, start at 1 */
++static std::deque<int> sem_queue[NUM_SEMS];      /* Q086: processors blocked in wait s, first come first woken */
++static int blocked[NP];                          /* Q086: 1 = the task on p is blocked in wait */
++
+ void processor_error(const char *fmt, ...) {
+     char msg[256];
+     va_list ap;
+@@ -51,6 +56,7 @@
+     end_of_simulation[p] = failed[p] = 0;
+     steps[p] = 0;
+     data_high[p] = 0;
++    blocked[p] = 0;                                      /* Q086 */
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+ 
+@@ -135,6 +141,12 @@
+     return true;
+ }
+ 
++static bool bad_sem(int s) {                             /* Q086 */
++    if (s < NUM_SEMS) return false;
++    processor_error("semaphore %d does not exist (0..%d)", s, NUM_SEMS - 1);
++    return true;
++}
++
+ static void vector_op() {
+     int p = proc_id;
+     int base = opcode >= OP_VADDX ? OP_VADDX : opcode >= OP_VADDI ? OP_VADDI : OP_VADD;
+@@ -218,6 +230,19 @@
+         for (int i = 0; i < VLEN; i++)
+             if (!store_word(addr + 4 * i, VRegister[p][src2][i])) return;
+         break;
++    case OP_SEMSET:                                      /* Q086: sem s n */
++        if (!bad_sem(dest)) sem_value[dest] = src2;
++        break;
++    case OP_WAIT:                                        /* Q086: wait s */
++        if (bad_sem(dest)) break;
++        if (sem_value[dest] > 0) sem_value[dest]--;
++        else { sem_queue[dest].push_back(p); blocked[p] = 1; }    /* block until a signal */
++        break;
++    case OP_SIGNAL:                                      /* Q086: signal s */
++        if (bad_sem(dest)) break;
++        if (sem_queue[dest].empty()) sem_value[dest]++;
++        else { blocked[sem_queue[dest].front()] = 0; sem_queue[dest].pop_front(); }   /* wake the first in the queue */
++        break;
+     default:
+         if (opcode >= OP_BRANCH && opcode < OP_BRANCH + NUM_CONDITIONS) {   /* Lab 2 */
+             if (condition_holds(p, opcode - OP_BRANCH))
+@@ -232,7 +257,7 @@
+ int process_instructions(int p, int count) {
+     proc_id = p;
+     int done = 0;
+-    for (int i = 0; i < count && !end_of_simulation[p]; i++) {
++    for (int i = 0; i < count && !end_of_simulation[p] && !blocked[p]; i++) {   /* Q086: blocked = skip the slice */
+         fetch();
+         if (end_of_simulation[p]) break;                 /* fetch fault */
+         decode();

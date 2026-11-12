@@ -1,0 +1,20 @@
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:08:25
++++ b/config.h	2026-11-12 11:08:25
+@@ -14,11 +14,11 @@
+ #define INSTR_SPACE     1024    /* logical instruction space per task, bytes (256 instructions) */
+ #define DATA_SPACE      4096    /* logical data space per task, bytes */
+ #define MEMSIZE         8192    /* physical memory, bytes */
+-#define PAGESIZE        512     /* page size = frame size, bytes */
+-#define NUM_INSTR_PAGES (INSTR_SPACE / PAGESIZE)                  /* 2 */
+-#define NUM_DATA_PAGES  (DATA_SPACE / PAGESIZE)                   /* 8 */
+-#define NUM_LOGICAL_PAGES  (NUM_INSTR_PAGES + NUM_DATA_PAGES)     /* 10 entries per page table */
+-#define NUM_PHYSICAL_PAGES (MEMSIZE / PAGESIZE)                   /* 16 frames, frame 0 reserved */
++#define PAGESIZE        256     /* Q061: page size = frame size, bytes (was 512) */
++#define NUM_INSTR_PAGES (INSTR_SPACE / PAGESIZE)                  /* Q061: 4 (was 2) */
++#define NUM_DATA_PAGES  (DATA_SPACE / PAGESIZE)                   /* Q061: 16 (was 8) */
++#define NUM_LOGICAL_PAGES  (NUM_INSTR_PAGES + NUM_DATA_PAGES)     /* Q061: 20 entries per page table (was 10) */
++#define NUM_PHYSICAL_PAGES (MEMSIZE / PAGESIZE)                   /* Q061: 32 frames, frame 0 reserved (was 16) */
+ #define MAX_INSTRUCTIONS   (INSTR_SPACE / 4)                      /* 256 */
+ 
+ /* ---- operating system (Lab 4) ---- */

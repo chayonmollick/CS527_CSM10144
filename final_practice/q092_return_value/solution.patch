@@ -1,0 +1,16 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:18:57
++++ b/os.cpp	2026-11-12 11:18:57
+@@ -167,6 +167,12 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    if (!t.failed) {                                       /* Q092: a task that halted returns x1 */
++        std::string ret_name = t.prog.name + "_" + std::to_string(t.pid) + ".ret";
++        FILE *f = std::fopen(ret_name.c_str(), "w");
++        if (f) { std::fprintf(f, "%d\n", Register[p][1]); std::fclose(f); }
++        std::printf("pid %d returned %d\n", t.pid, Register[p][1]);
++    }
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */

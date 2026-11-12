@@ -1,0 +1,13 @@
+% Q098 workload: 2000 iterations x 4 instructions, 8006 instructions in all (801 slices).
+% Stores 3 * 2000 = 6000 at address 0. The loop test is BLT (again while x1 < x2), so a
+% run that goes wrong because of a race still ends instead of looping for ever.
+x1 = 0
+x2 = 250
+x2 = x2 * 8         % 2000 iterations
+x3 = 0
+.loop
+x3 = x3 + 3
+x1 = x1 + 1
+x4 = x1 - x2        % flags of x1 - x2
+BLT .loop
+[0] = x3

@@ -1,0 +1,7 @@
+% Q089: a job that runs for a known number of rounds. It counts down from n (the word
+% at 0) and executes 2n + 3 instructions, so n = 5R - 2 takes exactly R time slices.
+x1 = [0]
+.loop
+x1 = x1 - 1
+BNE .loop
+[4] = x1

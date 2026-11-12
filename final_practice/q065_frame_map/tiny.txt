@@ -1,0 +1,3 @@
+% Q065 test: a task that ends in its first time slice (3 instructions with the end)
+x1 = 5
+[0] = x1

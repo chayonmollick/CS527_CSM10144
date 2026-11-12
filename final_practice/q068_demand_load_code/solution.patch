@@ -1,0 +1,58 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:16:53
++++ b/os.cpp	2026-11-12 11:16:53
+@@ -75,16 +75,23 @@
+     int pte = PTBR[p] + index;              /* page-table entry, in physical frame 0 */
+     int frame = memory[pte];
+     if (frame == 0) {                       /* page not mapped */
+-        if (isFetch) {
++        const std::vector<unsigned char> &code = tasks[current_pid[p] - 1].prog.code;   /* Q068: program image */
++        size_t start = (size_t)index * PAGESIZE;
++        if (isFetch && start >= code.size()) {             /* Q068: an error only if the program has no such page */
+             processor_error("fetch from unmapped instruction page %d (jumped past the end of the program?)", index);
+             return -1;
+         }
+-        frame = getFreePage();              /* first touch of a data page: give it a zeroed frame */
++        frame = getFreePage();              /* Q068: first touch of a data or instruction page */
+         if (frame < 0) {
+-            processor_error("ERROR: no free physical frame for data page %d", index - NUM_INSTR_PAGES);
++            processor_error("ERROR: no free physical frame for %s page %d", isFetch ? "instruction" : "data",
++                            isFetch ? index : index - NUM_INSTR_PAGES);              /* Q068 */
+             return -1;
+         }
+         std::memset(&memory[frame * PAGESIZE], 0, PAGESIZE);
++        if (isFetch) {                      /* Q068: first fetch from this page: copy it from the program image */
++            std::memcpy(&memory[frame * PAGESIZE], &code[start], std::min((size_t)PAGESIZE, code.size() - start));
++            std::printf("[os] pid %d: instruction page %d loaded on its first fetch (frame %d)\n", current_pid[p], index, frame);
++        }
+         memory[pte] = (unsigned char)frame;
+         page_faults_on[p]++;
+     }
+@@ -107,7 +114,8 @@
+ static void initialize(int p, Task &t) {
+     PTBR[p] = p * NUM_LOGICAL_PAGES;                       /* this processor's table in frame 0 */
+     std::memset(&memory[PTBR[p]], 0, NUM_LOGICAL_PAGES);   /* all pages unmapped */
+-    copy_in(p, 0, t.prog.code);                            /* instruction pages 0, 1 */
++    copy_in(p, 0, std::vector<unsigned char>(t.prog.code.begin(),           /* Q068: only instruction page 0 */
++                  t.prog.code.begin() + (long)std::min(t.prog.code.size(), (size_t)PAGESIZE)));
+     copy_in(p, NUM_INSTR_PAGES, t.data);                   /* data pages 2..9 */
+     page_faults_on[p] = 0;
+ }
+@@ -177,7 +185,7 @@
+     int p = -1;
+     for (int i = 0; i < NP; i++)
+         if (!proc_owner[i]) { p = i; break; }
+-    int need = pages_for(t.prog.code.size()) + pages_for(t.data.size());
++    int need = 1 + pages_for(t.data.size());               /* Q068: only instruction page 0 at the start */
+     if (p < 0 || need > free_page_count()) return false;
+ 
+     proc_owner[p] = pid;
+@@ -188,7 +196,7 @@
+     t.state = READY;
+     ready_queue.push_back(pid);
+     std::printf("[os] pid %d (%s) loaded on processor %d: %d instruction + %d data page(s), %d frame(s) left\n",
+-                pid, t.prog.name.c_str(), p, pages_for(t.prog.code.size()), pages_for(t.data.size()), free_page_count());
++                pid, t.prog.name.c_str(), p, 1, pages_for(t.data.size()), free_page_count());   /* Q068: 1 code page */
+     return true;
+ }
+ 

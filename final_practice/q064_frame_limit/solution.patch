@@ -1,0 +1,48 @@
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:11:35
++++ b/config.h	2026-11-12 11:11:35
+@@ -20,6 +20,7 @@
+ #define NUM_LOGICAL_PAGES  (NUM_INSTR_PAGES + NUM_DATA_PAGES)     /* 10 entries per page table */
+ #define NUM_PHYSICAL_PAGES (MEMSIZE / PAGESIZE)                   /* 16 frames, frame 0 reserved */
+ #define MAX_INSTRUCTIONS   (INSTR_SPACE / 4)                      /* 256 */
++#define MAX_FRAMES_PER_TASK 4   /* Q064: frames one task may hold: code + data file + demand-mapped pages */
+ 
+ /* ---- operating system (Lab 4) ---- */
+ #define MAX_TASKS       64      /* process-table size */
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:11:35
++++ b/os.cpp	2026-11-12 11:11:35
+@@ -56,6 +56,12 @@
+     return n;
+ }
+ 
++static int frames_of(int p) {                              /* Q064: frames the task on p holds = mapped entries */
++    int n = 0;
++    for (int i = 0; i < NUM_LOGICAL_PAGES; i++) n += memory[PTBR[p] + i] != 0;
++    return n;
++}
++
+ /* ---------------- memory management unit ---------------- */
+ 
+ int getFreePage() {
+@@ -79,6 +85,11 @@
+             processor_error("fetch from unmapped instruction page %d (jumped past the end of the program?)", index);
+             return -1;
+         }
++        if (frames_of(p) >= MAX_FRAMES_PER_TASK) {         /* Q064: per-task frame limit */
++            processor_error("out of memory: data page %d would be frame %d of this task (MAX_FRAMES_PER_TASK %d)",
++                            index - NUM_INSTR_PAGES, MAX_FRAMES_PER_TASK + 1, MAX_FRAMES_PER_TASK);
++            return -1;
++        }
+         frame = getFreePage();              /* first touch of a data page: give it a zeroed frame */
+         if (frame < 0) {
+             processor_error("ERROR: no free physical frame for data page %d", index - NUM_INSTR_PAGES);
+@@ -222,6 +233,8 @@
+     if (ok) ok = read_byte_file(data, t.data, err);
+     if (ok && t.data.size() > (size_t)DATA_SPACE) { err = data + " is larger than the data space (" + std::to_string(DATA_SPACE) + " bytes)"; ok = false; }
+     if (ok && pages_for(t.prog.code.size()) + pages_for(t.data.size()) > NUM_PHYSICAL_PAGES - 1) { err = "task needs more frames than physical memory has"; ok = false; }
++    if (ok && pages_for(t.prog.code.size()) + pages_for(t.data.size()) > MAX_FRAMES_PER_TASK)   /* Q064 */
++        { err = "task needs more than MAX_FRAMES_PER_TASK (" + std::to_string(MAX_FRAMES_PER_TASK) + ") frames"; ok = false; }
+     if (!ok) { std::printf("[os] cannot start task: %s\n", err.c_str()); return -1; }
+ 
+     tasks.push_back(t);

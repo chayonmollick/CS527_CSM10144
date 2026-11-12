@@ -1,0 +1,4 @@
+% Q092: stops with an error (division by zero), so it returns nothing
+x1 = 4
+x2 = 0
+x1 = x1 / x2

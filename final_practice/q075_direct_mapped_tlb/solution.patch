@@ -1,0 +1,53 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:26:29
++++ b/os.cpp	2026-11-12 11:26:29
+@@ -45,6 +45,9 @@
+ static int proc_owner[NP];                  /* pid running on processor p, 0 = free */
+ static char freePages[NUM_PHYSICAL_PAGES];  /* 1 = allocated; frame 0 holds the page tables */
+ static int page_faults_on[NP];
++struct TlbEntry { bool valid; int page, frame; };   /* Q075: page = page-table index (0-1 code, 2-9 data) */
++static TlbEntry tlb[NP][2];                         /* Q075: 2 entries per processor, direct-mapped */
++static long tlb_hits[NP], tlb_misses[NP];           /* Q075: reset when a task is loaded = per task */
+ static bool shell_open = true;
+ static std::string shell_buffer;
+ 
+@@ -72,6 +75,12 @@
+         return -1;
+     }
+     int index = isFetch ? address / PAGESIZE : address / PAGESIZE + INSTR_SPACE / PAGESIZE;
++    TlbEntry &e = tlb[p][index & 1];        /* Q075: the only slot this page can be in */
++    if (e.valid && e.page == index) {       /* Q075: hit: the page table is not read */
++        tlb_hits[p]++;
++        return e.frame * PAGESIZE + address % PAGESIZE;
++    }
++    tlb_misses[p]++;                        /* Q075: miss: read the entry, then fill the slot */
+     int pte = PTBR[p] + index;              /* page-table entry, in physical frame 0 */
+     int frame = memory[pte];
+     if (frame == 0) {                       /* page not mapped */
+@@ -88,6 +97,7 @@
+         memory[pte] = (unsigned char)frame;
+         page_faults_on[p]++;
+     }
++    e = TlbEntry{true, index, frame};       /* Q075: only valid translations are cached */
+     return frame * PAGESIZE + address % PAGESIZE;
+ }
+ 
+@@ -110,6 +120,8 @@
+     copy_in(p, 0, t.prog.code);                            /* instruction pages 0, 1 */
+     copy_in(p, NUM_INSTR_PAGES, t.data);                   /* data pages 2..9 */
+     page_faults_on[p] = 0;
++    for (TlbEntry &e : tlb[p]) e.valid = false;            /* Q075: flush: the entries were the last task's */
++    tlb_hits[p] = tlb_misses[p] = 0;
+ }
+ 
+ /* Lab 6 task 1: <program>_<pid>.freq, one line per executable source line. */
+@@ -167,6 +179,9 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    long lookups = tlb_hits[p] + tlb_misses[p];            /* Q075 */
++    std::printf("[os] pid %d TLB: %ld hits, %ld misses (%.1f%% hits)\n", t.pid, tlb_hits[p], tlb_misses[p],
++                lookups ? 100.0 * tlb_hits[p] / lookups : 0.0);
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */

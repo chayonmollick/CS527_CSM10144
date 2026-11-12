@@ -1,0 +1,37 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:10:44
++++ b/os.cpp	2026-11-12 11:10:44
+@@ -45,6 +45,7 @@
+ static int proc_owner[NP];                  /* pid running on processor p, 0 = free */
+ static char freePages[NUM_PHYSICAL_PAGES];  /* 1 = allocated; frame 0 holds the page tables */
+ static int page_faults_on[NP];
++static std::vector<int> faulted_pages[NP];  /* Q063: data pages demand-mapped for the task on p, in order */
+ static bool shell_open = true;
+ static std::string shell_buffer;
+ 
+@@ -87,6 +88,7 @@
+         std::memset(&memory[frame * PAGESIZE], 0, PAGESIZE);
+         memory[pte] = (unsigned char)frame;
+         page_faults_on[p]++;
++        faulted_pages[p].push_back(index - NUM_INSTR_PAGES);   /* Q063: remember which data page */
+     }
+     return frame * PAGESIZE + address % PAGESIZE;
+ }
+@@ -110,6 +112,7 @@
+     copy_in(p, 0, t.prog.code);                            /* instruction pages 0, 1 */
+     copy_in(p, NUM_INSTR_PAGES, t.data);                   /* data pages 2..9 */
+     page_faults_on[p] = 0;
++    faulted_pages[p].clear();                              /* Q063 */
+ }
+ 
+ /* Lab 6 task 1: <program>_<pid>.freq, one line per executable source line. */
+@@ -167,6 +170,9 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    std::string list;                                      /* Q063: which data pages faulted, in order */
++    for (int d : faulted_pages[p]) list += " " + std::to_string(d);
++    std::printf("[os] pid %d page faults on data pages:%s\n", t.pid, list.empty() ? " none" : list.c_str());
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */

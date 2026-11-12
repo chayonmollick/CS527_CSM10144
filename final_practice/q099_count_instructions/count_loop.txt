@@ -1,0 +1,11 @@
+% Q099 workload: loops N times (N = the word at address 0) and stores 3 * N at address 4.
+% Executes 3 + 4 * N + 1 instructions, plus the halt: 4 * N + 5 in all.
+x1 = 0
+x2 = [0]            % N
+x3 = 0
+.loop
+x3 = x3 + 3
+x1 = x1 + 1
+x4 = x1 - x2        % flags of x1 - x2
+BLT .loop           % again while x1 < N
+[4] = x3

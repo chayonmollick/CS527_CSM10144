@@ -1,0 +1,28 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:12:40
++++ b/os.cpp	2026-11-12 11:12:40
+@@ -292,6 +292,16 @@
+     shell_open = !batch;
+ }
+ 
++/* Q065: one character per frame: R = page tables, . = free, owner pid (# if pid >= 10), ? = in no table */
++static void print_frame_map(int finished_pid) {
++    std::string map;
++    for (int f = 0; f < NUM_PHYSICAL_PAGES; f++) map += f == 0 ? 'R' : freePages[f] ? '?' : '.';
++    for (int p = 0; p < NP; p++)                       /* owners: read every running task's page table */
++        for (int i = 0; proc_owner[p] && i < NUM_LOGICAL_PAGES; i++)
++            if (int f = memory[PTBR[p] + i]) map[f] = proc_owner[p] < 10 ? (char)('0' + proc_owner[p]) : '#';
++    std::printf("[os] frames after pid %d finished: %s\n", finished_pid, map.c_str());
++}
++
+ static void finish_task(int pid) {
+     Task &t = tasks[pid - 1];
+     int p = t.proc;
+@@ -299,6 +309,7 @@
+     t.state = DONE;
+     t.proc = -1;
+     proc_owner[p] = 0;
++    print_frame_map(pid);                              /* Q065 */
+ }
+ 
+ void scheduler() {

@@ -1,0 +1,77 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:17:59
++++ b/os.cpp	2026-11-12 11:17:59
+@@ -44,6 +44,7 @@
+ static std::deque<int> ready_queue, waiting_queue;
+ static int proc_owner[NP];                  /* pid running on processor p, 0 = free */
+ static char freePages[NUM_PHYSICAL_PAGES];  /* 1 = allocated; frame 0 holds the page tables */
++static int frame_refs[NUM_PHYSICAL_PAGES];  /* Q069: how many page-table entries point at each frame */
+ static int page_faults_on[NP];
+ static bool shell_open = true;
+ static std::string shell_buffer;
+@@ -60,7 +61,7 @@
+ 
+ int getFreePage() {
+     for (int f = 1; f < NUM_PHYSICAL_PAGES; f++)
+-        if (!freePages[f]) { freePages[f] = 1; return f; }
++        if (!freePages[f]) { freePages[f] = 1; frame_refs[f] = 1; return f; }   /* Q069: one user */
+     return -1;
+ }
+ 
+@@ -103,11 +104,26 @@
+     }
+ }
+ 
++/* Q069: processor already running the same byte code (its instruction frames can be shared), -1 if none */
++static int same_code_on(const Task &t) {
++    for (int q = 0; q < NP; q++)
++        if (proc_owner[q] && tasks[proc_owner[q] - 1].prog.code == t.prog.code) return q;
++    return -1;
++}
++
+ /* initialize(): load the task's program and data into physical memory, page by page. */
+-static void initialize(int p, Task &t) {
++static void initialize(int p, Task &t, int share) {       /* Q069: share = same_code_on(t) */
+     PTBR[p] = p * NUM_LOGICAL_PAGES;                       /* this processor's table in frame 0 */
+     std::memset(&memory[PTBR[p]], 0, NUM_LOGICAL_PAGES);   /* all pages unmapped */
+-    copy_in(p, 0, t.prog.code);                            /* instruction pages 0, 1 */
++    if (share < 0) copy_in(p, 0, t.prog.code);             /* instruction pages 0, 1 */
++    else {                                                 /* Q069: point at the other task's code frames */
++        for (int i = 0; i < pages_for(t.prog.code.size()); i++) {
++            int frame = memory[PTBR[share] + i];
++            memory[PTBR[p] + i] = (unsigned char)frame;
++            frame_refs[frame]++;
++        }
++        std::printf("[os] pid %d shares %d instruction frame(s) with pid %d\n", t.pid, pages_for(t.prog.code.size()), proc_owner[share]);
++    }
+     copy_in(p, NUM_INSTR_PAGES, t.data);                   /* data pages 2..9 */
+     page_faults_on[p] = 0;
+ }
+@@ -156,7 +172,8 @@
+ 
+     for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* release frames, clear the table */
+         int frame = memory[PTBR[p] + i];
+-        if (frame) freePages[frame] = 0;
++        if (frame && --frame_refs[frame] == 0) freePages[frame] = 0;   /* Q069: freed with its last user */
++        else if (frame) std::printf("[os] pid %d: frame %d is still used by %d other task(s)\n", t.pid, frame, frame_refs[frame]);
+         memory[PTBR[p] + i] = 0;
+     }
+     PTBR[p] = -1;
+@@ -177,14 +194,15 @@
+     int p = -1;
+     for (int i = 0; i < NP; i++)
+         if (!proc_owner[i]) { p = i; break; }
+-    int need = pages_for(t.prog.code.size()) + pages_for(t.data.size());
++    int share = same_code_on(t);                           /* Q069: is this program already running? */
++    int need = (share < 0 ? pages_for(t.prog.code.size()) : 0) + pages_for(t.data.size());
+     if (p < 0 || need > free_page_count()) return false;
+ 
+     proc_owner[p] = pid;
+     t.proc = p;
+     reset(p);
+     current_pid[p] = pid;
+-    initialize(p, t);
++    initialize(p, t, share);                               /* Q069 */
+     t.state = READY;
+     ready_queue.push_back(pid);
+     std::printf("[os] pid %d (%s) loaded on processor %d: %d instruction + %d data page(s), %d frame(s) left\n",

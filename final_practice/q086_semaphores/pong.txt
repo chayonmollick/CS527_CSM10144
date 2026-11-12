@@ -1,0 +1,10 @@
+% Q086 demo, task 2: prints 101..105, each one right after ping has printed.
+x1 = 100
+.loop
+wait 1            % sleeps until ping signals
+x1 = x1 + 1
+print x1
+signal 0          % ping's turn
+x2 = x1 - 105
+BNE .loop
+[0] = x1          % 105

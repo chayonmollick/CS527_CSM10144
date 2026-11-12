@@ -1,0 +1,10 @@
+% Q075 test: the code is in instruction page 0 (page-table index 0 -> slot 0) and all data
+% in data page 1 (index 2 + 1 = 3 -> slot 1). They never evict each other: only 2 misses.
+x1 = 128
+x1 = x1 * 4       % 512 = start of data page 1 (page fault on the first store)
+x2 = 0
+.loop
+x2 = x2 + 1
+[x1] = x2         % data page 1
+x3 = x2 - 5
+BNE .loop         % 5 times

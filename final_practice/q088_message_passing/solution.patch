@@ -1,0 +1,151 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:10:21
++++ b/compiler.cpp	2026-11-12 11:10:21
+@@ -233,6 +233,22 @@
+         set(ins, OP_PRINT, 0, 0, reg.value);
+         return true;
+     }
++    if (head == "send") {                                       /* Q088: send xR xP */
++        Operand r, pid;
++        if (t.size() != 3 || !parse_operand(t, i, r, msg) || !parse_operand(t, i, pid, msg)
++            || r.kind != Operand::XREG || pid.kind != Operand::XREG) {
++            msg = "usage: send x<value> x<pid>";
++            return false;
++        }
++        set(ins, OP_SEND, 0, r.value, pid.value);
++        return true;
++    }
++    if (t.size() == 3 && t[1] == "=" && lower(t[2]) == "recv") {  /* Q088: xD = recv */
++        Operand d;
++        if (!parse_simple(t[0], d, msg) || d.kind != Operand::XREG) { msg = "usage: x<n> = recv"; return false; }
++        set(ins, OP_RECV, d.value, 0, 0);
++        return true;
++    }
+     int cond = branch_condition(head);
+     if (cond >= 0 && t.size() >= 2 && t[1] != "=") {           /* Lab 2 branches */
+         if (t.size() != 2 || t[1][0] != '.') { msg = "usage: B<cond> .label"; return false; }
+@@ -363,6 +379,8 @@
+     case OP_VLOADC:  std::snprintf(buf, sizeof buf, "v%d = [%d]", d, b); break;
+     case OP_VSTORE:  std::snprintf(buf, sizeof buf, "[x%d] = v%d", d, b); break;
+     case OP_VSTOREC: std::snprintf(buf, sizeof buf, "[%d] = v%d", d, b); break;
++    case OP_SEND:    std::snprintf(buf, sizeof buf, "send x%d x%d", a, b); break;   /* Q088 */
++    case OP_RECV:    std::snprintf(buf, sizeof buf, "x%d = recv", d); break;       /* Q088 */
+     default:         std::snprintf(buf, sizeof buf, "unknown opcode 0x%02X", op); break;
+     }
+     return buf;
+diff -ruN a/config.h b/config.h
+--- a/config.h	2026-11-12 11:10:21
++++ b/config.h	2026-11-12 11:10:21
+@@ -61,7 +61,9 @@
+     OP_VSTOREC= 0x2E,   /* [c] = vS                              2E c 0 S */
+     OP_VADDX  = 0x31,   /* vD = vA + xB  (scalar register; the handout allows it but gives no opcode) */
+     OP_VSUBX  = 0x32,   /* vD = vA - xB */
+-    OP_VMULX  = 0x33    /* vD = vA * xB */
++    OP_VMULX  = 0x33,   /* vD = vA * xB */
++    OP_SEND   = 0xE8,   /* Q088: send xR xP  (xR to the task with pid xP) E8 0 R P */
++    OP_RECV   = 0xE9    /* Q088: xD = recv   (blocks while no message)    E9 D 0 0 */
+ };
+ 
+ /* Branch conditions (ARM order): BEQ = 0x10 and BAL = 0x1E, as in the handout's example. */
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:10:21
++++ b/os.cpp	2026-11-12 11:10:21
+@@ -38,6 +38,7 @@
+     long steps = 0;
+     int page_faults = 0;
+     bool failed = false;
++    std::deque<int> mailbox;                /* Q088: messages not received yet, oldest first */
+ };
+ 
+ static std::vector<Task> tasks;             /* tasks[pid - 1] */
+@@ -207,6 +208,27 @@
+     int n = 0;
+     for (const Task &t : tasks) n += t.failed;
+     return n;
++}
++
++/* Q088: message passing. A receiver blocked in recv gets the value at once, else it is queued. */
++bool os_send(int pid, int value) {
++    if (pid < 1 || pid > (int)tasks.size()) return false;
++    Task &t = tasks[pid - 1];
++    if (t.proc >= 0 && recv_reg[t.proc] >= 0) {        /* blocked in xD = recv: fill xD, unblock */
++        Register[t.proc][recv_reg[t.proc]] = value;
++        recv_reg[t.proc] = -1;
++    } else {
++        t.mailbox.push_back(value);
++    }
++    return true;
++}
++
++bool os_recv(int pid, int &value) {                     /* Q088 */
++    std::deque<int> &box = tasks[pid - 1].mailbox;
++    if (box.empty()) return false;
++    value = box.front();
++    box.pop_front();
++    return true;
+ }
+ 
+ int create_task(const std::string &program, const std::string &data) {
+diff -ruN a/os.h b/os.h
+--- a/os.h	2026-11-12 11:10:21
++++ b/os.h	2026-11-12 11:10:21
+@@ -18,5 +18,7 @@
+ void shell();                           /* non-blocking: handles whatever is waiting on stdin */
+ int  map_pid_proc_id(int pid);          /* processor running pid, -1 if none */
+ int  failed_task_count();
++bool os_send(int pid, int value);       /* Q088: false if there is no such task */
++bool os_recv(int pid, int &value);      /* Q088: false if pid's mailbox is empty */
+ 
+ #endif
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:10:21
++++ b/processor.cpp	2026-11-12 11:10:21
+@@ -22,6 +22,7 @@
+ long steps[NP];
+ long exec_count[NP][MAX_INSTRUCTIONS];
+ int data_high[NP];
++int recv_reg[NP];                /* Q088 */
+ 
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+@@ -51,6 +52,7 @@
+     end_of_simulation[p] = failed[p] = 0;
+     steps[p] = 0;
+     data_high[p] = 0;
++    recv_reg[p] = -1;                                    /* Q088: not blocked */
+     if (!fd_log) fd_log = std::fopen(LOG_FILE, "a");
+ }
+ 
+@@ -218,6 +220,12 @@
+         for (int i = 0; i < VLEN; i++)
+             if (!store_word(addr + 4 * i, VRegister[p][src2][i])) return;
+         break;
++    case OP_SEND:                                        /* Q088: send xR xP */
++        if (!os_send(x[src2], x[src1])) processor_error("send: there is no task with pid %d", x[src2]);
++        break;
++    case OP_RECV:                                        /* Q088: xD = recv */
++        if (!os_recv(current_pid[p], x[dest])) recv_reg[p] = dest;   /* empty mailbox: block */
++        break;
+     default:
+         if (opcode >= OP_BRANCH && opcode < OP_BRANCH + NUM_CONDITIONS) {   /* Lab 2 */
+             if (condition_holds(p, opcode - OP_BRANCH))
+@@ -232,7 +240,7 @@
+ int process_instructions(int p, int count) {
+     proc_id = p;
+     int done = 0;
+-    for (int i = 0; i < count && !end_of_simulation[p]; i++) {
++    for (int i = 0; i < count && !end_of_simulation[p] && recv_reg[p] < 0; i++) {   /* Q088: blocked = skip */
+         fetch();
+         if (end_of_simulation[p]) break;                 /* fetch fault */
+         decode();
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:10:21
++++ b/processor.h	2026-11-12 11:10:21
+@@ -19,6 +19,7 @@
+ extern long steps[NP];                         /* instructions executed by the current task */
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
++extern int recv_reg[NP];                       /* Q088: blocked in xD = recv: D, else -1 */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */

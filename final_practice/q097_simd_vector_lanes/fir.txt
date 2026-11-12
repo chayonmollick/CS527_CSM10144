@@ -1,0 +1,61 @@
+% Lab 3: FIR filter with vectors, 8 outputs per block
+% WARNING: for N = 64 the output area (0x100..) overlaps the end of the input, so this
+% front-to-back version gets out[48..55] wrong. fir_any_n.txt runs the blocks from last
+% to first and is correct for every N up to 64 (data: fir64_data.byte).
+% data: N at 0 (multiple of 8, <= 56 so input and output do not overlap),
+%       weights w0..w7 at 4..32, input at 36 .. 36 + 4N - 4, output from 0x100
+% out[k] = in[k]*w0 + in[k+1]*w1 + ... + in[k+7]*w7   for k = 0 .. N-9
+x1 = [0]          % N
+x2 = x1 - 8       % number of outputs
+x10 = [4]         % weights in x10..x17
+x11 = [8]
+x12 = [12]
+x13 = [16]
+x14 = [20]
+x15 = [24]
+x16 = [28]
+x17 = [32]
+x3 = 36           % address of in[k]
+x4 = 128          % address of out[k] = 0x100 (constants stop at 255)
+x4 = x4 * 2
+x5 = 0            % k
+.block
+x6 = x5 - x2
+BGE .done         % k >= N - 8
+x7 = x3
+v0 = [x7]         % in[k .. k+7]
+v1 = v0 * x10     % acc = in[k+j] * w0
+x7 = x7 + 4
+v0 = [x7]         % in[k+1 .. k+8]
+v2 = v0 * x11
+v1 = v1 + v2
+x7 = x7 + 4
+v0 = [x7]
+v2 = v0 * x12
+v1 = v1 + v2
+x7 = x7 + 4
+v0 = [x7]
+v2 = v0 * x13
+v1 = v1 + v2
+x7 = x7 + 4
+v0 = [x7]
+v2 = v0 * x14
+v1 = v1 + v2
+x7 = x7 + 4
+v0 = [x7]
+v2 = v0 * x15
+v1 = v1 + v2
+x7 = x7 + 4
+v0 = [x7]
+v2 = v0 * x16
+v1 = v1 + v2
+x7 = x7 + 4
+v0 = [x7]
+v2 = v0 * x17
+v1 = v1 + v2
+[x4] = v1         % out[k .. k+7]
+x3 = x3 + 32
+x4 = x4 + 32
+x5 = x5 + 8
+BAL .block
+.done

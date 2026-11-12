@@ -1,0 +1,10 @@
+% Q094: the longest waiting program: 9 statements + halt = 10 instructions
+x1 = 1
+x1 = x1 + 1
+x1 = x1 + 1
+x1 = x1 + 1
+x1 = x1 + 1
+x1 = x1 + 1
+x1 = x1 + 1
+x1 = x1 + 1
+[0] = x1          % 8

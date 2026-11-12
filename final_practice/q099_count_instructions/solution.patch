@@ -1,0 +1,230 @@
+diff -ruN a/Makefile b/Makefile
+--- a/Makefile	2026-11-12 11:23:13
++++ b/Makefile	2026-11-12 11:23:13
+@@ -7,11 +7,28 @@
+ OBJS = main.o compiler.o processor.o memory.o os.o
+ HDRS = config.h compiler.h memory.h os.h processor.h
+ 
++# Q099: OpenMP flags (OMPFLAGS to compile, OMPLIBS to link, used below), found as in e22:
++# g++ -fopenmp on Linux; Apple's clang++ has none, so Homebrew g++-<N>, else clang++ + libomp.
++OMP_NATIVE := $(shell printf 'int main(){return 0;}' | $(CXX) -fopenmp -x c++ - -o /dev/null >/dev/null 2>&1 && echo 1)
++BREW_GXX   := $(shell ls /opt/homebrew/bin/g++-[0-9]* /usr/local/bin/g++-[0-9]* 2>/dev/null | head -1)
++ifeq ($(OMP_NATIVE),1)
++  OMPFLAGS := -fopenmp
++  OMPLIBS  := -fopenmp
++else ifneq ($(BREW_GXX),)
++  CXX      := $(BREW_GXX)
++  OMPFLAGS := -fopenmp
++  OMPLIBS  := -fopenmp
++else
++  LIBOMP   := $(shell brew --prefix libomp 2>/dev/null)
++  OMPFLAGS := -Xpreprocessor -fopenmp -I$(LIBOMP)/include
++  OMPLIBS  := -L$(LIBOMP)/lib -lomp
++endif
++
+ sim: $(OBJS)
+-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
++	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(OMPLIBS)
+ 
+ %.o: %.cpp $(HDRS)
+-	$(CXX) $(CXXFLAGS) -c $<
++	$(CXX) $(CXXFLAGS) $(OMPFLAGS) -c $<
+ 
+ test: sim
+ 	cd ../minicomputer/tests && ./run_tests.sh
+diff -ruN a/main.cpp b/main.cpp
+--- a/main.cpp	2026-11-12 11:23:13
++++ b/main.cpp	2026-11-12 11:23:13
+@@ -11,6 +11,7 @@
+  *          log.txt (print output).
+  */
+ #include <cstdio>
++#include <cstdlib>                 /* Q099: atol */
+ #include <cstring>
+ #include <string>
+ #include "compiler.h"
+@@ -22,7 +23,8 @@
+                 "       ./sim -c prog.txt [out.byte]\n"
+                 "  -b  batch mode: no shell, stop when all tasks finish\n"
+                 "  -t  trace every executed instruction (stderr)\n"
+-                "  -c  compile only and print the byte-code listing\n");
++                "  -c  compile only and print the byte-code listing\n"
++                "  -k N  time three ways of counting, N increments per thread (Q099)\n");
+ }
+ 
+ static int compile_only(const char *src, const char *out) {
+@@ -48,6 +50,10 @@
+     for (; i < argc && argv[i][0] == '-'; i++) {
+         if (!std::strcmp(argv[i], "-b")) batch = true;
+         else if (!std::strcmp(argv[i], "-t")) trace = 1;
++        else if (!std::strcmp(argv[i], "-k") && i + 1 < argc) {      /* Q099 */
++            count_benchmark(std::atol(argv[i + 1]));
++            return 0;
++        }
+         else if (!std::strcmp(argv[i], "-c")) {
+             if (i + 1 >= argc) { usage(); return 1; }
+             return compile_only(argv[i + 1], i + 2 < argc ? argv[i + 2] : "program.byte");
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:23:13
++++ b/os.cpp	2026-11-12 11:23:13
+@@ -79,6 +79,9 @@
+             processor_error("fetch from unmapped instruction page %d (jumped past the end of the program?)", index);
+             return -1;
+         }
++        /* Q099: processors can page-fault at the same moment and freePages[] is shared, so
++         * finding + marking a free frame is done by one thread at a time. */
++        #pragma omp critical(frames)
+         frame = getFreePage();              /* first touch of a data page: give it a zeroed frame */
+         if (frame < 0) {
+             processor_error("ERROR: no free physical frame for data page %d", index - NUM_INSTR_PAGES);
+@@ -308,12 +311,16 @@
+     }
+     for (;;) {
+         admit_waiting();
+-        size_t n = ready_queue.size();
+-        for (size_t i = 0; i < n; i++) {               /* one round: every ready task gets a slice */
+-            int pid = ready_queue.front();
+-            ready_queue.pop_front();
++        /* Q099: one round = one slice for every ready task. Each task has its own processor
++         * (registers, PC, flags are [NP] arrays) and its own frames, so the slices run at
++         * the same time, one thread each. Finishing and re-queueing stay serial, in order. */
++        std::vector<int> round(ready_queue.begin(), ready_queue.end());
++        ready_queue.clear();
++        #pragma omp parallel for
++        for (size_t i = 0; i < round.size(); i++)
++            process_instructions(map_pid_proc_id(round[i]), TIME_SLICE);
++        for (int pid : round) {
+             int p = map_pid_proc_id(pid);
+-            process_instructions(p, TIME_SLICE);
+             if (end_of_simulation[p]) finish_task(pid);
+             else ready_queue.push_back(pid);
+         }
+@@ -324,6 +331,10 @@
+         }
+         if (ready_queue.empty()) usleep(10000);        /* idle: wait for shell input */
+     }
++    long sum = 0;                                      /* Q099: combine, like a reduction */
++    for (int p = 0; p < NP; p++) sum += count_proc[p];
++    std::printf("[os] instructions executed by all processors: critical %ld, atomic %ld, "
++                "per-processor sum %ld\n", count_critical, count_atomic, sum);
+     for (int pid : waiting_queue)
+         std::printf("[os] pid %d never started (not enough free frames)\n", pid);
+     std::printf("[os] all tasks finished; print output is in %s\n", LOG_FILE);
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:23:13
++++ b/processor.cpp	2026-11-12 11:23:13
+@@ -6,6 +6,8 @@
+ #include <cstdint>
+ #include <cstring>
+ #include <unistd.h>
++#include <vector>                /* Q099: count_benchmark() */
++#include <omp.h>                 /* Q099: omp_get_wtime, omp_get_thread_num */
+ #include "compiler.h"
+ #include "memory.h"
+ #include "os.h"
+@@ -26,8 +28,12 @@
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+ int trace = 0;
++long count_critical = 0;         /* Q099 */
++long count_atomic = 0;           /* Q099 */
++long count_proc[NP];             /* Q099: count_proc[p] is only touched by the thread running p */
+ 
+ static int instr_pc;     /* address of the instruction being executed (PC already points past it) */
++#pragma omp threadprivate(instr_pc)     /* Q099: one per thread, like proc_id */
+ 
+ void processor_error(const char *fmt, ...) {
+     char msg[256];
+@@ -156,6 +162,11 @@
+     int *x = Register[p];
+     exec_count[p][instr_pc / 4]++;                       /* Lab 6 task 1 */
+     steps[p]++;
++    #pragma omp critical(count)      /* Q099 way 1: a lock around every +1 */
++    count_critical++;
++    #pragma omp atomic               /* Q099 way 2: one indivisible read-add-write */
++    count_atomic++;
++    count_proc[p]++;                 /* Q099 way 3: own counter, no synchronisation */
+     if (trace)
+         std::fprintf(stderr, "[pid %d p%d] %3d: %02X %02X %02X %02X   %s\n", current_pid[p], p,
+                      instr_pc / 4, opcode, dest, src1, src2, disassemble(opcode, dest, src1, src2).c_str());
+@@ -193,6 +204,7 @@
+     case OP_STORE:  store_word(x[dest], x[src2]); break;                       /* [xA] = xS */
+     case OP_STOREC: store_word(dest, x[src2]); break;                          /* [c] = xS  */
+     case OP_PRINT:
++        #pragma omp critical(log_file)   /* Q099: one log file, several processors print */
+         if (fd_log) {
+             std::fprintf(fd_log, "Process id: %d   x%d : %08X\n", current_pid[p], src2, (unsigned)x[src2]);
+             std::fflush(fd_log);
+@@ -245,4 +257,46 @@
+     }
+     usleep(SLEEP_US);
+     return done;
++}
++
++/* Q099: ./sim -k N. In a simulation each thread runs only 10 instructions between usleeps,
++ * so the cost of counting is hidden. Here every thread counts N times in a tight loop, each
++ * way on its own. volatile makes every +1 a real memory update, as in execute(). */
++void count_benchmark(long n) {
++    int threads = omp_get_max_threads();
++    volatile long unprotected = 0;
++    long by_critical = 0, by_atomic = 0, by_proc_sum = 0;
++    std::vector<long> by_proc(8 * threads, 0);           /* one per thread, 64 bytes apart */
++    #pragma omp parallel                                 /* start the threads before timing */
++    { }
++    double t0 = omp_get_wtime();
++    #pragma omp parallel
++    for (long i = 0; i < n; i++) unprotected = unprotected + 1;     /* data race */
++    double t1 = omp_get_wtime();
++    #pragma omp parallel
++    for (long i = 0; i < n; i++) {
++        #pragma omp critical(count)
++        by_critical++;
++    }
++    double t2 = omp_get_wtime();
++    #pragma omp parallel
++    for (long i = 0; i < n; i++) {
++        #pragma omp atomic
++        by_atomic++;
++    }
++    double t3 = omp_get_wtime();
++    #pragma omp parallel
++    {
++        volatile long *mine = &by_proc[8 * omp_get_thread_num()];
++        for (long i = 0; i < n; i++) *mine = *mine + 1;
++    }
++    for (long c : by_proc) by_proc_sum += c;             /* summed at the end, like a reduction */
++    double t4 = omp_get_wtime();
++    long total = n * threads;
++    std::printf("counting benchmark: %d thread(s) x %ld = %ld increments each way\n", threads, n, total);
++    std::printf("  no protection   %10ld  %-5s %9.3f ms\n", (long)unprotected,
++                unprotected == total ? "" : "WRONG", (t1 - t0) * 1e3);
++    std::printf("  critical        %10ld  %-5s %9.3f ms\n", by_critical, "", (t2 - t1) * 1e3);
++    std::printf("  atomic          %10ld  %-5s %9.3f ms\n", by_atomic, "", (t3 - t2) * 1e3);
++    std::printf("  per-processor   %10ld  %-5s %9.3f ms\n", by_proc_sum, "", (t4 - t3) * 1e3);
+ }
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:23:13
++++ b/processor.h	2026-11-12 11:23:13
+@@ -21,8 +21,15 @@
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
++/* Q099: several OpenMP threads run different processors at the same time, so the
++ * instruction being executed needs one copy per thread (the rest is [NP] arrays). */
++#pragma omp threadprivate(proc_id, opcode, dest, src1, src2)
+ extern FILE *fd_log;                           /* print output (Lab 4) */
+ extern int trace;                              /* 1 = print every executed instruction to stderr */
++/* Q099: instructions executed by all processors, counted three ways (see execute()) */
++extern long count_critical;                    /* one shared counter, +1 in a critical section */
++extern long count_atomic;                      /* one shared counter, +1 with an atomic update */
++extern long count_proc[NP];                    /* one counter per processor, summed at the end */
+ 
+ void reset(int p);
+ void fetch();
+@@ -30,5 +37,6 @@
+ void execute();
+ int  process_instructions(int p, int count);   /* run up to count instructions; returns how many ran */
+ void processor_error(const char *fmt, ...);    /* report an error and stop the current task */
++void count_benchmark(long n);                  /* Q099: -k N, time the three ways on their own */
+ 
+ #endif

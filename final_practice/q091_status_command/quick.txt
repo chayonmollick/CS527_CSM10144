@@ -1,0 +1,5 @@
+% Q091: a task that ends in its first time slice (4 instructions), so the
+% status after round 1 shows one finished task and one free processor.
+x1 = 5
+x2 = x1 + x1
+[0] = x2

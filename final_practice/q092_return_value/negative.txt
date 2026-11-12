@@ -1,0 +1,3 @@
+% Q092: returns a negative value: x1 = 3 - 10 = -7
+x1 = 3
+x1 = x1 - 10

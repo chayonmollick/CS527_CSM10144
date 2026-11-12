@@ -1,0 +1,6 @@
+% Q094: 5 statements + halt = 6 instructions
+x1 = 1
+x1 = x1 + 1
+x1 = x1 + 1
+x1 = x1 + 1
+[0] = x1          % 4

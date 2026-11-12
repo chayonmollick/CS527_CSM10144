@@ -1,0 +1,35 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:20:30
++++ b/os.cpp	2026-11-12 11:20:30
+@@ -12,6 +12,7 @@
+  */
+ #include <algorithm>
+ #include <cstdio>
++#include <cstdlib>                                     /* Q071: std::atoi */
+ #include <cstring>
+ #include <deque>
+ #include <sstream>
+@@ -244,6 +245,23 @@
+     std::string w;
+     while (in >> w) words.push_back(w);
+     if (words.empty()) { prompt(); return; }
++    if (words[0] == "translate") {                     /* Q071: translate <pid> i|d <address>, no side effects */
++        bool fetch = words.size() == 4 && words[2] == "i";
++        int pid = words.size() == 4 ? std::atoi(words[1].c_str()) : 0;
++        int addr = words.size() == 4 ? std::atoi(words[3].c_str()) : -1, p = map_pid_proc_id(pid);
++        if (words.size() != 4 || (words[2] != "i" && words[2] != "d") || addr < 0 || addr >= (fetch ? INSTR_SPACE : DATA_SPACE))
++            std::printf("[shell] usage: translate <pid> i|d <address>   (i: 0..%d, d: 0..%d)\n", INSTR_SPACE - 1, DATA_SPACE - 1);
++        else if (p < 0)
++            std::printf("[shell] pid %d is not running\n", pid);
++        else {                                         /* read the entry as the MMU does, but never map a page */
++            int page = addr / PAGESIZE, pte = PTBR[p] + page + (fetch ? 0 : NUM_INSTR_PAGES), frame = memory[pte];
++            std::printf("[shell] pid %d %s address %d: page %d, entry memory[%d] = ", pid, fetch ? "instruction" : "data", addr, page, pte);
++            if (frame) std::printf("frame %d -> physical address %d\n", frame, frame * PAGESIZE + addr % PAGESIZE);
++            else std::printf("0 -> not mapped\n");
++        }
++        prompt();
++        return;
++    }
+     if (words[0] == "exit") {
+         shell_open = false;
+         std::printf("[shell] exit: no new tasks; waiting for the running ones to finish\n");

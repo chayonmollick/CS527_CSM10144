@@ -1,0 +1,18 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:09:52
++++ b/os.cpp	2026-11-12 11:09:52
+@@ -154,6 +154,14 @@
+     write_byte_file(out_name, out);
+     std::string freq_name = write_frequency_file(p, t);
+ 
++    std::printf("[os] pid %d page table (PTBR %d):", t.pid, PTBR[p]);   /* Q062: read it from frame 0 */
++    for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* Q062: I0 I1 = instruction pages, D0..D7 = data */
++        bool code = i < NUM_INSTR_PAGES;
++        int frame = memory[PTBR[p] + i];
++        std::printf(" %c%d=%s", code ? 'I' : 'D', code ? i : i - NUM_INSTR_PAGES, frame ? std::to_string(frame).c_str() : "-");
++    }
++    std::printf("\n");
++
+     for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* release frames, clear the table */
+         int frame = memory[PTBR[p] + i];
+         if (frame) freePages[frame] = 0;

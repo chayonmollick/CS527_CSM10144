@@ -1,0 +1,18 @@
+% Q097 timing workload: 2000 iterations of 6 vector + 3 scalar instructions (18000 in all).
+% Run it with vec_ops_data.byte (A at 0, B at 32).
+x1 = 0
+x2 = 250
+x2 = x2 * 8         % 2000 iterations
+v1 = [0]
+v2 = [32]
+.loop
+v3 = v1 + v2
+v4 = v4 + v3
+v5 = v3 * 3
+v4 = v4 - v5
+v6 = v1 * x1
+v4 = v4 + v6
+x1 = x1 + 1
+x3 = x1 - x2
+BLT .loop
+[64] = v4

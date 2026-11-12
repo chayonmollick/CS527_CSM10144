@@ -1,0 +1,52 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:17:53
++++ b/os.cpp	2026-11-12 11:17:53
+@@ -47,6 +47,7 @@
+ static int page_faults_on[NP];
+ static bool shell_open = true;
+ static std::string shell_buffer;
++static int round_no = 0;                    /* Q091: scheduler rounds in which some task ran */
+ 
+ static int pages_for(size_t bytes) { return (int)((bytes + PAGESIZE - 1) / PAGESIZE); }
+ 
+@@ -238,6 +239,24 @@
+     if (shell_open) { std::printf("$ "); std::fflush(stdout); }
+ }
+ 
++/* Q091: status - round number, tasks per state, free frames, busy processors */
++static void status() {
++    int finished = 0, running = 0, waiting = 0, busy = 0;
++    for (const Task &t : tasks) {
++        if (t.state == DONE) finished++;
++        else if (t.state == READY) running++;
++        else waiting++;
++    }
++    for (int p = 0; p < NP; p++) busy += proc_owner[p] != 0;
++    std::printf("[status] round %d: %d finished, %d running, %d waiting; %d of %d frames free; %d of %d processors busy:",
++                round_no, finished, running, waiting, free_page_count(), NUM_PHYSICAL_PAGES - 1, busy, NP);
++    for (int p = 0; p < NP; p++) {
++        if (proc_owner[p]) std::printf(" p%d=pid%d", p, proc_owner[p]);
++        else std::printf(" p%d=free", p);
++    }
++    std::printf("\n");
++}
++
+ static void run_command(const std::string &line) {
+     std::istringstream in(line);
+     std::vector<std::string> words;
+@@ -249,6 +268,7 @@
+         std::printf("[shell] exit: no new tasks; waiting for the running ones to finish\n");
+         return;
+     }
++    if (words[0] == "status" && words.size() == 1) { status(); prompt(); return; }   /* Q091 */
+     if (words.size() == 2) create_task(words[0], words[1]);
+     else std::printf("[shell] usage: <program.txt|program.byte> <data.byte>   or   exit\n");
+     prompt();
+@@ -309,6 +329,7 @@
+     for (;;) {
+         admit_waiting();
+         size_t n = ready_queue.size();
++        if (n > 0) round_no++;                         /* Q091: idle waits for input are not rounds */
+         for (size_t i = 0; i < n; i++) {               /* one round: every ready task gets a slice */
+             int pid = ready_queue.front();
+             ready_queue.pop_front();

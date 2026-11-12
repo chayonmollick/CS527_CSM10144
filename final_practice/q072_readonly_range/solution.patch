@@ -1,0 +1,76 @@
+diff -ruN a/compiler.cpp b/compiler.cpp
+--- a/compiler.cpp	2026-11-12 11:22:13
++++ b/compiler.cpp	2026-11-12 11:22:13
+@@ -285,6 +285,15 @@
+     for (size_t ln = 0; ln < prog.source.size(); ln++) {
+         std::string s = clean_line(prog.source[ln]);
+         if (s.empty()) continue;
++        std::istringstream directive(s);                   /* Q072: .readonly <start> <end> */
++        std::string word;
++        if (directive >> word && word == ".readonly") {
++            if (!(directive >> prog.ro_start >> prog.ro_end) || prog.ro_start < 0 || prog.ro_end < prog.ro_start || prog.ro_end >= DATA_SPACE) {
++                err = src_path + ":" + std::to_string(ln + 1) + ": usage: .readonly <start> <end>  (0 <= start <= end <= " + std::to_string(DATA_SPACE - 1) + ")";
++                return false;
++            }
++            continue;                                      /* a directive: no instruction, not a label */
++        }
+         if (s[0] == '.') {
+             bool ok = s.size() > 1;
+             for (size_t k = 1; k < s.size(); k++)
+diff -ruN a/compiler.h b/compiler.h
+--- a/compiler.h	2026-11-12 11:22:13
++++ b/compiler.h	2026-11-12 11:22:13
+@@ -15,6 +15,7 @@
+     std::vector<int> line_of;            /* instruction index -> source line index; -1 = added HALT */
+     std::vector<bool> is_label;          /* source line is a label (shown without a count in .freq) */
+     bool has_source = false;             /* false when the task was started from a .byte file */
++    int ro_start = 0, ro_end = -1;       /* Q072: .readonly data bytes ro_start..ro_end (none if end < start) */
+ };
+ 
+ /* Compile a source file. On error returns false with "file:line: message" in err. */
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:22:13
++++ b/os.cpp	2026-11-12 11:22:13
+@@ -110,6 +110,8 @@
+     copy_in(p, 0, t.prog.code);                            /* instruction pages 0, 1 */
+     copy_in(p, NUM_INSTR_PAGES, t.data);                   /* data pages 2..9 */
+     page_faults_on[p] = 0;
++    ro_start[p] = t.prog.ro_start;                         /* Q072: the task's read-only data range */
++    ro_end[p] = t.prog.ro_end;
+ }
+ 
+ /* Lab 6 task 1: <program>_<pid>.freq, one line per executable source line. */
+diff -ruN a/processor.cpp b/processor.cpp
+--- a/processor.cpp	2026-11-12 11:22:13
++++ b/processor.cpp	2026-11-12 11:22:13
+@@ -22,6 +22,7 @@
+ long steps[NP];
+ long exec_count[NP][MAX_INSTRUCTIONS];
+ int data_high[NP];
++int ro_start[NP], ro_end[NP];    /* Q072: set by the loader from the program's .readonly directive */
+ 
+ int proc_id, opcode, dest, src1, src2;
+ FILE *fd_log = nullptr;
+@@ -75,6 +76,11 @@
+ }
+ 
+ static bool store_word(int addr, int value) {
++    if (ro_start[proc_id] <= ro_end[proc_id] && addr <= ro_end[proc_id] && addr + 3 >= ro_start[proc_id]) {   /* Q072 */
++        processor_error("protection fault: store to %d..%d overlaps the read-only range %d..%d",
++                        addr, addr + 3, ro_start[proc_id], ro_end[proc_id]);
++        return false;
++    }
+     unsigned int v = (unsigned int)value;
+     for (int k = 0; k < 4; k++) {
+         int pa = getPhysicalAddress(proc_id, 0, addr + k);
+diff -ruN a/processor.h b/processor.h
+--- a/processor.h	2026-11-12 11:22:13
++++ b/processor.h	2026-11-12 11:22:13
+@@ -19,6 +19,7 @@
+ extern long steps[NP];                         /* instructions executed by the current task */
+ extern long exec_count[NP][MAX_INSTRUCTIONS];  /* Lab 6 task 1: times each instruction executed */
+ extern int data_high[NP];                      /* highest data byte written + 1 (sizes the output file) */
++extern int ro_start[NP], ro_end[NP];           /* Q072: read-only data range of the task on p (none if end < start) */
+ 
+ extern int proc_id, opcode, dest, src1, src2;  /* the instruction being executed */
+ extern FILE *fd_log;                           /* print output (Lab 4) */

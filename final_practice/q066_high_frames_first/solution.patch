@@ -1,0 +1,32 @@
+diff -ruN a/os.cpp b/os.cpp
+--- a/os.cpp	2026-11-12 11:13:46
++++ b/os.cpp	2026-11-12 11:13:46
+@@ -59,7 +59,7 @@
+ /* ---------------- memory management unit ---------------- */
+ 
+ int getFreePage() {
+-    for (int f = 1; f < NUM_PHYSICAL_PAGES; f++)
++    for (int f = NUM_PHYSICAL_PAGES - 1; f >= 1; f--)      /* Q066: highest free frame first; frame 0 stays reserved */
+         if (!freePages[f]) { freePages[f] = 1; return f; }
+     return -1;
+ }
+@@ -154,9 +154,10 @@
+     write_byte_file(out_name, out);
+     std::string freq_name = write_frequency_file(p, t);
+ 
++    std::string released;                                  /* Q066: to see where the pages were */
+     for (int i = 0; i < NUM_LOGICAL_PAGES; i++) {          /* release frames, clear the table */
+         int frame = memory[PTBR[p] + i];
+-        if (frame) freePages[frame] = 0;
++        if (frame) { freePages[frame] = 0; released += " " + std::to_string(frame); }   /* Q066 */
+         memory[PTBR[p] + i] = 0;
+     }
+     PTBR[p] = -1;
+@@ -167,6 +168,7 @@
+     std::printf("[os] pid %d (%s) %s on processor %d after %ld instructions, %d page fault(s) -> %s, %s\n",
+                 t.pid, t.prog.name.c_str(), t.failed ? "STOPPED WITH AN ERROR" : "finished", p,
+                 t.steps, t.page_faults, out_name.c_str(), freq_name.c_str());
++    std::printf("[os] pid %d released frames:%s\n", t.pid, released.c_str());   /* Q066 */
+ }
+ 
+ /* ---------------- loader and tasks ---------------- */

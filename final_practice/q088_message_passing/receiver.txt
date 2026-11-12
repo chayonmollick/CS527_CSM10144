@@ -1,0 +1,16 @@
+% Q088 receiver (start it first, as pid 1): receive 5 numbers from pid 2,
+% store them at 4, 8, ..., 20 in arrival order, then reply with their sum.
+x2 = 2            % pid of the sender
+x3 = 0            % messages received
+x6 = 0            % sum
+x7 = 4            % where the next number goes
+.loop
+x1 = recv         % blocks while the mailbox is empty
+[x7] = x1
+x7 = x7 + 4
+x6 = x6 + x1
+x3 = x3 + 1
+x4 = x3 - 5
+BNE .loop
+send x6 x2        % reply: the sum
+[0] = x6

@@ -1,0 +1,3 @@
+% Q074 test: a task that ends in its first time slice and so frees frame 0 for the others
+x1 = 5
+[0] = x1

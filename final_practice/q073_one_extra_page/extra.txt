@@ -1,0 +1,9 @@
+% Q073 test: a task may use one data page beyond its data file; this one uses page 2.
+x1 = [0]          % 41, from the data file (data page 0)
+x2 = 128
+x2 = x2 * 8       % 1024 = start of data page 2: the one extra page (page fault)
+[x2] = x1
+x3 = [x2]
+x3 = x3 + 1
+x4 = x2 + 4
+[x4] = x3         % the same page again: no new page fault

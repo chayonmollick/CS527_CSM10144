@@ -1,0 +1,3 @@
+% Q094: the shortest program: 2 statements + halt = 3 instructions
+x1 = 1
+[0] = x1          % 1

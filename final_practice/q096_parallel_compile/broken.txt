@@ -1,0 +1,4 @@
+% Q096 test: a program with a compile error, given in the middle of the command line.
+% Its error must be printed in its place, and the tasks after it keep their pids.
+x1 = 5
+x2 = x1 + x300      % there is no register x300
