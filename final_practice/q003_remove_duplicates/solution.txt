@@ -1,0 +1,39 @@
+% Q003 - remove duplicates from a sorted array, in place
+% Task:   An array of N integers is sorted in ascending order. Remove the repeated
+%         values in place, so that its L distinct values come first, in order, and
+%         store the new length L.
+% Data:   N at 0 (N >= 0); A[0..N-1] at 4 .. 4N, sorted ascending
+% Result: the distinct values at 4 .. 4L; L at 4N + 4. The words after A[L-1]
+%         (up to 4N) keep their old values.
+%         remove_duplicates_data.byte : N = 12 -> -5 -2 0 3 7 9, [52] = 6
+%         remove_duplicates_data2.byte: N = 5, all 4 -> 4, [24] = 1
+% Method: two pointers. w points at the last value kept (A[0] is always kept) and
+%         r reads A[1..N-1]. In a sorted array equal values are next to each other,
+%         so A[r] is new exactly when it differs from the last kept value: then
+%         w = w + 4 and [w] = A[r]. At the end w = &A[L-1] = 4L, so L = w / 4.
+% Regs:   x1 N, x2 r, x3 w, x4 A[r], x5 last kept value, x6 4N + 4 (end of A), x10 L
+x1 = [0]          % N
+x6 = x1 * 4
+x6 = x6 + 4       % 4N + 4: end of A, and where L goes
+x10 = 0           % L = 0 for an empty array
+x9 = x1 - 0
+BEQ .store        % N == 0: nothing to do
+x3 = 4            % w = &A[0]: the first element is always kept
+x5 = [x3]         % last kept value
+x2 = 8            % r = &A[1]
+.loop
+x9 = x2 - x6
+BGE .length       % r reached the end of A
+x4 = [x2]         % A[r]
+x9 = x4 - x5
+BEQ .skip         % same as the last kept value: a duplicate
+x3 = x3 + 4       % next free slot
+[x3] = x4         % keep it
+x5 = x4
+.skip
+x2 = x2 + 4
+BAL .loop
+.length
+x10 = x3 / 4      % w = &A[L-1] = 4L, so L = w / 4
+.store
+[x6] = x10        % L at 4N + 4

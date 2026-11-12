@@ -1,0 +1,39 @@
+% Q018 - is a 4x4 matrix symmetric?
+% Task:   A 4x4 integer matrix is stored row by row. Store 1 if it is symmetric
+%         (A[i][j] == A[j][i] for all i, j), otherwise 0.
+% Data:   A at 0 .. 60, row-major: A[i][j] at 16i + 4j
+% Result: 1 or 0 at 64
+%         symmetric_data.byte : symmetric, with negative values -> [64] = 1
+%         symmetric_data2.byte: only A[2][3] = 8 and A[3][2] = -8 differ -> [64] = 0
+% Method: compare each element above the diagonal with its mirror image below it:
+%         the 6 pairs with i < j (the diagonal always matches itself). For row i,
+%         p walks right from &A[i][i+1] (+4) while q walks down from &A[i+1][i]
+%         (+16). The first mismatch leaves both loops with 0.
+% Regs:   x3 p, x4 q, x6 end of row i = 16(i+1), x7 &A[i][i], x10 answer,
+%         x11 A[i][j], x12 A[j][i]
+x10 = 1           % symmetric until a pair differs
+x7 = 0            % &A[0][0]
+x6 = 16           % end of row 0
+.outer
+x9 = x6 - 64
+BGE .store        % row 3 has nothing right of the diagonal: done
+x3 = x7 + 4       % p = &A[i][i+1]
+x4 = x7 + 16      % q = &A[i+1][i]
+.inner
+x9 = x3 - x6
+BGE .nexti        % p reached the end of row i
+x11 = [x3]        % A[i][j]
+x12 = [x4]        % A[j][i]
+x9 = x11 - x12
+BNE .no           % a mismatch
+x3 = x3 + 4       % next column of row i
+x4 = x4 + 16      % next row of column i
+BAL .inner
+.nexti
+x7 = x7 + 20      % next diagonal element: one row down, one column right
+x6 = x6 + 16      % end of the next row
+BAL .outer
+.no
+x10 = 0
+.store
+[64] = x10

@@ -1,0 +1,35 @@
+% Q011 - Collatz steps from n down to 1
+% Task:   Starting from n >= 1 repeat: if n is even, n = n / 2, otherwise n = 3n + 1,
+%         until n = 1. Store the number of steps and the largest value reached.
+% Data:   n at 0 (n >= 1)
+% Result: number of steps at 4, the largest value reached (n included) at 8
+%         collatz_data.byte : n = 27 -> [4] = 111, [8] = 9232
+%         collatz_data2.byte: n = 1  -> [4] = 0,   [8] = 1
+% Method: while loop. Even test: n - (n / 2) * 2 == 0 (no modulus or AND
+%         instruction); n / 2 is reused as the next n when n is even. Only an odd
+%         step (3n + 1) can raise the peak, so the peak is checked only there.
+% Regs:   x1 n, x2 n / 2, x3 (n / 2) * 2, x10 steps, x11 peak
+x1 = [0]          % n
+x10 = 0           % steps
+x11 = x1          % peak = n
+.loop
+x9 = x1 - 1
+BEQ .done         % n == 1: finished
+x2 = x1 / 2
+x3 = x2 * 2
+x9 = x1 - x3      % n - (n/2)*2 = n mod 2
+BEQ .even
+x1 = x1 * 3       % odd: n = 3n + 1
+x1 = x1 + 1
+x9 = x1 - x11
+BLE .count        % not above the peak
+x11 = x1          % new peak
+BAL .count
+.even
+x1 = x2           % even: n = n / 2
+.count
+x10 = x10 + 1     % one more step
+BAL .loop
+.done
+[4] = x10         % steps
+[8] = x11         % peak

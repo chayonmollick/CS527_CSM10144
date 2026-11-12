@@ -1,0 +1,36 @@
+% Q010 - reverse the digits of a number, and its digit sum
+% Task:   For an integer n (it may be negative) store the number with its decimal
+%         digits reversed, keeping the sign (trailing zeros of n disappear:
+%         1200 -> 21), and the sum of its digits.
+% Data:   n at 0
+% Result: reversed number at 4, digit sum at 8
+%         reverse_digits_data.byte : n = 12340 -> [4] = 4321, [8] = 10
+%         reverse_digits_data2.byte: n = -507  -> [4] = -705, [8] = 12
+% Method: take off the last digit d = n - (n / 10) * 10, drop it with n = n / 10,
+%         until n == 0; rev = rev * 10 + d. Division rounds towards zero, so for a
+%         negative n every d is <= 0 and rev comes out negative with no special
+%         case. The digit sum adds |d| (0 - d when d < 0).
+%         (programs/digits.txt does the positive-only version with a palindrome test.)
+% Regs:   x1 n (shrinks), x2 n / 10, x3 last digit, x10 reversed, x11 digit sum, x20 zero
+x1 = [0]          % n
+x10 = 0           % reversed number
+x11 = 0           % digit sum
+x20 = 0
+.loop
+x9 = x1 - 0
+BEQ .done         % no digits left
+x2 = x1 / 10
+x3 = x2 * 10
+x3 = x1 - x3      % d = last digit (same sign as n)
+x10 = x10 * 10
+x10 = x10 + x3    % rev = rev * 10 + d
+x9 = x3 - 0
+BPL .add          % d >= 0
+x3 = x20 - x3     % d < 0: use |d| for the sum
+.add
+x11 = x11 + x3    % digit sum
+x1 = x2           % drop the last digit
+BAL .loop
+.done
+[4] = x10         % reversed number
+[8] = x11         % digit sum

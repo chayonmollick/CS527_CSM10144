@@ -1,0 +1,48 @@
+% Q017 - two-sum: indices of a pair that adds up to a target
+% Task:   Find indices i < j with A[i] + A[j] = T. Report the first such pair (the
+%         smallest i, then the smallest j). If there is none, store -1 and -1.
+% Data:   N at 0; T at 4; A[0..N-1] at 8 .. 4N + 4
+% Result: i at 4N + 8, j at 4N + 12
+%         two_sum_data.byte : N = 8, T = 10, 4 8 -2 9 5 12 1 5 -> [40] = 2, [44] = 5 (-2 + 12)
+%         two_sum_data2.byte: N = 5, T = 100, 10 20 30 40 50 -> [28] = -1, [32] = -1
+%                             (50 + 50 would use the same element twice)
+% Method: nested loops over the pairs i < j: j starts at i + 1, so an element is
+%         never paired with itself. The partner A[i] needs, T - A[i], is computed
+%         once per i, outside the inner loop. The first match leaves both loops.
+%         Index = (address - 8) / 4. O(N^2) compares.
+% Regs:   x1 N, x3 &A[i], x4 &A[j], x5 T, x6 4N + 8 (end of A), x7 A[i],
+%         x8 T - A[i], x10 i, x11 j, x12 A[j], x20 zero
+x1 = [0]          % N
+x5 = [4]          % T
+x6 = x1 * 4
+x6 = x6 + 8       % 4N + 8: end of A, and where i goes
+x20 = 0
+x10 = x20 - 1     % i = -1 (no pair yet)
+x11 = x10         % j = -1
+x3 = 8            % &A[0]
+.outer
+x9 = x3 - x6
+BGE .store        % every i tried: no pair
+x7 = [x3]         % A[i]
+x8 = x5 - x7      % the partner needed: T - A[i]
+x4 = x3 + 4       % j = i + 1
+.inner
+x9 = x4 - x6
+BGE .nexti        % no partner for this i
+x12 = [x4]        % A[j]
+x9 = x12 - x8
+BEQ .found        % A[j] == T - A[i]
+x4 = x4 + 4
+BAL .inner
+.nexti
+x3 = x3 + 4
+BAL .outer
+.found
+x10 = x3 - 8
+x10 = x10 / 4     % i
+x11 = x4 - 8
+x11 = x11 / 4     % j
+.store
+[x6] = x10        % i at 4N + 8
+x6 = x6 + 4
+[x6] = x11        % j at 4N + 12

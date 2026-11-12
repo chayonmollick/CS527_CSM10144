@@ -1,0 +1,32 @@
+% Q012 - integer square root
+% Task:   For n >= 0 find r = floor(sqrt(n)), the largest r with r * r <= n, and the
+%         remainder n - r * r.
+% Data:   n at 0 (0 <= n < 2^31 - 1)
+% Result: r at 4, n - r * r at 8
+%         isqrt_data.byte : n = 2000000 -> [4] = 1414, [8] = 604 (1414^2 = 1999396, 1415^2 = 2002225)
+%         isqrt_data2.byte: n = 9801 = 99^2, a perfect square -> [4] = 99, [8] = 0
+% Method: Newton's method in integers: x = n, y = (n + 1) / 2; while y < x:
+%         x = y, y = (x + n / x) / 2. The guesses only go down and stop at
+%         floor(sqrt(n)): 13 loops for n = 2000000, where counting r up one at a
+%         time takes 1414. n = 0 and 1 need no special case (y < x is false at
+%         once, r = n), and x >= 1 whenever n / x is computed.
+% Variants: simple version, fine for small n:
+%         r = 0; while (r+1)*(r+1) <= n: r = r + 1.
+% Regs:   x1 n, x10 x (the answer), x11 y (next guess), x12 n / x, x13 r * r
+x1 = [0]          % n
+x10 = x1          % x = n
+x11 = x1 + 1
+x11 = x11 / 2     % y = (n + 1) / 2: the first Newton step from x = n
+.loop
+x9 = x11 - x10
+BGE .done         % y >= x: x has stopped going down, x = floor(sqrt(n))
+x10 = x11         % x = y
+x12 = x1 / x10    % n / x
+x11 = x10 + x12
+x11 = x11 / 2     % y = (x + n / x) / 2
+BAL .loop
+.done
+[4] = x10         % r
+x13 = x10 * x10
+x13 = x1 - x13
+[8] = x13         % n - r*r: between 0 and 2r

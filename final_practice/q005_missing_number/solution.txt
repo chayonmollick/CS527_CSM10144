@@ -1,0 +1,26 @@
+% Q005 - the missing number in 1..N
+% Task:   N-1 different numbers from 1..N are given in any order; one number of
+%         1..N is missing. Find it.
+% Data:   N at 0 (N >= 1); the N-1 numbers at 4, 8, ..., 4(N-1)
+% Result: the missing number at 4N (the word right after the list)
+%         missing_number_data.byte : N = 25, shuffled, 13 missing -> [100] = 13
+%         missing_number_data2.byte: N = 1, no numbers given     -> [4] = 1
+% Method: 1 + 2 + ... + N = N(N+1)/2. Subtract every number that is present: what
+%         is left is the missing one. One pass, no sorting, no marks array.
+%         (N(N+1) is even, so the division is exact.)
+% Regs:   x1 N, x3 pointer, x4 a number, x6 4N (end of the list), x10 running value
+x1 = [0]          % N
+x10 = x1 + 1
+x10 = x10 * x1
+x10 = x10 / 2     % N(N+1)/2: the sum if nothing were missing
+x6 = x1 * 4       % 4N: first address after the N-1 numbers (the result)
+x3 = 4            % first number
+.loop
+x9 = x3 - x6
+BGE .done         % every number taken away
+x4 = [x3]
+x10 = x10 - x4    % take away a number that is present
+x3 = x3 + 4
+BAL .loop
+.done
+[x6] = x10        % what is left is the missing number

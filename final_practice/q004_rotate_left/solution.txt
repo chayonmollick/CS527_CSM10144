@@ -1,0 +1,54 @@
+% Q004 - rotate an array left by k positions, in place
+% Task:   Rotate an array of N integers left by k places in place: the element at
+%         index i moves to index i - k and the first k elements go to the end.
+%         k >= 0 may be larger than N (then rotate by k mod N).
+% Data:   N at 0; k at 4; A[0..N-1] at 8 .. 4N + 4
+% Result: the rotated array in the same place, 8 .. 4N + 4
+%         rotate_left_data.byte : N = 9, k = 3  -> 13 0 21 -7 2 34 5 -1 8
+%         rotate_left_data2.byte: N = 6, k = 14 (= 2 mod 6), 1..6 -> 3 4 5 6 1 2
+% Method: three reversals, no second array: reverse A[0..k-1], reverse A[k..N-1],
+%         then reverse the whole array. One reverse loop (two pointers, swap) does
+%         all three; there is no subroutine call, so a pass counter picks the
+%         next range when a reversal ends. k mod N = k - (k / N) * N.
+% Regs:   x1 N, x2 k, x5 lo pointer, x6 hi pointer, x7 x8 the swapped values,
+%         x10 reversals done, x20 &A[0], x21 &A[k], x22 &A[N-1], x23 &A[k-1]
+x1 = [0]          % N
+x2 = [4]          % k
+x9 = x1 - 1
+BLE .done         % N <= 1: nothing moves (and no division by 0 below)
+x3 = x2 / x1
+x3 = x3 * x1
+x2 = x2 - x3      % k = k mod N
+x20 = 8           % &A[0]
+x21 = x2 * 4
+x21 = x21 + 8     % &A[k]
+x23 = x21 - 4     % &A[k-1]
+x22 = x1 * 4
+x22 = x22 + 4     % &A[N-1] = 8 + 4(N-1)
+x10 = 0           % reversals done
+x5 = x20          % first range: A[0 .. k-1] (empty when k = 0)
+x6 = x23
+.rev
+x9 = x5 - x6
+BGE .next         % the pointers met or crossed: this range is reversed
+x7 = [x5]
+x8 = [x6]
+[x5] = x8         % swap the two ends
+[x6] = x7
+x5 = x5 + 4
+x6 = x6 - 4
+BAL .rev
+.next
+x10 = x10 + 1
+x9 = x10 - 1
+BNE .third
+x5 = x21          % second range: A[k .. N-1]
+x6 = x22
+BAL .rev
+.third
+x9 = x10 - 2
+BNE .done         % the third reversal has finished
+x5 = x20          % third range: the whole array
+x6 = x22
+BAL .rev
+.done

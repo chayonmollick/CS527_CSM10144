@@ -1,0 +1,47 @@
+% Q014 - row N of Pascal's triangle
+% Task:   Write row N of Pascal's triangle, C(N,0) C(N,1) ... C(N,N), into memory.
+% Data:   N at 0 (0 <= N <= 33: C(34,17) no longer fits in 32 bits)
+% Result: C(N,k) at 8 + 4k for k = 0..N. The word at 4 is set to 0 (the value left
+%         of the row), and the zeros after C(N,N) fill the last block of 8 words.
+%         pascal_row_data.byte : N = 10 -> 1 10 45 120 210 252 210 120 45 10 1 at 8 .. 48
+%         pascal_row_data2.byte: N = 33 -> 34 values at 8 .. 140, C(33,16) = 1166803110
+% Method: VECTOR. Start from row 0 = 1 0 0 0 ... and apply Pascal's rule N times:
+%         new[j] = old[j] + old[j-1]. For 8 values at once: v1 = [p] (old[j..j+7]),
+%         v2 = [p - 4] (old[j-1..j+6]), v1 = v1 + v2, [p] = v1. The blocks go from
+%         right to left, so every block reads old[j-1] from the block on its left
+%         before that block changes: in place, no second row. Zeros right of the
+%         row stay 0 (0 + 0), so every pass can use all the blocks of row N.
+% Regs:   x1 N, x2 address of the last block, x3 row i in memory, x4 block address p,
+%         x5 p - 4, x20 zero, x21 one, v0 zero vector, v1 v2 blocks
+x1 = [0]          % N
+x2 = x1 / 8
+x2 = x2 * 32
+x2 = x2 + 8       % last block: 8 + 32 * (N / 8); it holds C(N,N) at 8 + 4N
+v0 = v0 - v0      % zero vector
+x4 = x2
+.clear
+[x4] = v0         % row area = 0, block by block
+x4 = x4 - 32
+x9 = x4 - 8
+BGE .clear        % until the block at 8 is cleared
+x20 = 0
+[4] = x20         % C(i,-1) = 0: the word left of the row
+x21 = 1
+[8] = x21         % row 0: C(0,0) = 1
+x3 = 0            % row 0 is in memory
+.row
+x9 = x3 - x1
+BGE .done         % row N reached
+x4 = x2           % start with the last block
+.block
+x5 = x4 - 4
+v1 = [x4]         % old[j .. j+7]
+v2 = [x5]         % old[j-1 .. j+6]
+v1 = v1 + v2      % new[j] = old[j] + old[j-1], 8 at once
+[x4] = v1
+x4 = x4 - 32      % the block to the left
+x9 = x4 - 8
+BGE .block        % until the first block (at 8) is done
+x3 = x3 + 1       % row i + 1 is in memory
+BAL .row
+.done

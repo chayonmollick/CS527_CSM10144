@@ -1,0 +1,27 @@
+% Q006 - is the array sorted in ascending order?
+% Task:   Check whether an array of N integers is sorted in ascending (non-decreasing)
+%         order, A[i] <= A[i+1] for every i. Store 1 if it is and 0 if it is not.
+% Data:   N at 0 (N >= 0); A[0..N-1] at 4 .. 4N
+% Result: 1 or 0 at 4N + 4 (N = 0 or 1 counts as sorted)
+%         is_sorted_data.byte : N = 8, sorted, with equal neighbours -> [36] = 1
+%         is_sorted_data2.byte: N = 7, only the last pair is out of order -> [32] = 0
+% Method: compare each element with the next one (signed). The first pair with
+%         A[i+1] < A[i] ends the loop early with 0; reaching A[N-1] means 1.
+% Regs:   x1 N, x3 &A[i], x4 A[i], x5 A[i+1], x6 4N + 4, x7 &A[N-1], x10 the answer
+x1 = [0]          % N
+x6 = x1 * 4
+x6 = x6 + 4       % 4N + 4: the result address
+x7 = x6 - 4       % &A[N-1]: the last element has no right neighbour
+x10 = 1           % sorted until a pair says otherwise
+x3 = 4            % &A[0]
+.loop
+x9 = x3 - x7
+BGE .store        % reached A[N-1]: every pair was in order
+x4 = [x3]         % A[i]
+x3 = x3 + 4
+x5 = [x3]         % A[i+1]
+x9 = x5 - x4      % A[i+1] - A[i]
+BGE .loop         % A[i+1] >= A[i]: in order (equal is allowed)
+x10 = 0           % a descent: not sorted
+.store
+[x6] = x10

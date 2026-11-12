@@ -1,0 +1,40 @@
+% Q002 - insertion sort, ascending, in place
+% Task:   Sort an array of N signed integers into ascending order, in place, with
+%         insertion sort.
+% Data:   N at 0 (N >= 0); A[0..N-1] at 4, 8, ..., 4N
+% Result: the sorted array in the same place, 4 .. 4N
+%         insertion_sort_data.byte : N = 10, mixed signs, -4 twice, 300
+%                                    -> -61 -4 -4 0 3 5 17 29 88 300
+%         insertion_sort_data2.byte: N = 7 in descending order (the worst case)
+%                                    -> -10 0 10 20 30 40 50
+% Method: A[0..i-1] is always sorted. For i = 1 .. N-1: key = A[i]; a pointer p
+%         walks left from &A[i-1] while p >= &A[0] and A[p] > key, moving each of
+%         those elements one place right; then key goes into the gap at p + 4.
+%         Stopping at A[p] <= key keeps equal keys in their order (stable).
+%         Scalar: every step is a compare.
+% Regs:   x1 N, x2 i, x3 &A[i], x5 key, x6 p (= &A[j]), x7 A[j], x8 p + 4, x9 compare
+x1 = [0]          % N
+x2 = 1            % i = 1: A[0] alone is sorted
+x3 = 8            % &A[1]
+.outer
+x9 = x2 - x1
+BGE .done         % i >= N: sorted
+x5 = [x3]         % key = A[i]
+x6 = x3 - 4       % p = &A[i-1]
+.inner
+x9 = x6 - 4
+BLT .place        % p < &A[0] = 4: walked past the left end
+x7 = [x6]         % A[j]
+x9 = x7 - x5      % A[j] - key
+BLE .place        % A[j] <= key: the gap is at p + 4
+x8 = x6 + 4
+[x8] = x7         % A[j+1] = A[j]: move it one place right
+x6 = x6 - 4       % j = j - 1
+BAL .inner
+.place
+x8 = x6 + 4
+[x8] = x5         % A[j+1] = key
+x3 = x3 + 4
+x2 = x2 + 1
+BAL .outer
+.done

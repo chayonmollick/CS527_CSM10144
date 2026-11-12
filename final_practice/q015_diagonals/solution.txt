@@ -1,0 +1,34 @@
+% Q015 - trace and anti-diagonal sum of an 8x8 matrix
+% Task:   For an 8x8 integer matrix A stored row by row, compute the trace
+%         A[0][0] + A[1][1] + ... + A[7][7] and the anti-diagonal sum
+%         A[0][7] + A[1][6] + ... + A[7][0].
+% Data:   A at 0 .. 252, row-major: A[i][j] at 32i + 4j
+% Result: trace at 256, anti-diagonal sum at 260
+%         diagonals_data.byte : A[i][j] = i*j -> [256] = 140, [260] = 56
+%         diagonals_data2.byte: values -300..300 -> [256] = -275, [260] = 185
+% Method: one loop over the 8 rows with two pointers: &A[i][i] moves 36 bytes per
+%         row (32 down + 4 right) and &A[i][7-i] moves 28 (32 down - 4 left).
+%         Scalar: the 8 wanted values are in 8 different rows and lanes, so each
+%         vector load would bring 7 values that are not wanted.
+%         256 is above 255, so the result address is built as 128 * 2.
+% Regs:   x2 rows left, x3 &A[i][i], x4 &A[i][7-i], x5 x6 values, x7 result address,
+%         x10 trace, x11 anti-diagonal sum
+x10 = 0           % trace
+x11 = 0           % anti-diagonal sum
+x3 = 0            % &A[0][0]
+x4 = 28           % &A[0][7]
+x2 = 8            % 8 rows
+.loop
+x5 = [x3]         % A[i][i]
+x10 = x10 + x5
+x6 = [x4]         % A[i][7-i]
+x11 = x11 + x6
+x3 = x3 + 36      % down one row, right one column
+x4 = x4 + 28      % down one row, left one column
+x2 = x2 - 1
+BNE .loop         % Z is set when the count reaches 0
+x7 = 128
+x7 = x7 * 2       % 256: the first word after the matrix
+[x7] = x10        % trace
+x7 = x7 + 4
+[x7] = x11        % anti-diagonal sum
