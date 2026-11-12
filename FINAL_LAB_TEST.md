@@ -13,15 +13,15 @@ worked practice questions.
 
 | Classroom lab | What it asked | Folder | Checked by |
 |---|---|---|---|
-| Lab 1: Mini computer system | Compiler → byte code, memory, fetch/decode/execute | [`lab1/`](lab1/) | `make test`: byte code identical to the handout's listing |
-| Lab 2 (Practice) | Constants, flags ZNCV, `[x]` memory, labels, branches, comments, hex files | [`lab2/`](lab2/) | `make test`: byte code identical to the handout's listing |
-| Lab 3 Test / Takehome | Vector registers and instructions; array-add and FIR programs | [`lab3/`](lab3/) | `make test` |
-| Lab 4 take home | NP processors, OS, round-robin scheduler, non-blocking shell, loader, `print` | [`lab4/`](lab4/) | `make test` (5 tasks on 4 processors) |
-| Lab 5 take home | Logical/physical memory, paging, free frames, frame 0 reserved | [`lab5/`](lab5/) | `make test` |
-| Lab 6 Test | Task 1: executions per source line (`.freq`); task 2: page tables in frame 0 + PTBR. Final simulator with Labs 1–5 | [`lab6/`](lab6/) | `make test`: 33 checks for every lab; `.freq` identical to the handout's example |
-| Lab 7: Getting started with OpenMP | Vector add, sum, max/min with index, matrix add, matmul | [`lab7/`](lab7/) | each program checks itself against serial; `REPORT.md` |
-| Lab 8 (OpenMP session 2) | Search, sort, histogram, transpose, convolution | [`lab8/`](lab8/) | same |
-| Lab 9 (OpenMP session 3) | Merge sort with tasks, static/dynamic/guided, even/odd count | [`lab9/`](lab9/) | same |
+| Lab 1 (Mini computer system) | Compiler → byte code, memory, fetch/decode/execute | [`lab1/`](lab1/) | `make test`: byte code identical to the handout's listing |
+| Lab 2 (Constants, flags, memory, branches) | Constants, flags ZNCV, `[x]` memory, labels, branches, comments, hex files | [`lab2/`](lab2/) | `make test`: byte code identical to the handout's listing |
+| Lab 3 (Vectors: array add, FIR) | Vector registers and instructions; array-add and FIR programs | [`lab3/`](lab3/) | `make test` |
+| Lab 4 (Multiprocessing OS) | NP processors, OS, round-robin scheduler, non-blocking shell, loader, `print` | [`lab4/`](lab4/) | `make test` (5 tasks on 4 processors) |
+| Lab 5 (Paging) | Logical/physical memory, paging, free frames, frame 0 reserved | [`lab5/`](lab5/) | `make test` |
+| Lab 6 (Line counts, page tables in memory) | Task 1: executions per source line (`.freq`); task 2: page tables in frame 0 + PTBR. Final simulator with Labs 1–5 | [`lab6/`](lab6/) | `make test`: 33 checks for every lab; `.freq` identical to the handout's example |
+| Lab 7 (OpenMP: vector add, sum, max/min, matrix add, matmul) | Vector add, sum, max/min with index, matrix add, matmul | [`lab7/`](lab7/) | each program checks itself against serial; `REPORT.md` |
+| Lab 8 (OpenMP: search, sort, histogram, transpose, convolution) | Search, sort, histogram, transpose, convolution | [`lab8/`](lab8/) | same |
+| Lab 9 (OpenMP: merge sort with tasks, scheduling, even/odd count) | Merge sort with tasks, static/dynamic/guided, even/odd count | [`lab9/`](lab9/) | same |
 
 ## How past lab tests ran
 - **Lab 3 Test (13 Aug):**
