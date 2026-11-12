@@ -1,4 +1,7 @@
 % Lab 3: FIR filter with vectors, 8 outputs per block
+% WARNING: for N = 64 the output area (0x100..) overlaps the end of the input, so this
+% front-to-back version gets out[48..55] wrong. fir_any_n.txt runs the blocks from last
+% to first and is correct for every N up to 64 (data: fir64_data.byte).
 % data: N at 0 (multiple of 8, <= 56 so input and output do not overlap),
 %       weights w0..w7 at 4..32, input at 36 .. 36 + 4N - 4, output from 0x100
 % out[k] = in[k]*w0 + in[k+1]*w1 + ... + in[k+7]*w7   for k = 0 .. N-9

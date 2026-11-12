@@ -1,0 +1,63 @@
+% Lab 3 test, example 2: FIR filter with vector instructions.
+% data: N at 0 (a multiple of 8, at most 64), weights w0..w7 at 4..32, input in[j] at 36 + 4j;
+%       output out[k] at 0x100 + 4k.
+% The handout's pseudo code: for k = 0 .. N-9:  out[k] = in[k]*w0 + in[k+1]*w1 + ... + in[k+7]*w7
+% Lane j of a vector holds output k+j, so one block of 8 outputs is
+%   acc = in[k..k+7]*w0 + in[k+1..k+8]*w1 + ... + in[k+7..k+14]*w7
+% = 8 vector reads, 8 vector multiplies, 7 vector adds and 1 vector write.
+% The blocks run from the last one (k = N-16) down to k = 0: for N = 64 the output area overlaps
+% the end of the input (out[0..7] go where in[55..62] are), and going backwards every input
+% is read before an output is written over it.
+x1 = [0]          % N
+x2 = x1 - 16      % k = N - 16: first output of the last block
+BLT .done         % N < 16: no outputs (N = 8 gives none)
+x10 = [4]         % weights w0..w7 in x10..x17
+x11 = [8]
+x12 = [12]
+x13 = [16]
+x14 = [20]
+x15 = [24]
+x16 = [28]
+x17 = [32]
+x3 = x2 * 4       % 4k
+x5 = x3 + 36      % address of in[k]
+x4 = x3 + 128     % address of out[k] = 0x100 + 4k
+x4 = x4 + 128     % (a constant is at most 255, so 256 is added in two steps)
+.block
+x7 = x5
+v0 = [x7]         % in[k .. k+7]
+v1 = v0 * x10     % acc = in[k+j] * w0
+x7 = x7 + 4
+v0 = [x7]         % in[k+1 .. k+8]
+v2 = v0 * x11
+v1 = v1 + v2      % acc += in[k+1+j] * w1
+x7 = x7 + 4
+v0 = [x7]         % in[k+2 .. k+9]
+v2 = v0 * x12
+v1 = v1 + v2
+x7 = x7 + 4
+v0 = [x7]         % in[k+3 .. k+10]
+v2 = v0 * x13
+v1 = v1 + v2
+x7 = x7 + 4
+v0 = [x7]         % in[k+4 .. k+11]
+v2 = v0 * x14
+v1 = v1 + v2
+x7 = x7 + 4
+v0 = [x7]         % in[k+5 .. k+12]
+v2 = v0 * x15
+v1 = v1 + v2
+x7 = x7 + 4
+v0 = [x7]         % in[k+6 .. k+13]
+v2 = v0 * x16
+v1 = v1 + v2
+x7 = x7 + 4
+v0 = [x7]         % in[k+7 .. k+14]
+v2 = v0 * x17
+v1 = v1 + v2      % acc += in[k+7+j] * w7
+[x4] = v1         % out[k .. k+7]
+x5 = x5 - 32      % previous block: k - 8
+x4 = x4 - 32
+x2 = x2 - 8       % last flag-setting instruction before the branch
+BGE .block        % until k < 0
+.done
